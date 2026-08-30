@@ -161,7 +161,7 @@ export function computeNetWorth(input: NetWorthInput) {
   const monthlyExpenses = plannedExpenses + liabilityPayments;
   const netCashflow = monthlyIncome - monthlyExpenses;
   const savingsRate = monthlyIncome > 0 ? (netCashflow / monthlyIncome) * 100 : null;
-  const runwayMonths = essentialSpend > 0 ? liquidCash / essentialSpend : null;
+  const runwayMonths = essentialSpend > 0 ? reserveCash / essentialSpend : null;
 
   const byClass = new Map<string, number>();
   const add = (map: Map<string, number>, key: string, value: number) =>
