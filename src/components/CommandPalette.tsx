@@ -53,6 +53,12 @@ const PAGES: { to: Destination; label: string; icon: typeof LayoutDashboard; hin
     icon: Receipt,
     hint: "The ledger and review queue",
   },
+  {
+    to: "/import",
+    label: "Import statements",
+    icon: FileUp,
+    hint: "Drop files; accounts are worked out for you",
+  },
   { to: "/spending", label: "Spending", icon: PiggyBank, hint: "Categories, recurring, merchants" },
   { to: "/portfolio", label: "Portfolio", icon: BarChart3, hint: "Holdings, policy, watchlist" },
   { to: "/goals", label: "Goals", icon: Target, hint: "Costings, contributions, SDLT" },
@@ -76,7 +82,7 @@ const ACTIONS: {
   { kind: "income", to: "/forecast", label: "Add an income stream", icon: Wallet },
   { kind: "expense", to: "/forecast", label: "Add a planned outgoing", icon: CalendarRange },
   { kind: "scenario", to: "/scenarios", label: "Add a scenario", icon: GitCompare },
-  { kind: "import", to: "/transactions", label: "Import statements", icon: FileUp },
+  { kind: "import", to: "/import", label: "Import statements", icon: FileUp },
 ];
 
 /** ⌘K: jump anywhere, search the ledger, start any add flow, ask the advisor. */
