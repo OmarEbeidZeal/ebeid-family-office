@@ -80,6 +80,37 @@ export type GoalRow = {
   status: string;
   funded_amount: number;
   notes: string | null;
+  sort_order: number;
+  first_time_buyer: boolean;
+  additional_property: boolean;
+  non_uk_resident: boolean;
+  financed_amount: number;
+  financed_rate: number | null;
+  financed_term_years: number | null;
+};
+
+export type GoalLineItemRow = {
+  id: string;
+  goal_id: string;
+  label: string;
+  estimated_cost: number;
+  currency: string;
+  kind: string;
+  sort_order: number;
+  is_purchased: boolean;
+  notes: string | null;
+};
+
+export type ScenarioRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  assumptions: unknown;
+  results: unknown;
+  is_baseline: boolean;
+  preset_key: string | null;
+  sort_order: number;
+  created_at: string;
 };
 
 export type IncomeRow = {
@@ -103,6 +134,10 @@ export type ForecastExpenseRow = {
   frequency: string;
   confidence: string;
   category_id: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  inflation_rate: number;
+  notes: string | null;
 };
 
 export type TransactionRow = {
@@ -232,6 +267,9 @@ export const useAccounts = () => useTable<AccountRow>("accounts", "accounts");
 export const useAssets = () => useTable<AssetRow>("assets", "assets");
 export const useLiabilities = () => useTable<LiabilityRow>("liabilities", "liabilities");
 export const useGoals = () => useTable<GoalRow>("goals", "goals");
+export const useGoalLineItems = () =>
+  useTable<GoalLineItemRow>("goal_line_items", "goal_line_items");
+export const useScenarios = () => useTable<ScenarioRow>("scenarios", "scenarios");
 export const useIncomeStreams = () => useTable<IncomeRow>("income_streams", "income_streams");
 export const useForecastExpenses = () =>
   useTable<ForecastExpenseRow>("forecast_expenses", "forecast_expenses");

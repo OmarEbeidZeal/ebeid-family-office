@@ -18,6 +18,7 @@ import { Route as ForecastRouteImport } from './routes/forecast'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
+import { Route as ScenariosRouteImport } from './routes/scenarios'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SpendingRouteImport } from './routes/spending'
 import { Route as TransactionsRouteImport } from './routes/transactions'
@@ -68,6 +69,11 @@ const PortfolioRoute = PortfolioRouteImport.update({
   path: '/portfolio',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ScenariosRoute = ScenariosRouteImport.update({
+  id: '/scenarios',
+  path: '/scenarios',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/goals': typeof GoalsRoute
   '/onboarding': typeof OnboardingRoute
   '/portfolio': typeof PortfolioRoute
+  '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/goals': typeof GoalsRoute
   '/onboarding': typeof OnboardingRoute
   '/portfolio': typeof PortfolioRoute
+  '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/goals': typeof GoalsRoute
   '/onboarding': typeof OnboardingRoute
   '/portfolio': typeof PortfolioRoute
+  '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/onboarding'
     | '/portfolio'
+    | '/scenarios'
     | '/settings'
     | '/spending'
     | '/transactions'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/onboarding'
     | '/portfolio'
+    | '/scenarios'
     | '/settings'
     | '/spending'
     | '/transactions'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/onboarding'
     | '/portfolio'
+    | '/scenarios'
     | '/settings'
     | '/spending'
     | '/transactions'
@@ -193,6 +205,7 @@ export interface RootRouteChildren {
   GoalsRoute: typeof GoalsRoute
   OnboardingRoute: typeof OnboardingRoute
   PortfolioRoute: typeof PortfolioRoute
+  ScenariosRoute: typeof ScenariosRoute
   SettingsRoute: typeof SettingsRoute
   SpendingRoute: typeof SpendingRoute
   TransactionsRoute: typeof TransactionsRoute
@@ -264,6 +277,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortfolioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/scenarios': {
+      id: '/scenarios'
+      path: '/scenarios'
+      fullPath: '/scenarios'
+      preLoaderRoute: typeof ScenariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -305,6 +325,7 @@ const rootRouteChildren: RootRouteChildren = {
   GoalsRoute: GoalsRoute,
   OnboardingRoute: OnboardingRoute,
   PortfolioRoute: PortfolioRoute,
+  ScenariosRoute: ScenariosRoute,
   SettingsRoute: SettingsRoute,
   SpendingRoute: SpendingRoute,
   TransactionsRoute: TransactionsRoute,

@@ -30,6 +30,7 @@ import {
 } from "@/hooks/useTransactions";
 import { useScope } from "@/hooks/useScope";
 import { suggestRulePattern } from "@/lib/text";
+import { useQuickAdd, useTransactionSearchIntent } from "@/lib/quick-add";
 
 const PAGE_SIZE = 50;
 
@@ -66,6 +67,13 @@ function TransactionsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [importOpen, setImportOpen] = useState(false);
   const [splitting, setSplitting] = useState<TransactionRow | null>(null);
+
+  useQuickAdd("import", () => setImportOpen(true));
+  useTransactionSearchIntent((term) => {
+    setTab("all");
+    setPage(0);
+    setFilters((current) => ({ ...current, search: term }));
+  });
 
   const activeFilters = useMemo<TransactionFilters>(
     () => (tab === "review" ? { ...filters, reviewOnly: true } : filters),

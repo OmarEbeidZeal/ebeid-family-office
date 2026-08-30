@@ -549,8 +549,10 @@ export type Database = {
           household_id: string
           id: string
           is_purchased: boolean
+          kind: string
           label: string
           notes: string | null
+          sort_order: number
           updated_at: string
         }
         Insert: {
@@ -561,8 +563,10 @@ export type Database = {
           household_id: string
           id?: string
           is_purchased?: boolean
+          kind?: string
           label: string
           notes?: string | null
+          sort_order?: number
           updated_at?: string
         }
         Update: {
@@ -573,8 +577,10 @@ export type Database = {
           household_id?: string
           id?: string
           is_purchased?: boolean
+          kind?: string
           label?: string
           notes?: string | null
+          sort_order?: number
           updated_at?: string
         }
         Relationships: [
@@ -596,17 +602,24 @@ export type Database = {
       }
       goals: {
         Row: {
+          additional_property: boolean
           country: string | null
           created_at: string
           currency: string
           description: string | null
+          financed_amount: number
+          financed_rate: number | null
+          financed_term_years: number | null
+          first_time_buyer: boolean
           funded_amount: number
           goal_category: string
           household_id: string
           id: string
+          non_uk_resident: boolean
           notes: string | null
           owner_profile_id: string | null
           priority: string
+          sort_order: number
           status: string
           target_amount: number
           target_date: string | null
@@ -614,17 +627,24 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          additional_property?: boolean
           country?: string | null
           created_at?: string
           currency?: string
           description?: string | null
+          financed_amount?: number
+          financed_rate?: number | null
+          financed_term_years?: number | null
+          first_time_buyer?: boolean
           funded_amount?: number
           goal_category?: string
           household_id: string
           id?: string
+          non_uk_resident?: boolean
           notes?: string | null
           owner_profile_id?: string | null
           priority?: string
+          sort_order?: number
           status?: string
           target_amount?: number
           target_date?: string | null
@@ -632,17 +652,24 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          additional_property?: boolean
           country?: string | null
           created_at?: string
           currency?: string
           description?: string | null
+          financed_amount?: number
+          financed_rate?: number | null
+          financed_term_years?: number | null
+          first_time_buyer?: boolean
           funded_amount?: number
           goal_category?: string
           household_id?: string
           id?: string
+          non_uk_resident?: boolean
           notes?: string | null
           owner_profile_id?: string | null
           priority?: string
+          sort_order?: number
           status?: string
           target_amount?: number
           target_date?: string | null
@@ -1077,7 +1104,9 @@ export type Database = {
           id: string
           is_baseline: boolean
           name: string
+          preset_key: string | null
           results: Json | null
+          sort_order: number
           updated_at: string
         }
         Insert: {
@@ -1088,7 +1117,9 @@ export type Database = {
           id?: string
           is_baseline?: boolean
           name: string
+          preset_key?: string | null
           results?: Json | null
+          sort_order?: number
           updated_at?: string
         }
         Update: {
@@ -1099,7 +1130,9 @@ export type Database = {
           id?: string
           is_baseline?: boolean
           name?: string
+          preset_key?: string | null
           results?: Json | null
+          sort_order?: number
           updated_at?: string
         }
         Relationships: [
