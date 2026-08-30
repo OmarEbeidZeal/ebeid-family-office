@@ -863,32 +863,45 @@ export function concentrationRows(input: PolicyInput): ConcentrationRow[] {
     }
   }
 
+  // Percentage-of-market rows are only true when the whole book is priced.
+  // With prices missing, every sleeve reads 0%, which would show as "within
+  // policy" when the truth is that nothing can be measured at all.
+  const bookUnpriced = input.positions.length > 0 && input.unpricedCount > 0;
+  const unpricedDetail = ` ${input.unpricedCount} of ${input.positions.length} holding${
+    input.positions.length === 1 ? "" : "s"
+  } ${input.unpricedCount === 1 ? "has" : "have"} no price, so this cannot be measured today.`;
+
   const specValue = input.sleeveValues.satellite + input.sleeveValues.crypto;
   rows.push({
     key: "sleeve-speculative",
     label: "Speculative sleeve",
     sublabel: "Satellite and crypto combined",
-    value: share(specValue, investableTotal),
+    value: bookUnpriced ? null : share(specValue, investableTotal),
     limit: POLICY_LIMITS.speculativeSleeveCapPct,
     unit: "pct",
-    status: capStatus(share(specValue, investableTotal), POLICY_LIMITS.speculativeSleeveCapPct),
+    status: bookUnpriced
+      ? "unknown"
+      : capStatus(share(specValue, investableTotal), POLICY_LIMITS.speculativeSleeveCapPct),
     rule: 7,
-    detail: "Rule 7: total speculative sleeve stays at or below 10% of liquid investable assets.",
+    detail:
+      "Rule 7: total speculative sleeve stays at or below 10% of liquid investable assets." +
+      (bookUnpriced ? unpricedDetail : ""),
   });
 
   rows.push({
     key: "sleeve-crypto",
     label: "Crypto",
     sublabel: "Inside the satellite sleeve",
-    value: share(input.sleeveValues.crypto, investableTotal),
+    value: bookUnpriced ? null : share(input.sleeveValues.crypto, investableTotal),
     limit: POLICY_LIMITS.cryptoCapPct,
     unit: "pct",
-    status: capStatus(
-      share(input.sleeveValues.crypto, investableTotal),
-      POLICY_LIMITS.cryptoCapPct,
-    ),
+    status: bookUnpriced
+      ? "unknown"
+      : capStatus(share(input.sleeveValues.crypto, investableTotal), POLICY_LIMITS.cryptoCapPct),
     rule: 6,
-    detail: "Rule 6: crypto counts inside the satellite sleeve and is capped at 5% on its own.",
+    detail:
+      "Rule 6: crypto counts inside the satellite sleeve and is capped at 5% on its own." +
+      (bookUnpriced ? unpricedDetail : ""),
   });
 
   const techValue = input.positions
@@ -898,17 +911,20 @@ export function concentrationRows(input: PolicyInput): ConcentrationRow[] {
     key: "tech",
     label: "Single-name technology",
     sublabel: "Share of the liquid equity portfolio",
-    value: share(techValue, input.equityPoolBase),
+    value: bookUnpriced ? null : share(techValue, input.equityPoolBase),
     limit: POLICY_LIMITS.techSingleNameCapPct,
     unit: "pct",
-    status:
-      input.equityPoolBase > 0
+    status: bookUnpriced
+      ? "unknown"
+      : input.equityPoolBase > 0
         ? capStatus(share(techValue, input.equityPoolBase), POLICY_LIMITS.techSingleNameCapPct)
         : "not_applicable",
     rule: 3,
     detail:
-      "Rule 3: direct single-name technology is capped at 25% of the liquid equity portfolio.",
+      "Rule 3: direct single-name technology is capped at 25% of the liquid equity portfolio." +
+      (bookUnpriced ? unpricedDetail : ""),
   });
+
 
   rows.push({
     key: "soft-currency",
