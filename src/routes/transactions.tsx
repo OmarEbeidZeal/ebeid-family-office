@@ -34,9 +34,8 @@ import { useQuickAdd, useTransactionSearchIntent } from "@/lib/quick-add";
 const PAGE_SIZE = 50;
 
 export const Route = createFileRoute("/transactions")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    statement: typeof search["statement"] === "string" ? search["statement"] : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { statement?: string } =>
+    typeof search["statement"] === "string" ? { statement: search["statement"] } : {},
   head: () => ({
     meta: [
       { title: "Transactions — Ebeid Family Office" },

@@ -14,10 +14,10 @@ export function BankMark({
   size = 28,
   className,
 }: {
-  institution?: string | null;
-  domain?: string | null;
-  size?: number;
-  className?: string;
+  institution?: string | null | undefined;
+  domain?: string | null | undefined;
+  size?: number | undefined;
+  className?: string | undefined;
 }) {
   const resolved = domain ?? bankDomain(institution ?? null);
   const [failed, setFailed] = useState(false);
