@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { EmptyState } from "@/components/EmptyState";
+import { FirstRunPanel } from "@/components/dashboard/FirstRunPanel";
 import { HeroNetWorth, type NetWorthDelta } from "@/components/dashboard/HeroNetWorth";
 import { MetricRow } from "@/components/dashboard/MetricRow";
 import { NetWorthTrend } from "@/components/dashboard/NetWorthTrend";
@@ -15,6 +15,7 @@ import { useHoldings, useSnapshots } from "@/hooks/useFinancials";
 import { useSnapshotSync } from "@/hooks/useSnapshotSync";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDate } from "@/lib/format";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
