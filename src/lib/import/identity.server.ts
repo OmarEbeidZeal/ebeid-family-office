@@ -251,18 +251,14 @@ export async function loadAccountCandidates(
       .eq("household_id", householdId),
     supabase
       .from("account_identifiers")
-      .select("account_id, identifier_hash, last_four, identifier_kind")
+      .select("account_id, identifier_hash, last4, kind")
       .eq("household_id", householdId),
   ]);
 
   const grouped = new Map<string, AccountCandidate["identifiers"]>();
   for (const row of identifiers ?? []) {
     const list = grouped.get(row.account_id) ?? [];
-    list.push({
-      hash: row.identifier_hash,
-      last_four: row.last_four,
-      kind: row.identifier_kind,
-    });
+    list.push({ hash: row.identifier_hash, last_four: row.last4, kind: row.kind });
     grouped.set(row.account_id, list);
   }
 
@@ -289,36 +285,34 @@ export async function rememberIdentifier(
     householdId: string;
     accountId: string;
     identifier: NormalisedIdentifier;
-    source: string;
+    source: "statement" | "manual";
   },
 ): Promise<void> {
-  await supabase.from("account_identifiers").upsert(
+  // Two rows: the identifier itself, and its last four. The second is what
+  // lets a bank that masks its own statements ("****4821") still match an
+  // account first seen in full.
+  const rows = [
     {
       household_id: input.householdId,
       account_id: input.accountId,
-      identifier_kind: input.identifier.kind,
+      kind: input.identifier.kind,
       identifier_hash: input.identifier.hash,
-      last_four: input.identifier.lastFour,
+      last4: input.identifier.lastFour,
       source: input.source,
-      last_seen_at: new Date().toISOString(),
     },
-    { onConflict: "household_id,identifier_hash" },
-  );
-
-  // The last-four hash is stored alongside so a bank that masks its own
-  // statements ("****4821") still matches an account first seen in full.
-  await supabase.from("account_identifiers").upsert(
     {
       household_id: input.householdId,
       account_id: input.accountId,
-      identifier_kind: input.identifier.kind,
+      kind: input.identifier.kind,
       identifier_hash: lastFourHash(input.identifier.lastFour, input.identifier.kind),
-      last_four: input.identifier.lastFour,
-      source: "derived",
-      last_seen_at: new Date().toISOString(),
+      last4: input.identifier.lastFour,
+      source: input.source,
     },
-    { onConflict: "household_id,identifier_hash" },
-  );
+  ];
+
+  await supabase
+    .from("account_identifiers")
+    .upsert(rows, { onConflict: "household_id,identifier_hash" });
 }
 
 /** Every hash a masked "ends 4821" could match, across the kinds we store. */
