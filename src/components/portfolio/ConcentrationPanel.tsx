@@ -66,7 +66,6 @@ export function ConcentrationPanel({
         }
       />
 
-
       {loading ? (
         <div className="space-y-3">
           {[0, 1, 2].map((index) => (

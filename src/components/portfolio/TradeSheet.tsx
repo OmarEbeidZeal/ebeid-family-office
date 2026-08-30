@@ -29,7 +29,6 @@ type Values = z.infer<typeof schema>;
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-
 /**
  * Trades are the source of truth for quantity and average cost — a database
  * trigger recomputes both on every write, so neither is ever typed by hand.
@@ -53,7 +52,6 @@ export function TradeSheet({
   const { household } = useAuth();
   const { data: accounts = [] } = useAccounts();
   const queryClient = useQueryClient();
-
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -122,8 +120,7 @@ export function TradeSheet({
       }
       if (needsOpeningLot && selected) {
         const openingDate =
-          selected.opened_at ??
-          (values.trade_date < todayIso() ? values.trade_date : todayIso());
+          selected.opened_at ?? (values.trade_date < todayIso() ? values.trade_date : todayIso());
         const { error: openingError } = await db.from("trades").insert({
           household_id: household!.id,
           holding_id: selected.id,
@@ -150,9 +147,6 @@ export function TradeSheet({
     },
     onError: (error: Error) => toast.error(error.message),
   });
-
-
-
 
   const quantity = Number(form.watch("quantity")) || 0;
   const price = Number(form.watch("price")) || 0;
@@ -200,7 +194,6 @@ export function TradeSheet({
       )}
 
       <FullRow>
-
         <Field label="Holding" error={form.formState.errors.holding_id?.message}>
           <Controller
             control={form.control}

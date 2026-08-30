@@ -11,7 +11,6 @@ import {
   DEBT_ACCOUNT_TYPES,
   LIQUID_ACCOUNT_TYPES,
   RESERVE_ACCOUNT_TYPES,
-
   SOFT_CURRENCIES,
   monthlyEquivalent,
   titleise,
@@ -221,7 +220,6 @@ export function computeNetWorth(input: NetWorthInput) {
     liquidCash,
     reserveCash,
     otherCurrencyCash,
-
 
     privateStakeValue,
     pensionValue,

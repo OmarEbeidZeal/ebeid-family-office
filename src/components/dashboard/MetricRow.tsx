@@ -27,7 +27,6 @@ export function MetricRow({
   const runwayMonths = essentialSpend > 0 ? summary.reserveCash / essentialSpend : null;
   const monthsWord = `${spending.completeMonthCount} complete month${spending.completeMonthCount === 1 ? "" : "s"}`;
 
-
   const observedIncome = spending.incomeBaseline;
   const observedSpend = spending.spendBaseline;
   const useObservedCashflow =
@@ -105,7 +104,6 @@ export function MetricRow({
               ? `${formatMoney(essentialSpend, base, { decimals: 0 })}/mo committed, from your plan`
               : "Import a statement or add committed outgoings"
         }
-
       />
       <StatTile
         label="Savings rate"

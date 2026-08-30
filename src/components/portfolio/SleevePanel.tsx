@@ -61,7 +61,6 @@ export function SleevePanel({
                     {measurable && row.status !== "ok" && row.status !== "not_applicable" && (
                       <PolicyPill status={row.status} size="xs" />
                     )}
-
                   </div>
                   <span className="num text-xs text-muted-foreground">
                     <span className="text-foreground">
