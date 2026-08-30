@@ -27,18 +27,21 @@ export function SelectNative({
   onChange,
   options,
   id,
+  disabled,
 }: {
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   id?: string;
+  disabled?: boolean | undefined;
 }) {
   return (
     <select
       id={id}
       value={value}
+      disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
-      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
     >
       {options.map((option) => (
         <option key={option.value} value={option.value}>

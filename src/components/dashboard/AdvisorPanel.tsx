@@ -1,63 +1,75 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "@tanstack/react-router";
+import { Sparkles } from "lucide-react";
+import type { NetWorthSummary } from "@/hooks/useNetWorth";
 
-type Note = {
-  id: string;
-  title: string;
-  body: string | null;
-  severity: string;
-  generated_at: string;
-};
-
-export function AdvisorPanel() {
-  const { household } = useAuth();
-  const { data, isLoading } = useQuery({
-    queryKey: ["advisor_notes", household?.id],
-    enabled: !!household?.id,
-    queryFn: async () => {
-      const { data: rows, error } = await supabase
-        .from("advisor_notes")
-        .select("id, title, body, severity, generated_at")
-        .eq("household_id", household!.id)
-        .order("generated_at", { ascending: false })
-        .limit(3);
-      if (error) throw error;
-      return (rows ?? []) as Note[];
+/**
+ * A quiet placeholder until the advisor has real holdings and prices to
+ * reason about. It states plainly what it is waiting for — it never
+ * improvises a recommendation.
+ */
+export function AdvisorPanel({
+  summary,
+  holdingsCount,
+}: {
+  summary: NetWorthSummary;
+  holdingsCount: number;
+}) {
+  const readiness = [
+    {
+      label: "Accounts recorded",
+      done: summary.counts.accounts > 0,
+      count: summary.counts.accounts,
     },
-  });
-
-  if (isLoading) return <Skeleton className="h-28 w-full rounded-lg" />;
-
-  if (!data?.length) {
-    return (
-      <div className="hairline rounded-lg bg-surface p-5">
-        <p className="text-sm font-medium">Advisor briefing</p>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Your daily briefing will appear here once the advisor is switched on in the next phase. It
-          will read your live balance sheet, cashflow and currency exposure and flag what actually
-          needs a decision this week.
-        </p>
-      </div>
-    );
-  }
+    { label: "Assets valued", done: summary.counts.assets > 0, count: summary.counts.assets },
+    { label: "Income streams", done: summary.counts.income > 0, count: summary.counts.income },
+    { label: "Listed holdings", done: holdingsCount > 0, count: holdingsCount },
+  ];
 
   return (
-    <div className="space-y-3">
-      {data.map((note) => (
-        <div key={note.id} className="hairline rounded-lg bg-surface p-5">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium">{note.title}</p>
-            <span className="text-[0.65rem] uppercase tracking-[0.12em] text-gold">
-              {note.severity}
-            </span>
-          </div>
-          {note.body && (
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{note.body}</p>
-          )}
+    <section className="hairline relative overflow-hidden rounded-lg bg-surface p-5">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold-line bg-gold-soft text-gold">
+          <Sparkles className="h-4 w-4" strokeWidth={1.6} />
+        </span>
+        <div className="min-w-0">
+          <p className="eyebrow text-gold">Advisor briefing</p>
+          <p className="mt-2 text-sm leading-relaxed text-foreground/85">
+            The advisor activates once accounts and holdings are in. It reasons only from your
+            stored numbers — liquidity, concentration, goal timelines — and will not comment on a
+            position it cannot price.
+          </p>
         </div>
-      ))}
-    </div>
+      </div>
+
+      <ul className="mt-5 grid gap-2 sm:grid-cols-2">
+        {readiness.map((item) => (
+          <li
+            key={item.label}
+            className="flex items-center justify-between rounded-md border border-border bg-surface-raised px-3 py-2 text-xs"
+          >
+            <span className={item.done ? "text-foreground/85" : "text-muted-foreground"}>
+              {item.label}
+            </span>
+            <span className={item.done ? "num text-gold" : "num text-muted-foreground"}>
+              {item.count}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <Link
+          to="/advisor"
+          className="inline-flex h-9 items-center rounded-md border border-border bg-surface-raised px-4 text-sm text-foreground transition-colors hover:border-gold-line hover:text-gold"
+        >
+          How the advisor will work
+        </Link>
+      </div>
+
+      <p className="mt-5 border-t border-border pt-3 text-[0.7rem] leading-relaxed text-muted-foreground">
+        This is an information and modelling tool, not regulated financial advice. Confirm decisions
+        with an FCA-authorised adviser.
+      </p>
+    </section>
   );
 }

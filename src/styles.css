@@ -6,8 +6,10 @@
 
 /*
  * Ebeid Family Office design system.
- * Dark is the default. Light is an override class on <html>.
- * Never hardcode colours in components — use these tokens.
+ *
+ * Dark is the default; `.light` on <html> is the override. Every colour,
+ * radius and typographic decision lives here — components never hardcode a
+ * colour. Figures use lining tabular numerals so columns align to the digit.
  */
 
 @theme inline {
@@ -16,7 +18,10 @@
   --radius-lg: 8px;
   --radius-xl: 8px;
   --radius-2xl: 8px;
+
   --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-numeric: "IBM Plex Sans", "Outfit", ui-sans-serif, system-ui, sans-serif;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
@@ -35,12 +40,17 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
+  --color-gold-line: var(--gold-line);
   --color-gain: var(--gain);
+  --color-gain-soft: var(--gain-soft);
   --color-loss: var(--loss);
+  --color-loss-soft: var(--loss-soft);
   --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
@@ -49,78 +59,111 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-chart-6: var(--chart-6);
+  --color-sidebar: var(--surface);
+  --color-sidebar-foreground: var(--foreground);
+  --color-sidebar-primary: var(--gold);
+  --color-sidebar-primary-foreground: var(--primary-foreground);
+  --color-sidebar-accent: var(--surface-raised);
+  --color-sidebar-accent-foreground: var(--foreground);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-ring: var(--ring);
 }
 
 :root,
 .dark {
   --radius: 0.5rem;
-  --background: oklch(0.16 0.006 265);
-  --foreground: oklch(0.95 0.004 265);
-  --surface: oklch(0.20 0.006 265);
-  --surface-raised: oklch(0.235 0.007 265);
-  --card: oklch(0.20 0.006 265);
-  --card-foreground: oklch(0.95 0.004 265);
-  --popover: oklch(0.215 0.006 265);
-  --popover-foreground: oklch(0.95 0.004 265);
-  --primary: oklch(0.74 0.083 84);
-  --primary-foreground: oklch(0.17 0.01 84);
-  --secondary: oklch(0.26 0.007 265);
-  --secondary-foreground: oklch(0.93 0.004 265);
-  --muted: oklch(0.25 0.006 265);
-  --muted-foreground: oklch(0.66 0.008 265);
-  --accent: oklch(0.27 0.008 265);
-  --accent-foreground: oklch(0.95 0.004 265);
-  --gold: oklch(0.74 0.083 84);
-  --gold-soft: oklch(0.74 0.083 84 / 12%);
-  --gain: oklch(0.82 0.17 152);
-  --loss: oklch(0.72 0.16 20);
-  --warn: oklch(0.80 0.13 78);
-  --destructive: oklch(0.62 0.19 22);
-  --destructive-foreground: oklch(0.98 0.003 265);
-  --border: oklch(0.27 0.008 265);
-  --input: oklch(0.28 0.008 265);
-  --ring: oklch(0.74 0.083 84 / 60%);
-  --chart-1: oklch(0.74 0.083 84);
-  --chart-2: oklch(0.68 0.10 220);
-  --chart-3: oklch(0.75 0.12 152);
-  --chart-4: oklch(0.72 0.13 20);
-  --chart-5: oklch(0.70 0.09 300);
-  --chart-6: oklch(0.62 0.02 265);
+
+  /* #0A0B0D ground, #121417 raised card, #1A1D21 hairline */
+  --background: oklch(0.1493 0.0046 264.5);
+  --foreground: oklch(0.9251 0.0071 88.6);
+  --surface: oklch(0.1904 0.0069 258.4);
+  --surface-raised: oklch(0.212 0.0092 255.6);
+  --card: oklch(0.1904 0.0069 258.4);
+  --card-foreground: oklch(0.9251 0.0071 88.6);
+  --popover: oklch(0.212 0.0092 255.6);
+  --popover-foreground: oklch(0.9251 0.0071 88.6);
+
+  --primary: oklch(0.7479 0.0986 86.1);
+  --primary-foreground: oklch(0.1493 0.0046 264.5);
+  --secondary: oklch(0.2455 0.0086 258);
+  --secondary-foreground: oklch(0.9251 0.0071 88.6);
+  --muted: oklch(0.2293 0.009 255.6);
+  --muted-foreground: oklch(0.6488 0.0146 262.4);
+  --accent: oklch(0.2455 0.0086 258);
+  --accent-foreground: oklch(0.9251 0.0071 88.6);
+
+  /* #C9A961 antique gold — the only accent */
+  --gold: oklch(0.7479 0.0986 86.1);
+  --gold-soft: oklch(0.7479 0.0986 86.1 / 12%);
+  --gold-line: oklch(0.7479 0.0986 86.1 / 34%);
+
+  --gain: oklch(0.8003 0.1821 151.7);
+  --gain-soft: oklch(0.8003 0.1821 151.7 / 13%);
+  --loss: oklch(0.7106 0.1661 22.2);
+  --loss-soft: oklch(0.7106 0.1661 22.2 / 13%);
+  --warn: oklch(0.7874 0.1376 86.7);
+  --warn-soft: oklch(0.7874 0.1376 86.7 / 13%);
+
+  --destructive: oklch(0.7106 0.1661 22.2);
+  --destructive-foreground: oklch(0.1493 0.0046 264.5);
+
+  --border: oklch(0.2293 0.009 255.6);
+  --border-strong: oklch(0.2926 0.0102 256);
+  --input: oklch(0.2637 0.0096 256);
+  --ring: oklch(0.7479 0.0986 86.1 / 55%);
+
+  --chart-1: oklch(0.7479 0.0986 86.1);
+  --chart-2: oklch(0.6875 0.091 249.8);
+  --chart-3: oklch(0.7101 0.0846 182.6);
+  --chart-4: oklch(0.6739 0.083 296.4);
+  --chart-5: oklch(0.7874 0.1376 86.7);
+  --chart-6: oklch(0.5539 0.0138 262);
 }
 
 .light {
-  --background: oklch(0.985 0.003 90);
-  --foreground: oklch(0.22 0.008 265);
+  --background: oklch(0.9764 0.0035 91);
+  --foreground: oklch(0.2261 0.0091 258);
   --surface: oklch(1 0 0);
-  --surface-raised: oklch(0.975 0.003 90);
+  --surface-raised: oklch(0.9861 0.0025 91);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.008 265);
+  --card-foreground: oklch(0.2261 0.0091 258);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.008 265);
-  --primary: oklch(0.58 0.078 84);
-  --primary-foreground: oklch(0.99 0.002 90);
-  --secondary: oklch(0.95 0.004 90);
-  --secondary-foreground: oklch(0.25 0.008 265);
-  --muted: oklch(0.955 0.004 90);
-  --muted-foreground: oklch(0.50 0.01 265);
-  --accent: oklch(0.94 0.005 90);
-  --accent-foreground: oklch(0.25 0.008 265);
-  --gold: oklch(0.58 0.078 84);
-  --gold-soft: oklch(0.58 0.078 84 / 10%);
-  --gain: oklch(0.55 0.15 152);
-  --loss: oklch(0.55 0.18 25);
-  --warn: oklch(0.62 0.13 74);
-  --destructive: oklch(0.55 0.19 25);
-  --destructive-foreground: oklch(0.99 0.002 90);
-  --border: oklch(0.90 0.005 90);
-  --input: oklch(0.90 0.005 90);
-  --ring: oklch(0.58 0.078 84 / 50%);
-  --chart-1: oklch(0.58 0.078 84);
-  --chart-2: oklch(0.52 0.11 220);
-  --chart-3: oklch(0.55 0.13 152);
-  --chart-4: oklch(0.56 0.16 25);
-  --chart-5: oklch(0.52 0.11 300);
-  --chart-6: oklch(0.65 0.01 265);
+  --popover-foreground: oklch(0.2261 0.0091 258);
+
+  --primary: oklch(0.5407 0.0784 82);
+  --primary-foreground: oklch(0.9891 0.002 91);
+  --secondary: oklch(0.9533 0.0038 91);
+  --secondary-foreground: oklch(0.2661 0.0091 258);
+  --muted: oklch(0.9533 0.0038 91);
+  --muted-foreground: oklch(0.5089 0.0116 262);
+  --accent: oklch(0.9411 0.0045 91);
+  --accent-foreground: oklch(0.2661 0.0091 258);
+
+  --gold: oklch(0.5407 0.0784 82);
+  --gold-soft: oklch(0.5407 0.0784 82 / 10%);
+  --gold-line: oklch(0.5407 0.0784 82 / 30%);
+
+  --gain: oklch(0.5388 0.1418 152);
+  --gain-soft: oklch(0.5388 0.1418 152 / 12%);
+  --loss: oklch(0.5303 0.1798 25.4);
+  --loss-soft: oklch(0.5303 0.1798 25.4 / 12%);
+  --warn: oklch(0.6132 0.1265 74);
+  --warn-soft: oklch(0.6132 0.1265 74 / 14%);
+
+  --destructive: oklch(0.5303 0.1798 25.4);
+  --destructive-foreground: oklch(0.9891 0.002 91);
+
+  --border: oklch(0.9053 0.0043 91);
+  --border-strong: oklch(0.8506 0.0053 91);
+  --input: oklch(0.8906 0.0043 91);
+  --ring: oklch(0.5407 0.0784 82 / 45%);
+
+  --chart-1: oklch(0.5407 0.0784 82);
+  --chart-2: oklch(0.5188 0.1035 250);
+  --chart-3: oklch(0.5501 0.0866 183);
+  --chart-4: oklch(0.5239 0.0983 296);
+  --chart-5: oklch(0.6132 0.1265 74);
+  --chart-6: oklch(0.6789 0.0102 262);
 }
 
 @layer base {
@@ -130,17 +173,30 @@
 
   html {
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    font-feature-settings: "tnum" 1, "lnum" 1, "cv11" 1;
+    font-feature-settings: "lnum" 1;
+  }
+
+  ::selection {
+    background: var(--color-gold-soft);
+  }
+
+  /* The scrollbar should read as part of the instrument, not the browser. */
+  * {
+    scrollbar-color: var(--color-border-strong) transparent;
+    scrollbar-width: thin;
   }
 }
 
+/* Every monetary or quantitative figure in the app uses this. */
 @utility num {
+  font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: "tnum" 1, "lnum" 1;
 }
@@ -152,8 +208,40 @@
 }
 
 @utility headline-figure {
+  font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums lining-nums;
-  font-weight: 200;
-  letter-spacing: -0.01em;
-  line-height: 1.05;
+  font-weight: 250;
+  letter-spacing: -0.015em;
+  line-height: 1.02;
+}
+
+@utility eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+@utility wordmark {
+  font-weight: 300;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+@keyframes efo-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility rise {
+  animation: efo-rise 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }

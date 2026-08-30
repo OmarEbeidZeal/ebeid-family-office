@@ -1,117 +1,104 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Landmark, Scale, Settings, Menu, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useEffect, type ReactNode } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { TopBar } from "@/components/layout/TopBar";
+import { MobileNav } from "@/components/layout/MobileNav";
+import { Wordmark } from "@/components/Wordmark";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
-import { useCurrency } from "@/hooks/useCurrency";
-import { ScopeToggle } from "./ScopeToggle";
+import { useAccounts, useAssets, useIncomeStreams } from "@/hooks/useFinancials";
+import { isOnboardingDeferred } from "@/lib/onboarding";
 
-const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/accounts", label: "Accounts", icon: Landmark },
-  { to: "/balance-sheet", label: "Balance sheet", icon: Scale },
-  { to: "/settings", label: "Settings", icon: Settings },
-];
+function ShellSkeleton() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="w-full max-w-xs space-y-4 px-6 text-center">
+        <Wordmark className="animate-pulse" />
+        <Skeleton className="mx-auto h-2 w-32" />
+      </div>
+    </div>
+  );
+}
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const { session, loading, profile, profileLoading, household } = useAuth();
+/**
+ * Auth guard + chrome. Unauthenticated visitors are sent to /auth, and a
+ * household with nothing recorded yet is sent through onboarding.
+ */
+export function AppShell({
+  title,
+  description,
+  actions,
+  children,
+}: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  const { session, loading, profile, household, profileLoading } = useAuth();
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const [menuOpen, setMenuOpen] = useState(false);
-  const { isStale, refresh } = useCurrency();
+
+  const accounts = useAccounts();
+  const assets = useAssets();
+  const income = useIncomeStreams();
 
   useEffect(() => {
-    if (!loading && !session) navigate({ to: "/auth" });
+    if (!loading && !session) void navigate({ to: "/auth", replace: true });
   }, [loading, session, navigate]);
 
-  useEffect(() => {
-    if (session && isStale) {
-      refresh().catch(() => undefined);
-    }
-  }, [session, isStale, refresh]);
+  const dataLoaded = !accounts.isLoading && !assets.isLoading && !income.isLoading;
+  const isEmptyHousehold =
+    dataLoaded &&
+    (accounts.data?.length ?? 0) === 0 &&
+    (assets.data?.length ?? 0) === 0 &&
+    (income.data?.length ?? 0) === 0;
 
   useEffect(() => {
-    setMenuOpen(false);
-  }, [pathname]);
+    if (!household) return;
+    if (household.onboarding_completed_at) return;
+    if (isOnboardingDeferred()) return;
+    if (isEmptyHousehold) void navigate({ to: "/onboarding", replace: true });
+  }, [household, isEmptyHousehold, navigate]);
 
-  if (loading || (session && profileLoading)) {
-    return <div className="min-h-screen bg-background" />;
+  if (loading || (session && profileLoading)) return <ShellSkeleton />;
+  if (!session) return <ShellSkeleton />;
+  if (!profile) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="max-w-sm text-center">
+          <Wordmark />
+          <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
+            This sign-in isn't linked to a household profile yet. Sign out and sign in again, or ask
+            the household owner to re-issue your invitation.
+          </p>
+        </div>
+      </div>
+    );
   }
-  if (!session) return null;
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-gold text-lg leading-none">◆</span>
-            <span className="hidden text-sm font-medium tracking-[0.18em] uppercase sm:block">
-              {household?.name ?? "Family Office"}
-            </span>
-          </Link>
-
-          <nav className="ml-6 hidden items-center gap-1 md:flex">
-            {NAV.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
-                  "rounded-md px-3 py-2 text-sm transition-colors",
-                  pathname === item.to
-                    ? "bg-gold-soft text-gold"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="ml-auto flex items-center gap-3">
-            <div className="hidden sm:block">
-              <ScopeToggle />
+      <Sidebar />
+      <div className="lg:pl-56">
+        <TopBar />
+        <main className="mx-auto max-w-[88rem] px-4 pb-24 pt-6 sm:px-6 lg:pb-12">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-light tracking-tight text-foreground sm:text-2xl">
+                {title}
+              </h1>
+              {description && (
+                <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                  {description}
+                </p>
+              )}
             </div>
-            <span className="hidden text-xs text-muted-foreground lg:block">
-              {profile?.display_name ?? profile?.email}
-            </span>
-            <button
-              type="button"
-              aria-label="Toggle navigation"
-              className="rounded-md p-2 text-muted-foreground hover:text-foreground md:hidden"
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-            </button>
+            {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
           </div>
-        </div>
-
-        {menuOpen && (
-          <div className="border-t px-4 py-3 md:hidden">
-            <div className="mb-3 sm:hidden">
-              <ScopeToggle />
-            </div>
-            <nav className="grid gap-1">
-              {NAV.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={cn(
-                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
-                    pathname === item.to
-                      ? "bg-gold-soft text-gold"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <item.icon className="size-4" />
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        )}
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children}</main>
+          {children}
+        </main>
+      </div>
+      <MobileNav />
     </div>
   );
 }

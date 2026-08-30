@@ -236,6 +236,7 @@ export type Database = {
           id: string;
           is_liquid: boolean;
           last_valued_at: string | null;
+          metadata: Json;
           name: string;
           notes: string | null;
           owner_profile_id: string | null;
@@ -255,6 +256,7 @@ export type Database = {
           id?: string;
           is_liquid?: boolean;
           last_valued_at?: string | null;
+          metadata?: Json;
           name: string;
           notes?: string | null;
           owner_profile_id?: string | null;
@@ -274,6 +276,7 @@ export type Database = {
           id?: string;
           is_liquid?: boolean;
           last_valued_at?: string | null;
+          metadata?: Json;
           name?: string;
           notes?: string | null;
           owner_profile_id?: string | null;
@@ -659,6 +662,9 @@ export type Database = {
           created_at: string;
           id: string;
           name: string;
+          onboarding_completed_at: string | null;
+          onboarding_step: number;
+          partner_display_name: string | null;
           updated_at: string;
         };
         Insert: {
@@ -666,6 +672,9 @@ export type Database = {
           created_at?: string;
           id?: string;
           name?: string;
+          onboarding_completed_at?: string | null;
+          onboarding_step?: number;
+          partner_display_name?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -673,6 +682,9 @@ export type Database = {
           created_at?: string;
           id?: string;
           name?: string;
+          onboarding_completed_at?: string | null;
+          onboarding_step?: number;
+          partner_display_name?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -1241,8 +1253,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      current_household_id: { Args: never; Returns: string };
-      current_role_is_owner: { Args: never; Returns: boolean };
+      [_ in never]: never;
     };
     Enums: {
       [_ in never]: never;

@@ -38,7 +38,10 @@ export const registerAllowedUser = createServerFn({ method: "POST" })
       user_metadata: { full_name: data.fullName },
     });
     if (createError || !created.user) {
-      throw new Error(createError?.message ?? "Could not create the account.");
+      // Never reveal whether an address already has an account.
+      throw new Error(
+        "That invitation could not be set up. If you already have an account, sign in instead.",
+      );
     }
     const userId = created.user.id;
 
@@ -48,7 +51,7 @@ export const registerAllowedUser = createServerFn({ method: "POST" })
       if (!householdId) {
         const { data: household, error: householdError } = await supabaseAdmin
           .from("households")
-          .insert({ name: "Ebeid Family Office", base_currency: "GBP" })
+          .insert({ name: "Ebeid Household", base_currency: "GBP" })
           .select("id")
           .single();
         if (householdError) throw new Error(householdError.message);

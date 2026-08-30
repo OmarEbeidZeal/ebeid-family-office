@@ -17,6 +17,9 @@ export type Household = {
   id: string;
   name: string;
   base_currency: string;
+  partner_display_name: string | null;
+  onboarding_step: number;
+  onboarding_completed_at: string | null;
 };
 
 type AuthContextValue = {
@@ -26,6 +29,7 @@ type AuthContextValue = {
   profile: Profile | null;
   household: Household | null;
   members: Profile[];
+  isOwner: boolean;
   profileLoading: boolean;
   signOut: () => Promise<void>;
 };
@@ -84,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile: data?.profile ?? null,
     household: data?.household ?? null,
     members: data?.members ?? [],
+    isOwner: data?.profile?.role === "owner",
     profileLoading: !!userId && profileLoading,
     signOut: async () => {
       await supabase.auth.signOut();

@@ -1,18 +1,23 @@
-import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
 type FxRow = { base_ccy: string; quote_ccy: string; rate: number; as_of: string };
 
+const SIX_HOURS = 6 * 60 * 60 * 1000;
+
 type CurrencyContextValue = {
   base: string;
   rates: Record<string, number>;
   ratesAsOf: string | null;
+  /** No rates at all, or the newest is over six hours old. */
   isStale: boolean;
+  hasRates: boolean;
   convert: (amount: number, from: string, to?: string) => number;
   refresh: () => Promise<void>;
   refreshing: boolean;
+  refreshError: string | null;
 };
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
@@ -25,6 +30,7 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
   const { data } = useQuery({
     queryKey: ["fx-rates"],
     enabled: !!session,
+    staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from("fx_rates")
@@ -47,7 +53,8 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     return { rates: map, ratesAsOf: latest };
   }, [data]);
 
-  const isStale = !ratesAsOf || Date.now() - new Date(ratesAsOf).getTime() > 6 * 3600 * 1000;
+  const hasRates = Object.keys(rates).length > 1;
+  const isStale = !ratesAsOf || Date.now() - new Date(ratesAsOf).getTime() > SIX_HOURS;
 
   const convert = useCallback(
     (amount: number, from: string, to: string = base) => {
@@ -60,25 +67,41 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
     [rates, base],
   );
 
-  const refreshMutationKey = ["fx-refresh"];
-  const refreshing = false;
+  const mutation = useMutation({
+    mutationKey: ["fx-refresh"],
+    mutationFn: async () => {
+      const { refreshFxRates } = await import("@/lib/fx.functions");
+      return refreshFxRates();
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["fx-rates"] });
+    },
+  });
 
+  const { mutateAsync } = mutation;
   const refresh = useCallback(async () => {
-    const { refreshFxRates } = await import("@/lib/fx.functions");
-    await refreshFxRates();
-    await queryClient.invalidateQueries({ queryKey: ["fx-rates"] });
-  }, [queryClient]);
+    await mutateAsync();
+  }, [mutateAsync]);
 
-  void refreshMutationKey;
+  // Rates older than six hours refresh themselves once the session is ready.
+  const shouldAutoRefresh = !!session && !!data && isStale && mutation.isIdle;
+  useEffect(() => {
+    if (!shouldAutoRefresh) return;
+    void mutateAsync().catch(() => {
+      /* surfaced through refreshError in the FX indicator */
+    });
+  }, [shouldAutoRefresh, mutateAsync]);
 
   const value: CurrencyContextValue = {
     base,
     rates,
     ratesAsOf,
     isStale,
+    hasRates,
     convert,
     refresh,
-    refreshing,
+    refreshing: mutation.isPending,
+    refreshError: mutation.error ? (mutation.error as Error).message : null,
   };
 
   return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
