@@ -593,7 +593,9 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     unit: "currency",
   });
 
-  // Rule 12 — rebalance discipline.
+  // Rule 12 — rebalance discipline. A drift figure built on unpriced holdings
+  // would trigger a rebalance nobody can size, so it stays unknown until the
+  // whole book is priced.
   const isApril = new Date(input.now ?? Date.now()).getUTCMonth() === 3;
   findings.push({
     rule: 12,
@@ -602,22 +604,27 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     status:
       investableTotal <= 0
         ? "not_applicable"
-        : Math.abs(worstDrift) >= POLICY_LIMITS.driftPct
-          ? "watch"
-          : isApril
+        : !allocationMeasurable
+          ? "unknown"
+          : Math.abs(worstDrift) >= POLICY_LIMITS.driftPct
             ? "watch"
-            : "ok",
+            : isApril
+              ? "watch"
+              : "ok",
     headline:
       investableTotal <= 0
         ? "Nothing to rebalance yet."
-        : Math.abs(worstDrift) >= POLICY_LIMITS.driftPct
-          ? `Largest sleeve drift is ${worstDrift > 0 ? "+" : "−"}${Math.abs(worstDrift).toFixed(1)}pp, past the ${POLICY_LIMITS.driftPct}pp trigger.`
-          : isApril
-            ? `April: the annual rebalance window is open. Largest drift is ${Math.abs(worstDrift).toFixed(1)}pp.`
-            : `Largest sleeve drift is ${Math.abs(worstDrift).toFixed(1)}pp, inside the ${POLICY_LIMITS.driftPct}pp trigger.`,
-    value: worstDrift,
+        : !allocationMeasurable
+          ? `Drift cannot be measured while ${unpricedNote}; a rebalance cannot be sized from unpriced holdings.`
+          : Math.abs(worstDrift) >= POLICY_LIMITS.driftPct
+            ? `Largest sleeve drift is ${worstDrift > 0 ? "+" : "−"}${Math.abs(worstDrift).toFixed(1)}pp, past the ${POLICY_LIMITS.driftPct}pp trigger.`
+            : isApril
+              ? `April: the annual rebalance window is open. Largest drift is ${Math.abs(worstDrift).toFixed(1)}pp.`
+              : `Largest sleeve drift is ${Math.abs(worstDrift).toFixed(1)}pp, inside the ${POLICY_LIMITS.driftPct}pp trigger.`,
+    value: allocationMeasurable ? worstDrift : null,
     limit: POLICY_LIMITS.driftPct,
     unit: "pct",
+
   });
 
   return findings;
