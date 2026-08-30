@@ -101,6 +101,19 @@ export function computeNetWorth(input: NetWorthInput) {
   const liquidCash = cashAccounts
     .filter((a) => LIQUID_ACCOUNT_TYPES.includes(a.account_type))
     .reduce((sum, a) => sum + toBase(Number(a.current_balance), a.currency), 0);
+  // The emergency reserve is a policy figure, not a liquidity figure: only
+  // spendable cash counts, and rule 4 measures it in GBP. Non-GBP cash is kept
+  // separately so the dashboard can say it exists without counting it.
+  const reserveAccounts = cashAccounts.filter((a) =>
+    RESERVE_ACCOUNT_TYPES.includes(a.account_type),
+  );
+  const reserveCash = reserveAccounts
+    .filter((a) => a.currency === "GBP")
+    .reduce((sum, a) => sum + toBase(Number(a.current_balance), a.currency), 0);
+  const otherCurrencyCash = reserveAccounts
+    .filter((a) => a.currency !== "GBP")
+    .reduce((sum, a) => sum + toBase(Number(a.current_balance), a.currency), 0);
+
   const liquidAssets = assets.filter((a) => a.is_liquid).reduce((s, a) => s + assetValue(a), 0);
   const liquidNetWorth = liquidCash + liquidAssets - accountDebtTotal;
   const illiquidNetWorth = netWorth - liquidNetWorth;
