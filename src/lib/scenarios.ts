@@ -31,6 +31,8 @@ export type SavedScenarioRow = {
   assumptions: unknown;
   preset_key: string | null;
   sort_order: number;
+  /** The stored baseline row, if one exists, is the projection itself — never a comparison. */
+  is_baseline: boolean;
 };
 
 export type ScenarioRun = {
