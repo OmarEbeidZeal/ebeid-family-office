@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { db } from "@/lib/db";
 import { applyCategoryRule } from "@/lib/statements.functions";
+import { expandSplits, type SplitPart } from "@/lib/spending";
 import { useAuth } from "./useAuth";
 import { useAccounts } from "./useFinancials";
 import { useScope } from "./useScope";
@@ -306,36 +307,6 @@ export function useTransactionHistory(monthsBack = 24) {
   });
 }
 
-type SplitPart = { transaction_id: string; category_id: string | null; amount: number };
-
-/** Replaces each split transaction with one row per part, pro-rating the base amount. */
-export function expandSplits(rows: TransactionRow[], parts: SplitPart[]): TransactionRow[] {
-  if (!parts.length) return rows;
-  const byTransaction = new Map<string, SplitPart[]>();
-  for (const part of parts) {
-    const bucket = byTransaction.get(part.transaction_id);
-    if (bucket) bucket.push(part);
-    else byTransaction.set(part.transaction_id, [part]);
-  }
-  if (!byTransaction.size) return rows;
-
-  return rows.flatMap((row) => {
-    const split = byTransaction.get(row.id);
-    if (!split?.length || !row.amount) return [row];
-    return split.map((part, index) => {
-      const amount = Number(part.amount);
-      const share = amount / row.amount;
-      return {
-        ...row,
-        id: `${row.id}:${index}`,
-        amount,
-        amount_base: row.amount_base === null ? null : Number((row.amount_base * share).toFixed(2)),
-        category_id: part.category_id,
-      };
-    });
-  });
-}
-
 export function useStatements() {
   const { household } = useAuth();
   return useQuery({
@@ -504,3 +475,6 @@ export function useSaveSplits() {
     },
   });
 }
+
+export { expandSplits } from "@/lib/spending";
+export type { SplitPart } from "@/lib/spending";

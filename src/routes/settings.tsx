@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ProfileCard } from "@/components/settings/ProfileCard";
 import { HouseholdCard } from "@/components/settings/HouseholdCard";
 import { FxCard } from "@/components/settings/FxCard";
+import { MarketDataCard } from "@/components/settings/MarketDataCard";
 import { AccessCard } from "@/components/settings/AccessCard";
 import { AppearanceCard } from "@/components/settings/AppearanceCard";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,6 +44,7 @@ function SettingsPage() {
         <HouseholdCard />
         <AccessCard />
         <FxCard />
+        <MarketDataCard />
         <AppearanceCard />
 
         <section className="hairline flex flex-wrap items-center justify-between gap-4 rounded-lg bg-surface p-5 sm:p-6">

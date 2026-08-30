@@ -40,18 +40,43 @@
       comparison, standing costs, top merchants, money set aside kept out of expenses
 - [x] Dashboard reads observed spending: net cashflow, emergency runway, savings rate
 
-## Phase 3 (next)
+## Phase 3 — portfolio, market data and the advisor (this build)
 
-- [ ] Live market data into `price_snapshots`, real portfolio page with holdings P&L
-- [ ] AI advisor: grounded briefings into `advisor_notes`, chat into `advisor_chat`
+Market data
+- [ ] `FINNHUB_API_KEY` secret; `PriceProvider` interface with a Finnhub implementation
+- [ ] Quotes, company profile, fundamentals and news; quotes cached into `price_snapshots`,
+      served from cache under 60s, batched per refresh, never one call per rendered row
+- [ ] Honest unavailable state when the key is missing or a call fails; "as of" beside every price
+- [ ] Settings → Market data: key status, test call, cache age
+
+Portfolio
+- [ ] Holdings table — live price, market value, unrealised P/L, day change, weight, sortable totals
+- [ ] Trades (buys and sells) drive average cost through a database trigger, never typed
+- [ ] Sleeves (core / bond / thematic / satellite / crypto) and portfolio summary
+- [ ] Concentration panel against the written policy caps: within / approaching / breach
+- [ ] Watchlist with a required thesis and falsification condition, target price and distance
+- [ ] Sector and geographic exposure
+- [ ] Account reconciliation — priced holdings vs recorded account balance, one-click update
+
+Advisor
+- [ ] Investment policy encoded once (`src/lib/policy.ts`) and shared by UI, chat and briefing
+- [ ] Context assembly: liquidity, allocation vs policy, holdings and weights, goals, essential
+      spend from real transactions, income, currency exposure, ISA/pension allowance remaining
+- [ ] Streaming chat persisted to `advisor_chat`, markdown, suggested prompts from real state
+- [ ] `generate-briefing` — deterministic signal detection, AI wording, writes `advisor_notes`
+      only when something is genuinely worth saying; weekly schedule
+- [ ] Dashboard advisor panel with unread count badge
+- [ ] Tax-year allowance tracking (`tax_allowances`) surfaced in Settings and used by the briefing
+
+## Phase 4 (next)
+
 - [ ] Forecast + scenarios: cashflow projection, goal funding, UK tax wrapper capacity
-
-
+- [ ] CGT-aware disposal view against the £3,000 annual exempt amount
 
 ## Backlog / ideas captured while building
 
 - [ ] Goal line items UI (`goal_line_items` is in the schema, used for furnishing budgets)
-- [ ] Watchlist UI (`watchlist` table exists, feeds Phase 2 advisor)
 - [ ] Snapshot backfill job so the trend chart survives days the app is not opened
-- [ ] ISA / pension allowance tracker with a 5 April countdown (UK tax figures in project knowledge)
 - [ ] Per-account balance history so account rows show their own trend
+- [ ] Dividend and interest income recorded against holdings
+

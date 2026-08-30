@@ -21,6 +21,7 @@ import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SpendingRouteImport } from './routes/spending'
 import { Route as TransactionsRouteImport } from './routes/transactions'
+import { Route as ApiAdvisorChatRouteImport } from './routes/api/advisor/chat'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -82,6 +83,11 @@ const TransactionsRoute = TransactionsRouteImport.update({
   path: '/transactions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdvisorChatRoute = ApiAdvisorChatRouteImport.update({
+  id: '/api/advisor/chat',
+  path: '/api/advisor/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
+  '/api/advisor/chat': typeof ApiAdvisorChatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
+  '/api/advisor/chat': typeof ApiAdvisorChatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
+  '/api/advisor/chat': typeof ApiAdvisorChatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/spending'
     | '/transactions'
+    | '/api/advisor/chat'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/spending'
     | '/transactions'
+    | '/api/advisor/chat'
   id:
     | '__root__'
     | '/'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/spending'
     | '/transactions'
+    | '/api/advisor/chat'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -184,6 +196,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SpendingRoute: typeof SpendingRoute
   TransactionsRoute: typeof TransactionsRoute
+  ApiAdvisorChatRoute: typeof ApiAdvisorChatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -272,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TransactionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/advisor/chat': {
+      id: '/api/advisor/chat'
+      path: '/api/advisor/chat'
+      fullPath: '/api/advisor/chat'
+      preLoaderRoute: typeof ApiAdvisorChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -288,6 +308,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SpendingRoute: SpendingRoute,
   TransactionsRoute: TransactionsRoute,
+  ApiAdvisorChatRoute: ApiAdvisorChatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
