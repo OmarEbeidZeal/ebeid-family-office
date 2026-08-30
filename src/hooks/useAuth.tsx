@@ -1,0 +1,101 @@
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { Session, User } from "@supabase/supabase-js";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+export type Profile = {
+  id: string;
+  household_id: string;
+  full_name: string | null;
+  display_name: string | null;
+  email: string;
+  role: string;
+  avatar_url: string | null;
+};
+
+export type Household = {
+  id: string;
+  name: string;
+  base_currency: string;
+};
+
+type AuthContextValue = {
+  session: Session | null;
+  user: User | null;
+  loading: boolean;
+  profile: Profile | null;
+  household: Household | null;
+  members: Profile[];
+  profileLoading: boolean;
+  signOut: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setLoading(false);
+      queryClient.invalidateQueries();
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setLoading(false);
+    });
+    return () => subscription.subscription.unsubscribe();
+  }, [queryClient]);
+
+  const userId = session?.user.id ?? null;
+
+  const { data, isLoading: profileLoading } = useQuery({
+    queryKey: ["session-context", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId!)
+        .maybeSingle();
+      if (error) throw error;
+      if (!profile) return { profile: null, household: null, members: [] as Profile[] };
+
+      const [{ data: household }, { data: members }] = await Promise.all([
+        supabase.from("households").select("*").eq("id", profile.household_id).maybeSingle(),
+        supabase.from("profiles").select("*").eq("household_id", profile.household_id),
+      ]);
+
+      return {
+        profile: profile as Profile,
+        household: (household as Household) ?? null,
+        members: (members as Profile[]) ?? [],
+      };
+    },
+  });
+
+  const value: AuthContextValue = {
+    session,
+    user: session?.user ?? null,
+    loading,
+    profile: data?.profile ?? null,
+    household: data?.household ?? null,
+    members: data?.members ?? [],
+    profileLoading: !!userId && profileLoading,
+    signOut: async () => {
+      await supabase.auth.signOut();
+      queryClient.clear();
+    },
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  return context;
+}
