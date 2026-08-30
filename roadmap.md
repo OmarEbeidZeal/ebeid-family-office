@@ -48,8 +48,9 @@ Market data
       served from cache under 60s, batched per refresh, never one call per rendered row
 - [x] Honest unavailable state when the key is missing or a call fails; "as of" beside every price
 - [x] Settings → Market data: key status, test call, cache age
-- [ ] `FINNHUB_API_KEY` secret — **waiting on Omar**. Everything above is built and the app says
-      plainly that prices are unavailable until the key is added in Project Settings → Secrets.
+- [x] `FINNHUB_API_KEY` secret — added 30 Aug 2026 and verified against a live quote. Prices are
+      live; the unavailable state now only appears if a call genuinely fails.
+
 
 Portfolio
 - [x] Holdings table — live price, market value, unrealised P/L, day change, weight, sortable totals
@@ -125,8 +126,9 @@ Polish pass
 - [x] Consistency: one `<Money>`, tabular figures, both themes checked page by page
 
 Still open (needs Omar, or the platform)
-- [ ] `FINNHUB_API_KEY` — add it in Project Settings → Secrets. Until then the portfolio says
-      plainly that market data is unavailable rather than showing a stale or invented price.
+- [x] `FINNHUB_API_KEY` — added and verified with a live quote; the portfolio prices from Finnhub
+      with an "as of" timestamp and a 60-second cache.
+
 - [ ] Weekly briefing schedule — `pg_cron` / `pg_net` are unavailable on this project, so
       briefings are generated on demand from `/advisor`.
 - [ ] Haya's invitation — add her address under Settings → Access so she gets her own sign-in.
