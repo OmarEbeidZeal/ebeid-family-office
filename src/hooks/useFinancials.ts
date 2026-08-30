@@ -9,6 +9,14 @@ export type AccountRow = {
   owner_profile_id: string | null;
   nickname: string;
   institution: string | null;
+  /** Set when the institution was recognised, so a logo can be shown. */
+  institution_domain: string | null;
+  /** Last four digits only — the full number is never stored in this table. */
+  identifier_mask: string | null;
+  /** The name the statement itself carries, when it was read from one. */
+  statement_holder: string | null;
+  /** "manual" or "statement" — how this account came to exist. */
+  discovered_from: string;
   country: string;
   account_type: string;
   currency: string;
