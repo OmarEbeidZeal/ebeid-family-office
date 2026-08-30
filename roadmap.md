@@ -177,6 +177,9 @@ Scheduled jobs
       stored price is a genuine close rather than whatever a visit happened to cache
 - [x] Briefing, 07:00 UTC daily, run for each household on the weekday its members chose
 - [x] Every run recorded in `automation_runs`; the on-load refreshes stay as a staleness fallback
+- [x] A call that never reaches the app is recorded too — the database checks how its previous
+      calls went and writes the failure with what to do about it, so a broken schedule shows up in
+      Settings instead of looking like a job that simply has not run
 
 Delivery
 - [x] Unread advisor notes badge on the sidebar Advisor item, on the mobile More tab and on the
