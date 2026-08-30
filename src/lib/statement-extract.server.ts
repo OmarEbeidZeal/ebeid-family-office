@@ -422,10 +422,19 @@ const META_SCHEMA = {
     opening_balance: { type: "string" },
     closing_balance: { type: "string" },
     currency: { type: "string" },
+    ...IDENTITY_PROPERTIES,
   },
-  required: ["period_start", "period_end", "opening_balance", "closing_balance", "currency"],
+  required: [
+    "period_start",
+    "period_end",
+    "opening_balance",
+    "closing_balance",
+    "currency",
+    ...IDENTITY_KEYS,
+  ],
   additionalProperties: false,
 } as const;
+
 
 const PDF_SCHEMA = {
   type: "object",
