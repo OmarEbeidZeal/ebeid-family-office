@@ -298,6 +298,8 @@ function PortfolioPage() {
         open={tradeSheet.open}
         onOpenChange={(open) => setTradeSheet((current) => ({ ...current, open }))}
         holdings={holdings.data ?? []}
+        trades={trades.data ?? []}
+
         trade={tradeSheet.trade}
         defaultHoldingId={tradeSheet.holdingId}
       />
