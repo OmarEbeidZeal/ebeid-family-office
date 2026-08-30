@@ -80,8 +80,9 @@ export function buildSuggestions(context: HouseholdContext, base: string): strin
   }
 
   if (watches.length && suggestions.length < 6) {
-    suggestions.push(`What should I do about: ${watches[0]!.headline}?`);
+    suggestions.push(rulePrompt(watches[0]!, "We are drifting on"));
   }
+
 
   if (context.holdings.length && suggestions.length < 6) {
     suggestions.push("Review the portfolio against the investment policy and tell me what to fix first.");
