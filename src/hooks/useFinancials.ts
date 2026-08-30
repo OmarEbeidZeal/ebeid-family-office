@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db";
 import { useAuth } from "./useAuth";
 
 export type AccountRow = {
@@ -119,7 +120,7 @@ function useTable<T>(key: string, table: string, order?: string) {
     queryKey: [key, household?.id],
     enabled: !!household?.id,
     queryFn: async () => {
-      let query = supabase.from(table).select("*").eq("household_id", household!.id);
+      let query = db.from(table).select("*").eq("household_id", household!.id);
       if (order) query = query.order(order, { ascending: false });
       const { data, error } = await query;
       if (error) throw error;

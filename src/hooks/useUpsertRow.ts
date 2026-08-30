@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db";
 import { useAuth } from "./useAuth";
 
 type Payload = Record<string, unknown>;
@@ -12,11 +12,11 @@ export function useSaveRow(table: string, queryKey: string, label: string) {
   return useMutation({
     mutationFn: async ({ id, values }: { id?: string | undefined; values: Payload }) => {
       if (id) {
-        const { error } = await supabase.from(table).update(values).eq("id", id);
+        const { error } = await db.from(table).update(values).eq("id", id);
         if (error) throw error;
         return;
       }
-      const { error } = await supabase
+      const { error } = await db
         .from(table)
         .insert({ ...values, household_id: household!.id });
       if (error) throw error;
@@ -33,7 +33,7 @@ export function useDeleteRow(table: string, queryKey: string, label: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from(table).delete().eq("id", id);
+      const { error } = await db.from(table).delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

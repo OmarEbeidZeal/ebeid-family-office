@@ -16,7 +16,7 @@ export function currencySymbol(code: string) {
 }
 
 /** 2dp under 10k, 0dp above. Prices always 2dp. */
-export function formatAmount(value: number, opts?: { decimals?: number }) {
+export function formatAmount(value: number, opts?: { decimals?: number | undefined }) {
   const abs = Math.abs(value);
   const decimals = opts?.decimals ?? (abs < 10000 ? 2 : 0);
   return new Intl.NumberFormat("en-GB", {
@@ -25,7 +25,7 @@ export function formatAmount(value: number, opts?: { decimals?: number }) {
   }).format(value);
 }
 
-export function formatMoney(value: number, currency: string, opts?: { decimals?: number }) {
+export function formatMoney(value: number, currency: string, opts?: { decimals?: number | undefined }) {
   const sign = value < 0 ? "-" : "";
   return `${sign}${currencySymbol(currency)}${formatAmount(Math.abs(value), opts)}`;
 }
