@@ -34,6 +34,7 @@ type Destination =
   | "/accounts"
   | "/balance-sheet"
   | "/transactions"
+  | "/import"
   | "/spending"
   | "/portfolio"
   | "/goals"
