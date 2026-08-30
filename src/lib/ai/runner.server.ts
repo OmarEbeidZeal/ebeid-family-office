@@ -45,16 +45,24 @@ export async function resolveAiProvider(
 
   const requested = { provider, model: model ?? defaultModel(provider, job) };
 
-  if (!providerKey(provider) && provider !== FALLBACK_PROVIDER) {
-    return {
-      job,
-      provider: FALLBACK_PROVIDER,
-      model: defaultModel(FALLBACK_PROVIDER, job),
-      requested,
-      unavailable: true,
-      note: `${providerLabel(provider)} has no key, so Lovable AI ran this instead.`,
-    };
+  if (provider !== FALLBACK_PROVIDER) {
+    const reason = !providerKey(provider)
+      ? `${providerLabel(provider)} has no key`
+      : !requested.model
+        ? `no ${providerLabel(provider)} model has been chosen`
+        : null;
+    if (reason) {
+      return {
+        job,
+        provider: FALLBACK_PROVIDER,
+        model: defaultModel(FALLBACK_PROVIDER, job),
+        requested,
+        unavailable: true,
+        note: `${reason}, so Lovable AI ran this instead.`,
+      };
+    }
   }
+
 
   return {
     job,
