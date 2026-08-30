@@ -10,14 +10,21 @@ export function SleevePanel({
   rows,
   base,
   investableTotal,
+  unpricedCount = 0,
+  holdingCount = 0,
   loading,
 }: {
   rows: AllocationRow[];
   base: string;
   investableTotal: number;
+  unpricedCount?: number;
+  holdingCount?: number;
   loading?: boolean;
 }) {
   const notes = Object.fromEntries(SLEEVES.map((sleeve) => [sleeve.value, sleeve.note]));
+  // Weights built on unpriced holdings read as 0% in every sleeve. That is an
+  // absence of prices, not an allocation, and the panel must say so.
+  const measurable = holdingCount === 0 || unpricedCount === 0;
 
   return (
     <section className="hairline rounded-lg bg-surface p-5">
@@ -26,6 +33,15 @@ export function SleevePanel({
         description={`Weights are a share of ${formatMoney(investableTotal, base, { decimals: 0 })} of liquid investable assets — cash, ISAs, GIAs, accessible pensions and priced holdings. Property and the private stake are excluded.`}
       />
 
+      {!loading && !measurable && (
+        <p className="mb-4 rounded-md border border-warn/35 bg-warn-soft/60 px-3 py-2 text-xs leading-relaxed text-warn">
+          {unpricedCount} of {holdingCount} holding{holdingCount === 1 ? "" : "s"}{" "}
+          {unpricedCount === 1 ? "has" : "have"} no price, so the weights below cover cash and
+          priced assets only. Sleeve drift and the rule 12 rebalance trigger cannot be judged until
+          every holding is priced.
+        </p>
+      )}
+
       {loading ? (
         <div className="space-y-3">
           {[0, 1, 2, 3].map((index) => (
@@ -33,6 +49,7 @@ export function SleevePanel({
           ))}
         </div>
       ) : (
+
         <ul className="space-y-3.5">
           {rows.map((row) => {
             const actual = row.actualPct ?? 0;
