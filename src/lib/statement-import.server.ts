@@ -267,12 +267,19 @@ export async function importStatement(
  * reconcile, write. Split out so a statement whose account was confirmed later
  * can be imported from its cached extraction without paying to read it twice.
  */
+export type ImportableStatement = {
+  id: string;
+  household_id: string;
+  account_id: string | null;
+  [key: string]: unknown;
+};
+
 export async function importExtracted(
   supabase: Client,
-  statement: Record<string, any>,
+  statement: ImportableStatement,
   extraction: ExtractionResult,
 ): Promise<ImportResult> {
-  const statementId = statement["id"] as string;
+  const statementId = statement.id;
 
   try {
     const parsed: RawTransaction[] = extraction.transactions;
@@ -395,7 +402,7 @@ export async function importExtracted(
     let categoriser: JsonRunner | null = null;
     if (needsAi.length) {
       try {
-        categoriser = await createJsonRunner(supabase, statement["household_id"], "categorisation");
+        categoriser = await createJsonRunner(supabase, statement.household_id, "categorisation");
         const results = await categoriseBatch(
           categoriser,
           needsAi.map((entry) => ({
