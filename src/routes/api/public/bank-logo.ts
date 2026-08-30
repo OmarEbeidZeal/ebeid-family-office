@@ -23,12 +23,21 @@ function notFound(reason: string) {
 
 async function handleGet({ request }: { request: Request }) {
   const url = new URL(request.url);
+  const token = process.env["LOGODEV_TOKEN"] ?? process.env["LOGO_DEV_TOKEN"];
+
+  // The interface asks once whether marks are available at all, so it can draw
+  // monograms straight away instead of firing an image request per bank.
+  if (url.searchParams.get("probe") === "1") {
+    return new Response(JSON.stringify({ available: Boolean(token) }), {
+      status: 200,
+      headers: { "content-type": "application/json", "cache-control": "public, max-age=300" },
+    });
+  }
+
   const domain = (url.searchParams.get("domain") ?? "").toLowerCase().trim();
   const size = Math.min(Math.max(Number(url.searchParams.get("size") ?? 64), 16), 256);
 
   if (!domain || !ALLOWED.has(domain)) return notFound("Unknown bank");
-
-  const token = process.env["LOGODEV_TOKEN"] ?? process.env["LOGO_DEV_TOKEN"];
   if (!token) return notFound("No logo token configured");
 
   try {

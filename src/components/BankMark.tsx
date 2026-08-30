@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { bankDomain, monogram } from "@/lib/ai/banks";
+import { bankLogosAvailable } from "@/lib/bank-logos";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,7 +22,18 @@ export function BankMark({
 }) {
   const resolved = domain ?? bankDomain(institution ?? null);
   const [failed, setFailed] = useState(false);
+  const [marksAvailable, setMarksAvailable] = useState(false);
   const initials = monogram(institution ?? resolved ?? "");
+
+  useEffect(() => {
+    let live = true;
+    void bankLogosAvailable().then((available) => {
+      if (live) setMarksAvailable(available);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   return (
     <span
@@ -33,7 +45,7 @@ export function BankMark({
       aria-hidden
     >
       {initials}
-      {resolved && !failed && (
+      {resolved && marksAvailable && !failed && (
         <img
           src={`/api/public/bank-logo?domain=${encodeURIComponent(resolved)}&size=${size * 2}`}
           alt=""
