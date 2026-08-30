@@ -43,35 +43,42 @@
 ## Phase 3 — portfolio, market data and the advisor (this build)
 
 Market data
-- [ ] `FINNHUB_API_KEY` secret; `PriceProvider` interface with a Finnhub implementation
-- [ ] Quotes, company profile, fundamentals and news; quotes cached into `price_snapshots`,
+- [x] `PriceProvider` interface with a Finnhub implementation (one file to swap for Polygon etc.)
+- [x] Quotes, company profile, fundamentals and news; quotes cached into `price_snapshots`,
       served from cache under 60s, batched per refresh, never one call per rendered row
-- [ ] Honest unavailable state when the key is missing or a call fails; "as of" beside every price
-- [ ] Settings → Market data: key status, test call, cache age
+- [x] Honest unavailable state when the key is missing or a call fails; "as of" beside every price
+- [x] Settings → Market data: key status, test call, cache age
+- [ ] `FINNHUB_API_KEY` secret — **waiting on Omar**. Everything above is built and the app says
+      plainly that prices are unavailable until the key is added in Project Settings → Secrets.
 
 Portfolio
-- [ ] Holdings table — live price, market value, unrealised P/L, day change, weight, sortable totals
-- [ ] Trades (buys and sells) drive average cost through a database trigger, never typed
-- [ ] Sleeves (core / bond / thematic / satellite / crypto) and portfolio summary
-- [ ] Concentration panel against the written policy caps: within / approaching / breach
-- [ ] Watchlist with a required thesis and falsification condition, target price and distance
-- [ ] Sector and geographic exposure
-- [ ] Account reconciliation — priced holdings vs recorded account balance, one-click update
+- [x] Holdings table — live price, market value, unrealised P/L, day change, weight, sortable totals
+- [x] Trades (buys and sells) drive average cost through a database trigger, never typed;
+      a hand-entered position is preserved as a labelled opening lot on its first trade
+- [x] Sleeves (core / bond / thematic / satellite / crypto) and portfolio summary
+- [x] Concentration panel against the written policy caps: within / approaching / breach, and
+      "not measurable" rather than a false pass when a holding has no live price
+- [x] Watchlist with a required thesis and falsification condition, target price and distance
+- [x] Sector and geographic exposure
+- [x] Account reconciliation — priced holdings vs recorded account balance, one-click update
 
 Advisor
-- [ ] Investment policy encoded once (`src/lib/policy.ts`) and shared by UI, chat and briefing
-- [ ] Context assembly: liquidity, allocation vs policy, holdings and weights, goals, essential
+- [x] Investment policy encoded once (`src/lib/policy.ts`) and shared by UI, chat and briefing
+- [x] Context assembly: liquidity, allocation vs policy, holdings and weights, goals, essential
       spend from real transactions, income, currency exposure, ISA/pension allowance remaining
-- [ ] Streaming chat persisted to `advisor_chat`, markdown, suggested prompts from real state
-- [ ] `generate-briefing` — deterministic signal detection, AI wording, writes `advisor_notes`
-      only when something is genuinely worth saying; weekly schedule
-- [ ] Dashboard advisor panel with unread count badge
-- [ ] Tax-year allowance tracking (`tax_allowances`) surfaced in Settings and used by the briefing
+- [x] Streaming chat persisted to `advisor_chat`, markdown, suggested prompts from real state
+- [x] `generate-briefing` — deterministic signal detection, AI wording, writes `advisor_notes`
+      only when something is genuinely worth saying, deduplicated over 21 days
+- [x] Dashboard advisor panel with unread count badge
+- [x] Tax-year allowance tracking (`tax_allowances`) — Settings editor, read by chat and briefing
+- [ ] Weekly briefing schedule — deferred: `pg_cron` / `pg_net` are not available on this project,
+      so briefings are generated on demand from `/advisor`
 
 ## Phase 4 (next)
 
 - [ ] Forecast + scenarios: cashflow projection, goal funding, UK tax wrapper capacity
 - [ ] CGT-aware disposal view against the £3,000 annual exempt amount
+
 
 ## Backlog / ideas captured while building
 
