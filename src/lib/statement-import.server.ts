@@ -392,9 +392,12 @@ export async function importExtracted(
       .filter((entry) => !assignments[entry.index]);
 
     let aiNote: string | null = null;
+    let categoriser: JsonRunner | null = null;
     if (needsAi.length) {
       try {
+        categoriser = await createJsonRunner(supabase, statement["household_id"], "categorisation");
         const results = await categoriseBatch(
+          categoriser,
           needsAi.map((entry) => ({
             description: entry.row.description,
             merchant: entry.row.merchant,
@@ -404,6 +407,7 @@ export async function importExtracted(
           })),
           categories,
         );
+
         results.forEach((result, position) => {
           const entry = needsAi[position]!;
           assignments[entry.index] = {
