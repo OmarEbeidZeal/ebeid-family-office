@@ -48,8 +48,9 @@ Market data
       served from cache under 60s, batched per refresh, never one call per rendered row
 - [x] Honest unavailable state when the key is missing or a call fails; "as of" beside every price
 - [x] Settings → Market data: key status, test call, cache age
-- [ ] `FINNHUB_API_KEY` secret — **waiting on Omar**. Everything above is built and the app says
-      plainly that prices are unavailable until the key is added in Project Settings → Secrets.
+- [x] `FINNHUB_API_KEY` secret — added 30 Aug 2026 and verified against a live quote. Prices are
+      live; the unavailable state now only appears if a call genuinely fails.
+
 
 Portfolio
 - [x] Holdings table — live price, market value, unrealised P/L, day change, weight, sortable totals
