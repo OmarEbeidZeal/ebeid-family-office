@@ -153,6 +153,62 @@ async function fail(supabase: Client, statementId: string, message: string): Pro
   };
 }
 
+/** A failure with a sentence worth showing the household. */
+export class StatementFailure extends Error {}
+
+export type LoadedStatementFile = {
+  kind: "pdf" | "csv" | "xlsx";
+  bytes: Uint8Array;
+};
+
+export async function downloadStatementFile(
+  supabase: Client,
+  statement: { file_path: string; file_name?: string | null },
+): Promise<LoadedStatementFile> {
+  const { data: file, error } = await supabase.storage
+    .from("statements")
+    .download(statement.file_path);
+  if (error || !file) {
+    throw new StatementFailure(
+      "The uploaded file could not be read back from storage. Upload it again.",
+    );
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const kind = detectFileKind(statement.file_name ?? statement.file_path, (file as any).type);
+  if (!kind) {
+    throw new StatementFailure(
+      "Only PDF, CSV and Excel statements can be read. Export one of those formats from your bank.",
+    );
+  }
+  return { kind, bytes };
+}
+
+/** File bytes → rows plus everything the statement says about itself. */
+export async function extractStatementContent(
+  runner: JsonRunner,
+  file: LoadedStatementFile,
+): Promise<ExtractionResult> {
+  if (file.kind === "pdf") {
+    const pdf = await extractPdfText(file.bytes);
+    if (looksScanned(pdf)) throw new StatementFailure(SCANNED_PDF_MESSAGE);
+    return extractFromPdfText(runner, pdf.text);
+  }
+
+  const rawRows =
+    file.kind === "csv"
+      ? await parseDelimitedRows(decodeText(file.bytes))
+      : await parseWorkbookRows(file.bytes);
+  const rows = rawRows.filter((row) => row.some((cell) => (cell ?? "").trim().length > 0));
+  if (rows.length < 2) {
+    throw new StatementFailure(
+      "This file has no readable rows. Check you exported the transaction list rather than a summary.",
+    );
+  }
+  const mapping = await inferColumnMapping(runner, rows);
+  return applyMapping(rows, mapping);
+}
+
 export async function importStatement(
   supabase: Client,
   statementId: string,
@@ -184,51 +240,34 @@ export async function importStatement(
     .eq("id", statementId);
 
   try {
-    /* ---------------------------------------------------------- download */
-    const { data: file, error: downloadError } = await supabase.storage
-      .from("statements")
-      .download(statement.file_path);
-    if (downloadError || !file) {
-      return fail(
-        supabase,
-        statementId,
-        "The uploaded file could not be read back from storage. Upload it again.",
-      );
-    }
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    const file = await downloadStatementFile(supabase, statement);
+    const extractionRunner = await createJsonRunner(
+      supabase,
+      statement.household_id,
+      "extraction",
+    );
+    const extraction = await extractStatementContent(extractionRunner, file);
+    return await importExtracted(supabase, statement, extraction);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "The statement could not be read. Try again.";
+    return fail(supabase, statementId, message);
+  }
+}
 
-    const kind = detectFileKind(statement.file_name ?? statement.file_path, (file as any).type);
-    if (!kind) {
-      return fail(
-        supabase,
-        statementId,
-        "Only PDF, CSV and Excel statements can be read. Export one of those formats from your bank.",
-      );
-    }
+/**
+ * Everything after extraction: convert, deduplicate, categorise, detect,
+ * reconcile, write. Split out so a statement whose account was confirmed later
+ * can be imported from its cached extraction without paying to read it twice.
+ */
+export async function importExtracted(
+  supabase: Client,
+  statement: Record<string, any>,
+  extraction: ExtractionResult,
+): Promise<ImportResult> {
+  const statementId = statement["id"] as string;
 
-    /* ----------------------------------------------------------- extract */
-    let extraction;
-    if (kind === "pdf") {
-      const pdf = await extractPdfText(bytes);
-      if (looksScanned(pdf)) return fail(supabase, statementId, SCANNED_PDF_MESSAGE);
-      extraction = await extractFromPdfText(pdf.text);
-    } else {
-      const rawRows =
-        kind === "csv"
-          ? await parseDelimitedRows(decodeText(bytes))
-          : await parseWorkbookRows(bytes);
-      const rows = rawRows.filter((row) => row.some((cell) => (cell ?? "").trim().length > 0));
-      if (rows.length < 2) {
-        return fail(
-          supabase,
-          statementId,
-          "This file has no readable rows. Check you exported the transaction list rather than a summary.",
-        );
-      }
-      const mapping = await inferColumnMapping(rows);
-      extraction = applyMapping(rows, mapping);
-    }
-
+  try {
     const parsed: RawTransaction[] = extraction.transactions;
     if (!parsed.length) {
       return fail(
@@ -239,6 +278,7 @@ export async function importStatement(
     }
 
     const notes = [...extraction.notes];
+
 
     /* -------------------------------------------------- context and rates */
     const [{ data: account }, { data: household }, { data: categoryRows }, { data: ruleRows }] =
