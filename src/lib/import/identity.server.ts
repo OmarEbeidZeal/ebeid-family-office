@@ -204,7 +204,9 @@ export function matchAccount(
   }
 
   if (identity.institution) {
-    const sameBank = active.filter((account) => sameInstitution(identity.institution, account.institution));
+    const sameBank = active.filter((account) =>
+      sameInstitution(identity.institution, account.institution),
+    );
     const sameBankAndCurrency = identity.currency
       ? sameBank.filter((account) => account.currency === identity.currency)
       : sameBank;
@@ -214,10 +216,11 @@ export function matchAccount(
       return {
         account_id: only!.id,
         confidence: 0.55,
-        reason: `${only!.nickname} is the only ${identity.currency ?? ""} account you hold at this bank.`.replace(
-          "  ",
-          " ",
-        ),
+        reason:
+          `${only!.nickname} is the only ${identity.currency ?? ""} account you hold at this bank.`.replace(
+            "  ",
+            " ",
+          ),
       };
     }
     if (sameBankAndCurrency.length > 1) {
@@ -322,7 +325,10 @@ export function candidateLastFourHashes(lastFour: string | null): string[] {
   return kinds.map((kind) => lastFourHash(lastFour, kind));
 }
 
-export function identityCountry(identity: StatementIdentity, currency: string | null): string | null {
+export function identityCountry(
+  identity: StatementIdentity,
+  currency: string | null,
+): string | null {
   if (identity.country) return identity.country;
   const byCurrency: Record<string, string> = {
     GBP: "GB",

@@ -117,13 +117,11 @@ function cleanIdentity(raw: RawIdentity | null | undefined): StatementIdentity {
     institution: text(raw?.institution),
     statement_holder: text(raw?.statement_holder),
     account_identifier: text(raw?.account_identifier, 64),
-    identifier_kind:
-      kind === "iban" || kind === "card" || kind === "account_number" ? kind : null,
+    identifier_kind: kind === "iban" || kind === "card" || kind === "account_number" ? kind : null,
     account_type: text(raw?.account_type, 24),
     country: country && /^[A-Za-z]{2}$/.test(country) ? country.toUpperCase() : null,
   };
 }
-
 
 /* ------------------------------------------------------------ tabular files */
 
@@ -217,7 +215,6 @@ export async function inferColumnMapping(
     maxTokens: 1500,
   });
 }
-
 
 function joinCells(row: string[], indexes: number[]): string {
   return indexes
@@ -411,7 +408,6 @@ export function applyMapping(rows: string[][], mapping: ColumnMapping): Extracti
   };
 }
 
-
 /* ----------------------------------------------------------------- PDF text */
 
 const META_SCHEMA = {
@@ -434,7 +430,6 @@ const META_SCHEMA = {
   ],
   additionalProperties: false,
 } as const;
-
 
 const PDF_SCHEMA = {
   type: "object",
@@ -543,7 +538,6 @@ ${IDENTITY_RULES}`,
         }),
       ),
     );
-
 
     for (const page of parsed) {
       for (const row of page.transactions ?? []) {

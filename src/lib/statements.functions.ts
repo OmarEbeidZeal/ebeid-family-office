@@ -19,7 +19,11 @@ const queueInput = z.object({
       z.object({
         path: z.string().min(1).max(500),
         name: z.string().min(1).max(300),
-        size: z.number().int().nonnegative().max(20 * 1024 * 1024),
+        size: z
+          .number()
+          .int()
+          .nonnegative()
+          .max(20 * 1024 * 1024),
       }),
     )
     .min(1)
@@ -36,7 +40,18 @@ const resolveInput = z.object({
   accountId: z.string().uuid().nullable().optional(),
   nickname: z.string().min(1).max(80).nullable().optional(),
   accountType: z
-    .enum(["current", "savings", "isa", "sipp", "gia", "crypto", "cash", "credit_card", "loan", "mortgage"])
+    .enum([
+      "current",
+      "savings",
+      "isa",
+      "sipp",
+      "gia",
+      "crypto",
+      "cash",
+      "credit_card",
+      "loan",
+      "mortgage",
+    ])
     .nullable()
     .optional(),
   currency: z.string().length(3).nullable().optional(),

@@ -49,7 +49,8 @@ function ImportPage() {
   const { waiting } = useQueueDriver(statements);
 
   const active = useMemo(
-    () => statements.filter((row) => IN_FLIGHT.has(row.status) || row.status === "awaiting_account"),
+    () =>
+      statements.filter((row) => IN_FLIGHT.has(row.status) || row.status === "awaiting_account"),
     [statements],
   );
   const recent = useMemo(

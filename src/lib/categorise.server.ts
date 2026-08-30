@@ -124,7 +124,6 @@ export async function categoriseBatch(
       maxTokens: 4000,
     });
 
-
     for (const item of response.items ?? []) {
       const target = start + item.index;
       if (target < 0 || target >= results.length) continue;

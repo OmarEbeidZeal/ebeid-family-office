@@ -108,7 +108,6 @@ export function defaultModel(provider: AiProviderId, job: AiJob): string {
   return DEFAULT_MODELS[provider][job];
 }
 
-
 export function jobLabel(job: AiJob): string {
   return AI_JOBS.find((entry) => entry.id === job)?.label ?? job;
 }

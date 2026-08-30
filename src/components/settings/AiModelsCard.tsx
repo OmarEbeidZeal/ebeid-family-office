@@ -236,9 +236,7 @@ function JobRow({
         </label>
       </div>
 
-      <p className="text-[0.68rem] leading-relaxed text-muted-foreground">
-        {MODEL_GUIDANCE[job]}
-      </p>
+      <p className="text-[0.68rem] leading-relaxed text-muted-foreground">{MODEL_GUIDANCE[job]}</p>
 
       {remote.data?.error ? (
         <p className="rounded-md border border-warn/40 bg-warn-soft px-2.5 py-2 text-[0.7rem] text-warn">

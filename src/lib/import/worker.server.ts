@@ -88,8 +88,7 @@ export async function runImportQueue(
         // An unexpected failure — a timeout, a provider outage — is worth
         // another go later; a verdict about the file is not, and those are
         // already terminal by the time they reach here.
-        const message =
-          error instanceof Error ? error.message : "The import stopped unexpectedly.";
+        const message = error instanceof Error ? error.message : "The import stopped unexpectedly.";
         if (claimed.attempts + 1 >= 5) {
           await supabase
             .from("statements")
@@ -102,7 +101,11 @@ export async function runImportQueue(
             .eq("id", claimed.id);
           summary.failed += 1;
         } else {
-          await deferStatement(supabase, { id: claimed.id, attempts: claimed.attempts + 1 }, message);
+          await deferStatement(
+            supabase,
+            { id: claimed.id, attempts: claimed.attempts + 1 },
+            message,
+          );
           summary.deferred += 1;
         }
       } finally {

@@ -170,7 +170,11 @@ function useInvalidateImports() {
 
 const SAFE_NAME = /[^a-zA-Z0-9._-]+/g;
 
-export type UploadProgress = { name: string; state: "uploading" | "done" | "error"; message?: string };
+export type UploadProgress = {
+  name: string;
+  state: "uploading" | "done" | "error";
+  message?: string;
+};
 
 /**
  * Uploads files, then registers them as one batch. No account is asked for:

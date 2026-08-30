@@ -28,10 +28,9 @@ export function ImportDropzone({ onQueued }: { onQueued?: (batchId: string) => v
     const files = chosen.filter((file) => file.size <= MAX_BYTES).slice(0, MAX_FILES);
 
     if (tooBig.length) {
-      toast.error(
-        `${tooBig.length} file${tooBig.length === 1 ? " is" : "s are"} over 20MB`,
-        { description: tooBig.map((file) => file.name).join(", ") },
-      );
+      toast.error(`${tooBig.length} file${tooBig.length === 1 ? " is" : "s are"} over 20MB`, {
+        description: tooBig.map((file) => file.name).join(", "),
+      });
     }
     if (chosen.length > MAX_FILES) {
       toast.message(`Taking the first ${MAX_FILES} files`, {
@@ -46,15 +45,12 @@ export function ImportDropzone({ onQueued }: { onQueued?: (batchId: string) => v
       const result = await queueImport.mutateAsync({
         files,
         onProgress: (update) =>
-          setProgress((current) =>
-            current.map((row) => (row.name === update.name ? update : row)),
-          ),
+          setProgress((current) => current.map((row) => (row.name === update.name ? update : row))),
       });
 
-      toast.success(
-        `${result.uploaded} file${result.uploaded === 1 ? "" : "s"} queued`,
-        { description: "Reading starts now and continues even if you close this tab." },
-      );
+      toast.success(`${result.uploaded} file${result.uploaded === 1 ? "" : "s"} queued`, {
+        description: "Reading starts now and continues even if you close this tab.",
+      });
       if (result.rejected.length) {
         toast.error(`${result.rejected.length} could not be uploaded`, {
           description: result.rejected.map((row) => row.name).join(", "),
@@ -101,9 +97,9 @@ export function ImportDropzone({ onQueued }: { onQueued?: (batchId: string) => v
           {busy ? "Uploading…" : "Drop statements here"}
         </p>
         <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
-          PDF, CSV or Excel, up to 20MB each and 40 at a time. No need to say which account each
-          one is — the reader identifies the bank, the holder and the last four digits, then asks
-          only when it cannot tell.
+          PDF, CSV or Excel, up to 20MB each and 40 at a time. No need to say which account each one
+          is — the reader identifies the bank, the holder and the last four digits, then asks only
+          when it cannot tell.
         </p>
         <div className="mt-5 flex justify-center">
           <Button
@@ -143,7 +139,11 @@ export function ImportDropzone({ onQueued }: { onQueued?: (batchId: string) => v
                   row.state === "done" && "text-gain",
                 )}
               >
-                {row.state === "uploading" ? "Uploading" : row.state === "done" ? "Queued" : "Failed"}
+                {row.state === "uploading"
+                  ? "Uploading"
+                  : row.state === "done"
+                    ? "Queued"
+                    : "Failed"}
               </span>
             </li>
           ))}

@@ -239,6 +239,8 @@ async function refreshBatches(
   supabase: Client,
   rows: Array<{ import_batch_id: string | null }> | null,
 ): Promise<void> {
-  const batches = new Set((rows ?? []).map((row) => row.import_batch_id).filter(Boolean) as string[]);
+  const batches = new Set(
+    (rows ?? []).map((row) => row.import_batch_id).filter(Boolean) as string[],
+  );
   for (const batchId of batches) await refreshBatch(supabase, batchId).catch(() => undefined);
 }

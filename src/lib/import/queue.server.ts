@@ -156,7 +156,10 @@ const TERMINAL = ["parsed", "needs_review", "failed", "duplicate", "cancelled"];
  * go — a counter that drifts is worse than no counter, and a recount is cheap
  * at these volumes.
  */
-export async function refreshBatch(supabase: Client, batchId: string): Promise<BatchProgress | null> {
+export async function refreshBatch(
+  supabase: Client,
+  batchId: string,
+): Promise<BatchProgress | null> {
   const { data: statements } = await supabase
     .from("statements")
     .select("status, transaction_count, duplicate_count, proposal_id")
@@ -179,11 +182,7 @@ export async function refreshBatch(supabase: Client, batchId: string): Promise<B
   const proposals = new Set(rows.map((row) => row.proposal_id).filter(Boolean)).size;
 
   const settled = finished + awaiting === rows.length;
-  const status = !settled
-    ? "running"
-    : failed === rows.length
-      ? "failed"
-      : "completed";
+  const status = !settled ? "running" : failed === rows.length ? "failed" : "completed";
 
   const parts: string[] = [];
   if (imported) parts.push(`${imported} transaction${imported === 1 ? "" : "s"} imported`);
@@ -217,7 +216,10 @@ export async function refreshBatch(supabase: Client, batchId: string): Promise<B
 }
 
 /** Every batch that still has work in it, so a sweep knows what to recount. */
-export async function activeBatchIds(supabase: Client, householdId?: string | undefined): Promise<string[]> {
+export async function activeBatchIds(
+  supabase: Client,
+  householdId?: string | undefined,
+): Promise<string[]> {
   let query = supabase.from("import_batches").select("id").in("status", ["queued", "running"]);
   if (householdId) query = query.eq("household_id", householdId);
   const { data } = await query;

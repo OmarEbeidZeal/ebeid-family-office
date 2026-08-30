@@ -63,7 +63,6 @@ export async function resolveAiProvider(
     }
   }
 
-
   return {
     job,
     provider,
@@ -88,11 +87,7 @@ export type JsonRunner = {
 
 const RETRYABLE_ATTEMPTS = 3;
 
-async function attempt<T>(
-  provider: AiProviderId,
-  model: string,
-  request: JsonRequest,
-): Promise<T> {
+async function attempt<T>(provider: AiProviderId, model: string, request: JsonRequest): Promise<T> {
   let lastError: unknown = null;
 
   for (let index = 0; index < RETRYABLE_ATTEMPTS; index += 1) {

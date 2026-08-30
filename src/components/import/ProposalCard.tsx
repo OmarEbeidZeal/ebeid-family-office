@@ -83,7 +83,8 @@ export function ProposalCard({
         ? ` · ${result.requeued} statement${result.requeued === 1 ? "" : "s"} back in the queue`
         : "";
       if (action === "reject") toast.success(`Not importing ${proposal.suggested_nickname}`);
-      else if (action === "link") toast.success(`Merged into an account you already hold${released}`);
+      else if (action === "link")
+        toast.success(`Merged into an account you already hold${released}`);
       else toast.success(`${nickname || proposal.suggested_nickname} added${released}`);
     } catch (error) {
       toast.error("That could not be saved", {

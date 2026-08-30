@@ -79,11 +79,7 @@ function requireKey(provider: AiProviderId): string {
 
 /* ------------------------------------------------------------------- wire */
 
-async function post(
-  provider: AiProviderId,
-  url: string,
-  init: RequestInit,
-): Promise<Response> {
+async function post(provider: AiProviderId, url: string, init: RequestInit): Promise<Response> {
   let response: Response;
   try {
     response = await fetch(url, init);
@@ -169,8 +165,7 @@ async function* lovableChatStream(
 
   for await (const event of sseJson(response)) {
     const choices = event["choices"] as
-      | Array<{ delta?: { content?: string | null }; finish_reason?: string | null }>
-      | undefined;
+      Array<{ delta?: { content?: string | null }; finish_reason?: string | null }> | undefined;
     const delta = choices?.[0]?.delta?.content;
     if (delta) yield { type: "text", delta };
     const usage = event["usage"] as { completion_tokens?: number } | undefined;
@@ -255,7 +250,8 @@ async function* responsesStream(
         status: 502,
         retryable: true,
         terminal: false,
-        message: detail?.error?.message ?? `${providerLabel(provider)} could not finish the answer.`,
+        message:
+          detail?.error?.message ?? `${providerLabel(provider)} could not finish the answer.`,
       });
     } else if (type === "error") {
       throw new AiProviderError({
@@ -325,8 +321,7 @@ async function* anthropicStream(
     const type = String(event["type"] ?? "");
     if (type === "content_block_delta") {
       const delta = event["delta"] as
-        | { type?: string; text?: string; thinking?: string; partial_json?: string }
-        | undefined;
+        { type?: string; text?: string; thinking?: string; partial_json?: string } | undefined;
       if (delta?.type === "text_delta" && delta.text) yield { type: "text", delta: delta.text };
       else if (delta?.type === "thinking_delta" && delta.thinking)
         yield { type: "reasoning", delta: delta.thinking };
@@ -432,7 +427,9 @@ export async function listProviderModels(provider: AiProviderId): Promise<string
   const key = requireKey(provider);
 
   const url =
-    provider === "anthropic" ? `${ENDPOINTS.anthropic}/models?limit=100` : `${ENDPOINTS.openai}/models`;
+    provider === "anthropic"
+      ? `${ENDPOINTS.anthropic}/models?limit=100`
+      : `${ENDPOINTS.openai}/models`;
   const headers: Record<string, string> =
     provider === "anthropic"
       ? { "x-api-key": key, "anthropic-version": "2023-06-01" }

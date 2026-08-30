@@ -17,11 +17,7 @@ import {
   type AdvisorContextResult,
 } from "@/lib/advisor/context.server";
 import { detectSignals, formatSignals, rankSignals } from "@/lib/advisor/signals";
-import {
-  BRIEFING_SCHEMA,
-  briefingSystemPrompt,
-  type BriefingPayload,
-} from "@/lib/advisor/prompt";
+import { BRIEFING_SCHEMA, briefingSystemPrompt, type BriefingPayload } from "@/lib/advisor/prompt";
 import { AiProviderError } from "@/lib/ai/errors";
 import { createJsonRunner } from "@/lib/ai/runner.server";
 import type { BriefingResult } from "@/lib/advisor.functions";

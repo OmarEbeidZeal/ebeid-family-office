@@ -248,11 +248,7 @@ export async function importStatement(
 
   try {
     const file = await downloadStatementFile(supabase, statement);
-    const extractionRunner = await createJsonRunner(
-      supabase,
-      statement.household_id,
-      "extraction",
-    );
+    const extractionRunner = await createJsonRunner(supabase, statement.household_id, "extraction");
     const extraction = await extractStatementContent(extractionRunner, file);
     return await importExtracted(supabase, statement, extraction);
   } catch (error) {
@@ -292,7 +288,6 @@ export async function importExtracted(
     }
 
     const notes = [...extraction.notes];
-
 
     /* -------------------------------------------------- context and rates */
     const [{ data: account }, { data: household }, { data: categoryRows }, { data: ruleRows }] =
@@ -436,7 +431,6 @@ export async function importExtracted(
       }
     }
 
-
     /* -------------------------------------------------------------- write */
     const payload = fresh.map((row, index) => {
       const assignment = assignments[index];
@@ -564,7 +558,6 @@ export async function importExtracted(
         },
       })
       .eq("id", statementId);
-
 
     return {
       status: needsReview ? "needs_review" : "parsed",

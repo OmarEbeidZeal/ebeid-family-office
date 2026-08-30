@@ -79,10 +79,14 @@ async function writeCachedExtraction(
 ): Promise<void> {
   await supabase.storage
     .from("statements")
-    .upload(cachePath(filePath), new Blob([JSON.stringify(extraction)], { type: "application/json" }), {
-      upsert: true,
-      contentType: "application/json",
-    });
+    .upload(
+      cachePath(filePath),
+      new Blob([JSON.stringify(extraction)], { type: "application/json" }),
+      {
+        upsert: true,
+        contentType: "application/json",
+      },
+    );
 }
 
 export async function removeCachedExtraction(supabase: Client, filePath: string): Promise<void> {
@@ -132,7 +136,9 @@ async function upsertProposal(
 
   const { data: existing } = await supabase
     .from("account_proposals")
-    .select("id, status, resolved_account_id, matched_account_id, match_confidence, match_reason, statement_count")
+    .select(
+      "id, status, resolved_account_id, matched_account_id, match_confidence, match_reason, statement_count",
+    )
     .eq("household_id", input.householdId)
     .eq("fingerprint", fingerprint)
     .maybeSingle();

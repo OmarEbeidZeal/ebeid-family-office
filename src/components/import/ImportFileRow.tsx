@@ -2,11 +2,7 @@ import { Loader2, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { BankMark } from "@/components/BankMark";
 import { Button } from "@/components/ui/button";
-import {
-  useCancelStatement,
-  useRetryStatement,
-  type ImportStatementRow,
-} from "@/hooks/useImports";
+import { useCancelStatement, useRetryStatement, type ImportStatementRow } from "@/hooks/useImports";
 import type { AccountRow } from "@/hooks/useFinancials";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -38,7 +34,10 @@ export function ImportFileRow({
   const retry = useRetryStatement();
   const cancel = useCancelStatement();
 
-  const status = STATUS[statement.status] ?? { label: statement.status, tone: "text-muted-foreground" };
+  const status = STATUS[statement.status] ?? {
+    label: statement.status,
+    tone: "text-muted-foreground",
+  };
   const account = accounts.find((row) => row.id === statement.account_id) ?? null;
   const institution = account?.institution ?? statement.detected_institution ?? null;
 
@@ -63,7 +62,11 @@ export function ImportFileRow({
 
   return (
     <li className="flex flex-wrap items-center gap-3 border-b border-border px-3 py-2.5 last:border-0">
-      <BankMark institution={institution} domain={statement.detected_institution_domain} size={26} />
+      <BankMark
+        institution={institution}
+        domain={statement.detected_institution_domain}
+        size={26}
+      />
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs text-foreground">{statement.file_name ?? "Statement"}</p>
@@ -71,7 +74,9 @@ export function ImportFileRow({
           {facts.length ? facts.join(" · ") : "Not read yet"}
         </p>
         {statement.error_message && (
-          <p className="mt-0.5 text-[0.7rem] leading-relaxed text-loss">{statement.error_message}</p>
+          <p className="mt-0.5 text-[0.7rem] leading-relaxed text-loss">
+            {statement.error_message}
+          </p>
         )}
         {!statement.error_message && statement.summary && (
           <p className="mt-0.5 truncate text-[0.7rem] text-muted-foreground">{statement.summary}</p>
