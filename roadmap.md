@@ -125,7 +125,45 @@ Polish pass
 - [x] Command palette on ⌘K — navigate, search transactions, add an account or goal, ask the advisor
 - [x] Consistency: one `<Money>`, tabular figures, both themes checked page by page
 
+## Design and simplification pass (this build)
+
+One screen, one job
+- [x] Navigation grouped — Overview (Dashboard, Goals, Advisor) · Money (Accounts, Transactions,
+      Spending) · Wealth (Balance Sheet, Portfolio, Forecast, Scenarios) · Settings kept apart;
+      mobile keeps five tabs plus More
+- [x] Dashboard cut to five blocks: net worth, three behaviour-changing tiles (runway, spare each
+      month, savings rate), the trend, the goals strip, the advisor briefing
+- [x] Allocation and currency-exposure panels moved to `/balance-sheet` where they belong;
+      spending and forecast panels live on their own pages rather than being repeated
+
+Goals as the centre of the app
+- [x] Five-year timeline hero — a marker per goal at its target date, sized by all-in cost,
+      coloured by status, with today marked; scrolls with snap points on mobile
+- [x] Goal cards rebuilt: progress ring, exactly three headline numbers (all-in cost, saved,
+      monthly requirement), one plain status pill; line items, SDLT, horizon guidance and the
+      funding check all moved behind a single expansion
+- [x] Household summary strip — total cost, total saved, total monthly commitment and the date the
+      last goal completes
+- [x] Priority made visual — must-have / want / nice-to-have read at a glance, drag, keyboard and
+      mobile reordering preserved
+- [x] "What if" slider — replans every goal's completion date live against a different monthly
+      contribution, and says plainly when a goal still cannot land
+- [x] Optional private goal photos — household-scoped `goal-images` bucket, 5MB, signed URLs,
+      shown as a card backdrop behind a readable scrim
+
+Craft
+- [x] Compact readable figures (£1.2m, £650k) with the exact amount on hover, tap and focus
+- [x] Count-up on headline figures with a settle timer, so a number can never rest mid-animation
+- [x] Motion honours `prefers-reduced-motion`; first-load only, never on every re-render
+- [x] Touch: a `coarse` pointer variant enlarges buttons, switches, checkboxes and tooltip
+      triggers to 44px on phones without changing the desktop layout
+- [x] Mobile top bar — compact net worth, short perspective labels, 44px search / FX / profile
+- [x] Both themes and every route re-checked at 1280px and 390px; zero page-level overflow,
+      the only horizontal scroll is inside the timeline and the forecast table by design
+- [x] Review fixtures removed — the database holds the real household, the allowlist and FX only
+
 Still open (needs Omar, or the platform)
+
 - [x] `FINNHUB_API_KEY` — added and verified with a live quote; the portfolio prices from Finnhub
       with an "as of" timestamp and a 60-second cache.
 
