@@ -32,6 +32,7 @@ export function ConcentrationPanel({
 }) {
   const breaches = rows.filter((row) => row.status === "breach");
   const watches = rows.filter((row) => row.status === "watch");
+  const unmeasured = rows.filter((row) => row.status === "unknown");
 
   return (
     <section
@@ -53,11 +54,18 @@ export function ConcentrationPanel({
             <span className="inline-flex items-center gap-2 rounded-md border border-warn/40 bg-warn-soft px-3 py-1.5 text-xs font-medium text-warn">
               {watches.length} approaching a limit
             </span>
+          ) : unmeasured.length > 0 ? (
+            // Nothing is breaching, but saying "all within policy" would be a
+            // claim the missing prices do not support.
+            <span className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-raised px-3 py-1.5 text-xs font-medium text-muted-foreground">
+              {unmeasured.length} of {rows.length} limits not measurable
+            </span>
           ) : rows.length > 0 ? (
             <PolicyPill status="ok" label="All within policy" />
           ) : null
         }
       />
+
 
       {loading ? (
         <div className="space-y-3">
