@@ -65,23 +65,20 @@ export const PROVIDER_LABELS: Record<AiProviderId, string> = {
 
 export const FALLBACK_PROVIDER: AiProviderId = "lovable";
 
-/** Sensible starting points. Every one of these is overridable per household. */
+/**
+ * Lovable AI ships with a model per job. Anthropic and OpenAI deliberately do
+ * not: their model names change with every release, so guessing one here would
+ * mean a confident call to a model that may not exist. The Settings screen
+ * fetches the live list from the provider and the household picks from it.
+ */
 export const DEFAULT_MODELS: Record<AiProviderId, Record<AiJob, string>> = {
   lovable: {
     extraction: "google/gemini-3.7-flash",
     categorisation: "google/gemini-3.1-flash-lite",
     advisory: "openai/gpt-5.6-sol",
   },
-  anthropic: {
-    extraction: "claude-sonnet-5",
-    categorisation: "claude-haiku-4-5-20251001",
-    advisory: "claude-opus-5",
-  },
-  openai: {
-    extraction: "gpt-5.6-terra",
-    categorisation: "gpt-5.6-luna",
-    advisory: "gpt-5.6-sol",
-  },
+  anthropic: { extraction: "", categorisation: "", advisory: "" },
+  openai: { extraction: "", categorisation: "", advisory: "" },
 };
 
 /** Offered when a provider has no live model list to give (Lovable AI). */
@@ -100,9 +97,17 @@ export const LOVABLE_MODEL_CHOICES: Record<AiJob, string[]> = {
   advisory: ["openai/gpt-5.6-sol", "openai/gpt-5.6-terra", "openai/gpt-5.5", "openai/gpt-5.4"],
 };
 
+/** What a good pick looks like, shown next to the list rather than assumed. */
+export const MODEL_GUIDANCE: Record<AiJob, string> = {
+  extraction: "Reading a scanned-looking PDF rewards a stronger model; spreadsheets barely care.",
+  categorisation: "Thousands of rows go through here. A fast, cheap model is usually right.",
+  advisory: "Pick the strongest reasoning model you are willing to pay for.",
+};
+
 export function defaultModel(provider: AiProviderId, job: AiJob): string {
   return DEFAULT_MODELS[provider][job];
 }
+
 
 export function jobLabel(job: AiJob): string {
   return AI_JOBS.find((entry) => entry.id === job)?.label ?? job;
