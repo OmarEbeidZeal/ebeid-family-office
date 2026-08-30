@@ -94,21 +94,9 @@ function Dashboard() {
   }, [snapshots, householdSummary.liquidNetWorth]);
 
   if (!summary.loading && !householdSummary.hasData) {
-    return (
-      <EmptyState
-        title="Nothing on the balance sheet yet"
-        body="Record the household's accounts, property, private shareholdings, debts and income — the dashboard becomes live from the first entry, and never before it."
-        action={
-          <Link
-            to="/onboarding"
-            className="inline-flex h-9 items-center rounded-md border border-gold-line bg-gold-soft px-4 text-sm text-gold transition-colors hover:bg-gold-soft/80"
-          >
-            Set up the household
-          </Link>
-        }
-      />
-    );
+    return <FirstRunPanel />;
   }
+
 
   return (
     <div className="space-y-4">
