@@ -228,7 +228,7 @@ function ForecastPage() {
               <ExpensePlanTable assumptions={assumptions} />
             </div>
 
-            <div className="xl:sticky xl:top-6 xl:self-start">
+            <div className="min-w-0 xl:sticky xl:top-6 xl:self-start">
               <AssumptionPanel value={assumptions} onChange={setAssumptions} />
               <p className="mt-3 text-[0.7rem] leading-relaxed text-muted-foreground">
                 A projection is arithmetic on assumptions, not a forecast of what will happen. It is
