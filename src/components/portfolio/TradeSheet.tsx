@@ -152,6 +152,8 @@ export function TradeSheet({
   });
 
 
+
+
   const quantity = Number(form.watch("quantity")) || 0;
   const price = Number(form.watch("price")) || 0;
   const fees = Number(form.watch("fees")) || 0;
