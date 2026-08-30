@@ -7,6 +7,7 @@ import { HouseholdCard } from "@/components/settings/HouseholdCard";
 import { FxCard } from "@/components/settings/FxCard";
 import { MarketDataCard } from "@/components/settings/MarketDataCard";
 import { AiModelsCard } from "@/components/settings/AiModelsCard";
+import { BankMarksCard } from "@/components/settings/BankMarksCard";
 import { AllowanceCard } from "@/components/settings/AllowanceCard";
 import { AccessCard } from "@/components/settings/AccessCard";
 import { NotificationsCard } from "@/components/settings/NotificationsCard";
@@ -53,6 +54,7 @@ function SettingsPage() {
         <FxCard />
         <MarketDataCard />
         <AiModelsCard />
+        <BankMarksCard />
 
         <AppearanceCard />
 
