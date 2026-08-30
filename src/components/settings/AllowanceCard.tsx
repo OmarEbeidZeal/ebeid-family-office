@@ -141,7 +141,12 @@ function PersonRow({
                 value={draft[field.key]}
                 onChange={(event) => set(field.key, event.target.value)}
               />
-              <p className={cn("num mt-1.5 text-[0.7rem]", over ? "text-loss" : "text-muted-foreground")}>
+              <p
+                className={cn(
+                  "num mt-1.5 text-[0.7rem]",
+                  over ? "text-loss" : "text-muted-foreground",
+                )}
+              >
                 {over
                   ? `${formatMoney(used - field.limit, base, { decimals: 0 })} over the ${formatMoney(field.limit, base, { decimals: 0 })} limit`
                   : `${formatMoney(remaining, base, { decimals: 0 })} left of ${formatMoney(field.limit, base, { decimals: 0 })}`}
