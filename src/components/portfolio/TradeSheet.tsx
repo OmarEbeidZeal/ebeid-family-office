@@ -83,6 +83,18 @@ export function TradeSheet({
     });
   }, [open, trade, defaultHoldingId, holdings, form]);
 
+  // A holding entered by hand carries a quantity and average cost nobody
+  // traded into existence. The moment its first trade arrives the trigger
+  // rebuilds the position from trades alone, so that hand-entered stock would
+  // vanish. Write it down as an explicit opening lot instead — visible in the
+  // trade list, editable, and never invented for a holding that has no
+  // recorded position.
+  const existingTradeCount = selected
+    ? trades.filter((row) => row.holding_id === selected.id).length
+    : 0;
+  const needsOpeningLot =
+    !trade && !!selected && existingTradeCount === 0 && Number(selected.quantity) > 0;
+
   const save = useMutation({
     mutationFn: async (values: Values) => {
       const payload = {
@@ -101,6 +113,24 @@ export function TradeSheet({
         if (error) throw error;
         return;
       }
+      if (needsOpeningLot && selected) {
+        const openingDate =
+          selected.opened_at ??
+          (values.trade_date < todayIso() ? values.trade_date : todayIso());
+        const { error: openingError } = await db.from("trades").insert({
+          household_id: household!.id,
+          holding_id: selected.id,
+          side: "buy",
+          trade_date: openingDate,
+          quantity: Number(selected.quantity),
+          price: Number(selected.avg_cost ?? 0),
+          fees: 0,
+          currency: selected.currency,
+          account_id: selected.account_id,
+          notes: "Opening position — carried over from the holding entered by hand.",
+        });
+        if (openingError) throw openingError;
+      }
       const { error } = await db.from("trades").insert({ ...payload, household_id: household!.id });
       if (error) throw error;
     },
@@ -113,6 +143,7 @@ export function TradeSheet({
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
 
   const quantity = Number(form.watch("quantity")) || 0;
   const price = Number(form.watch("price")) || 0;
