@@ -22,12 +22,31 @@
 - [x] First-run dashboard panel — routes into setup instead of drawing an example household
 
 
-## Phase 2 (next)
+## Phase 2 — statement ingestion and the spending engine (this build)
 
-- [ ] Statement upload + parsing into `transactions` (private storage bucket, owner-scoped)
+- [x] Private `statements` storage bucket, owner-scoped policies, 20MB PDF / CSV / XLS / XLSX
+- [x] Multi-file import dialog — per-file account picker, inline account creation, live status
+- [x] Server-side parsing: CSV (Papa), XLSX (`@e965/xlsx`), text-layer PDF (`unpdf`), Arabic
+      headers and Arabic-Indic digits, honest failure on scanned PDFs with no text layer
+- [x] AI mapping and categorisation through Lovable AI (`gemini-3.1-flash-lite`, PDF extraction
+      on `gemini-3.7-flash`), confidence recorded per transaction
+- [x] Dated FX conversion into `amount_base`, nearest-rate note when the exact day is missing
+- [x] Deduplication by fingerprint — re-importing the same file reports "already imported"
+- [x] Opening / closing balance validation, discrepancy surfaced, statement marked `needs_review`
+- [x] Transfer detection across accounts (±3 days, ≤1.5% drift) and recurring detection
+- [x] Transactions ledger — filters, sorting, pagination, inline categorisation, bulk actions,
+      review queue, statement-scoped review, splits, category rules
+- [x] `/spending` — income vs spending, essential baseline, category breakdown with month
+      comparison, standing costs, top merchants, money set aside kept out of expenses
+- [x] Dashboard reads observed spending: net cashflow, emergency runway, savings rate
+
+## Phase 3 (next)
+
 - [ ] Live market data into `price_snapshots`, real portfolio page with holdings P&L
 - [ ] AI advisor: grounded briefings into `advisor_notes`, chat into `advisor_chat`
 - [ ] Forecast + scenarios: cashflow projection, goal funding, UK tax wrapper capacity
+
+
 
 ## Backlog / ideas captured while building
 

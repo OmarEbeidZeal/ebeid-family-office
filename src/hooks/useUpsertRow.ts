@@ -14,11 +14,17 @@ export function useSaveRow(table: string, queryKey: string, label: string) {
       if (id) {
         const { error } = await db.from(table).update(values).eq("id", id);
         if (error) throw error;
-        return;
+        return id;
       }
-      const { error } = await db.from(table).insert({ ...values, household_id: household!.id });
+      const { data, error } = await db
+        .from(table)
+        .insert({ ...values, household_id: household!.id })
+        .select("id")
+        .single();
       if (error) throw error;
+      return (data as { id: string } | null)?.id ?? null;
     },
+
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: [queryKey] });
       toast.success(variables.id ? `${label} updated` : `${label} added`);
