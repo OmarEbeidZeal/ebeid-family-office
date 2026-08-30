@@ -20,6 +20,7 @@ import {
 } from "@/hooks/useFinancials";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDeleteRow } from "@/hooks/useUpsertRow";
+import { useQuickAdd } from "@/lib/quick-add";
 import { useScope } from "@/hooks/useScope";
 import {
   accountTypeLabel,
@@ -70,6 +71,15 @@ function BalanceSheetPage() {
   const [liabilitySheet, setLiabilitySheet] = useState(false);
   const [editingAsset, setEditingAsset] = useState<AssetRow | null>(null);
   const [editingLiability, setEditingLiability] = useState<LiabilityRow | null>(null);
+
+  useQuickAdd("asset", () => {
+    setEditingAsset(null);
+    setAssetSheet(true);
+  });
+  useQuickAdd("liability", () => {
+    setEditingLiability(null);
+    setLiabilitySheet(true);
+  });
 
   const loading = accountsLoading || assetsLoading || liabilitiesLoading;
 

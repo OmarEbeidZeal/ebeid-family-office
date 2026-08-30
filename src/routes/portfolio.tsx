@@ -14,6 +14,7 @@ import { ExposurePanel } from "@/components/portfolio/ExposurePanel";
 import { WatchlistPanel } from "@/components/portfolio/WatchlistPanel";
 import { WatchlistSheet } from "@/components/portfolio/WatchlistSheet";
 import { HoldingSheet } from "@/components/portfolio/HoldingSheet";
+import { useQuickAdd } from "@/lib/quick-add";
 import { TradeSheet } from "@/components/portfolio/TradeSheet";
 import { TradesPanel } from "@/components/portfolio/TradesPanel";
 import { SecurityDetailSheet } from "@/components/portfolio/SecurityDetailSheet";
@@ -88,6 +89,8 @@ function PortfolioPage() {
     item: null,
   });
   const [detailTicker, setDetailTicker] = useState<string | null>(null);
+
+  useQuickAdd("holding", () => setHoldingSheet({ open: true, holding: null }));
 
   const deleteHolding = useDeleteRow("holdings", "holdings", "Holding");
   const deleteTrade = useDeleteRow("trades", "trades", "Trade");

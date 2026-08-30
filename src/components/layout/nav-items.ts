@@ -2,6 +2,7 @@ import {
   BarChart3,
   Building2,
   CalendarRange,
+  GitCompare,
   LayoutDashboard,
   MessageSquareText,
   PiggyBank,
@@ -19,7 +20,8 @@ export const NAV_ITEMS = [
   { to: "/spending", label: "Spending", icon: PiggyBank, ready: true },
   { to: "/portfolio", label: "Portfolio", icon: BarChart3, ready: true },
   { to: "/goals", label: "Goals", icon: Target, ready: true },
-  { to: "/forecast", label: "Forecast", icon: CalendarRange, ready: false },
+  { to: "/forecast", label: "Forecast", icon: CalendarRange, ready: true },
+  { to: "/scenarios", label: "Scenarios", icon: GitCompare, ready: true },
   { to: "/advisor", label: "Advisor", icon: MessageSquareText, ready: true },
   { to: "/settings", label: "Settings", icon: Settings, ready: true },
 ] as const;

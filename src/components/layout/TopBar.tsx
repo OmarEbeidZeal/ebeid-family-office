@@ -1,3 +1,5 @@
+import { Search } from "lucide-react";
+import { openCommandPalette } from "@/components/CommandPalette";
 import { useNetWorth } from "@/hooks/useNetWorth";
 import { formatMoney } from "@/lib/format";
 import { ScopeToggle } from "@/components/ScopeToggle";
@@ -27,6 +29,18 @@ export function TopBar() {
         </div>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            aria-label="Open the command palette"
+            className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="hidden lg:inline">Search</span>
+            <kbd className="num hidden rounded border border-border px-1 text-[0.6rem] text-muted-foreground/80 lg:inline">
+              ⌘K
+            </kbd>
+          </button>
           <ScopeToggle />
           <FxIndicator />
           <ProfileMenu />

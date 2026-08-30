@@ -74,16 +74,71 @@ Advisor
 - [ ] Weekly briefing schedule — deferred: `pg_cron` / `pg_net` are not available on this project,
       so briefings are generated on demand from `/advisor`
 
-## Phase 4 (next)
+## Phase 4 — goals, forecast, scenarios and the polish pass (this build)
 
-- [ ] Forecast + scenarios: cashflow projection, goal funding, UK tax wrapper capacity
-- [ ] CGT-aware disposal view against the £3,000 annual exempt amount
+Goals (`/goals`)
+- [x] Goal cards — native target with GBP conversion, date, priority, funded amount, percentage,
+      and the monthly contribution required from today shown as the headline figure
+- [x] Status per goal (on track / behind / at risk / achieved) from funding, required run-rate and
+      the household's actual surplus, with the shortfall named when the surplus cannot cover it
+- [x] Line items — costed components per goal, all-in total against the headline price and the gap
+      between them made visible; UK property and Egypt furnishing prompt with their usual components
+- [x] SDLT calculator (England / NI) — standard bands, first-time-buyer relief with the £500k
+      withdrawal, 5% additional-property surcharge, 2% non-UK-resident surcharge, effective rate,
+      band breakdown and a note that overseas ownership affects both toggles
+- [x] Horizon funding guidance — under 2 years cash, 2–5 years up to 40% equity, over 5 years the
+      portfolio allocation; flags a goal whose funding is held wrongly for its horizon
+- [x] Drag, keyboard and mobile reprioritising; the lowest priority is what gives when the
+      projected surplus cannot fund everything
+
+Forecast (`/forecast`)
+- [x] 60-month projection from real data — income streams with growth, `forecast_expenses` with
+      inflation, liability amortisation, goals as dated outflows, portfolio at the assumed return
+- [x] Expense editor — amount, currency, frequency, start and end dates, inflation, and a
+      confidence level (committed / likely / possible)
+- [x] Net worth chart with goal purchases marked as step-downs
+- [x] Monthly surplus / deficit chart with deficit months flagged
+- [x] Cash runway line against the liquidity reserve floor, breaches highlighted
+- [x] Live assumption controls: investment return, salary growth, inflation, include "possible"
+
+Scenarios (`/scenarios`)
+- [x] One-click presets — buy in 2027, buy in 2029, rent five more years, a Zeal liquidity event,
+      a 30% drawdown, an income pause, a second child, a further 25% EGP devaluation, rates +2%
+- [x] Saved named scenarios in `scenarios`, compared side by side against the baseline: net worth
+      at five years, minimum cash point, per-goal timing and where the plan first breaks
+- [x] Monte Carlo — 1,000 seeded paths from the assumed return and a volatility input, funded
+      probability per goal, 10th / 50th / 90th percentile fan chart, presented as a model output
+
+Polish pass
+- [x] Every sidebar item leads to a finished page — no placeholders, no dead routes
+- [x] Dashboard fully wired: real tiles, real goals strip, real forecast panel, real unread notes
+- [x] Empty states walked on a fresh household across all eleven pages — each names what to add
+- [x] Mobile: every page checked at 390px, zero unintended horizontal overflow, tables scroll
+      inside their own container
+- [x] Security: RLS and policies on all 27 public tables, private household-scoped `statements`
+      bucket, server functions derive the household from the authenticated profile; scan and
+      database linter clean
+- [x] Performance: indexes on the household and date columns the filtered queries actually use;
+      transactions paginated at 50 rows a page
+- [x] Error handling: every server function returns a message that says what failed and what to do
+- [x] Command palette on ⌘K — navigate, search transactions, add an account or goal, ask the advisor
+- [x] Consistency: one `<Money>`, tabular figures, both themes checked page by page
+
+Still open (needs Omar, or the platform)
+- [ ] `FINNHUB_API_KEY` — add it in Project Settings → Secrets. Until then the portfolio says
+      plainly that market data is unavailable rather than showing a stale or invented price.
+- [ ] Weekly briefing schedule — `pg_cron` / `pg_net` are unavailable on this project, so
+      briefings are generated on demand from `/advisor`.
+- [ ] Haya's invitation — add her address under Settings → Access so she gets her own sign-in.
 
 
 ## Backlog / ideas captured while building
 
-- [ ] Goal line items UI (`goal_line_items` is in the schema, used for furnishing budgets)
+- [ ] CGT-aware disposal view against the £3,000 annual exempt amount
 - [ ] Snapshot backfill job so the trend chart survives days the app is not opened
 - [ ] Per-account balance history so account rows show their own trend
 - [ ] Dividend and interest income recorded against holdings
+- [ ] Scanned-PDF statements: OCR path so image-only bank PDFs can be imported
+- [ ] Mortgage offer / remortgage modelling inside a property goal
+
 

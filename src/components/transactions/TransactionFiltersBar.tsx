@@ -54,6 +54,11 @@ export function TransactionFiltersBar({
   const [range, setRange] = useState("all");
   const [search, setSearch] = useState(filters.search);
 
+  // The command palette can apply a search from outside; mirror it into the input.
+  useEffect(() => {
+    setSearch(filters.search);
+  }, [filters.search]);
+
   // Debounced so typing doesn't fire a query per keystroke.
   useEffect(() => {
     const timer = window.setTimeout(() => {

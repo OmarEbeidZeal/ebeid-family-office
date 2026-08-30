@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Field, SelectNative } from "./FormField";
 import { FormSheet, FullRow } from "./FormSheet";
 import {
@@ -30,9 +31,22 @@ const schema = z.object({
   status: z.string(),
   owner_profile_id: z.string(),
   description: z.string().optional(),
+  financed_amount: z.coerce.number().min(0, "Must be zero or more"),
+  financed_rate: z.string().optional(),
+  financed_term_years: z.string().optional(),
+  first_time_buyer: z.boolean(),
+  additional_property: z.boolean(),
+  non_uk_resident: z.boolean(),
 });
 
 type Values = z.infer<typeof schema>;
+
+const optionalNumber = (value: string | undefined) => {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 export function GoalSheet({
   open,
@@ -60,6 +74,12 @@ export function GoalSheet({
       status: "planning",
       owner_profile_id: "joint",
       description: "",
+      financed_amount: 0,
+      financed_rate: "",
+      financed_term_years: "",
+      first_time_buyer: false,
+      additional_property: false,
+      non_uk_resident: false,
     },
   });
 
@@ -77,8 +97,23 @@ export function GoalSheet({
       status: goal?.status ?? "planning",
       owner_profile_id: goal?.owner_profile_id ?? "joint",
       description: goal?.description ?? "",
+      financed_amount: Number(goal?.financed_amount ?? 0),
+      financed_rate:
+        goal?.financed_rate === null || goal?.financed_rate === undefined
+          ? ""
+          : String(goal.financed_rate),
+      financed_term_years:
+        goal?.financed_term_years === null || goal?.financed_term_years === undefined
+          ? ""
+          : String(goal.financed_term_years),
+      first_time_buyer: goal?.first_time_buyer ?? false,
+      additional_property: goal?.additional_property ?? false,
+      non_uk_resident: goal?.non_uk_resident ?? false,
     });
   }, [open, goal, form]);
+
+  const category = form.watch("goal_category");
+  const isProperty = category === "property";
 
   const onSubmit = form.handleSubmit(async (values) => {
     await save.mutateAsync({
@@ -95,6 +130,12 @@ export function GoalSheet({
         status: values.status,
         owner_profile_id: values.owner_profile_id === "joint" ? null : values.owner_profile_id,
         description: values.description?.trim() || null,
+        financed_amount: values.financed_amount,
+        financed_rate: optionalNumber(values.financed_rate),
+        financed_term_years: optionalNumber(values.financed_term_years),
+        first_time_buyer: values.first_time_buyer,
+        additional_property: values.additional_property,
+        non_uk_resident: values.non_uk_resident,
       },
     });
     onOpenChange(false);
@@ -228,6 +269,65 @@ export function GoalSheet({
         />
       </Field>
 
+      <Field
+        label="Borrowed toward it"
+        hint="Mortgage or loan — the rest has to come from cash"
+        error={form.formState.errors.financed_amount?.message}
+      >
+        <Input
+          type="number"
+          step="1000"
+          inputMode="decimal"
+          {...form.register("financed_amount")}
+        />
+      </Field>
+
+      <Field label="Borrowing rate %" hint="Leave blank if not agreed">
+        <Input
+          type="number"
+          step="0.05"
+          inputMode="decimal"
+          placeholder="4.5"
+          {...form.register("financed_rate")}
+        />
+      </Field>
+
+      <Field label="Term (years)" hint="Leave blank if not agreed">
+        <Input
+          type="number"
+          step="1"
+          inputMode="numeric"
+          placeholder="25"
+          {...form.register("financed_term_years")}
+        />
+      </Field>
+
+      {isProperty && (
+        <FullRow>
+          <div className="hairline space-y-3 rounded-md bg-surface-raised p-3">
+            <p className="eyebrow">Stamp duty status</p>
+            <SwitchRow
+              control={form.control}
+              name="first_time_buyer"
+              label="First-time buyer"
+              hint="Relief needs neither of you to own property anywhere in the world"
+            />
+            <SwitchRow
+              control={form.control}
+              name="additional_property"
+              label="Additional property"
+              hint="A home already owned in Egypt or Jordan triggers the 5% surcharge"
+            />
+            <SwitchRow
+              control={form.control}
+              name="non_uk_resident"
+              label="Non-UK resident for SDLT"
+              hint="Fewer than 183 UK days in the 12 months around completion adds 2%"
+            />
+          </div>
+        </FullRow>
+      )}
+
       <FullRow>
         <Field label="Notes">
           <Textarea
@@ -238,5 +338,33 @@ export function GoalSheet({
         </Field>
       </FullRow>
     </FormSheet>
+  );
+}
+
+function SwitchRow({
+  control,
+  name,
+  label,
+  hint,
+}: {
+  control: ReturnType<typeof useForm<Values>>["control"];
+  name: "first_time_buyer" | "additional_property" | "non_uk_resident";
+  label: string;
+  hint: string;
+}) {
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-foreground">{label}</p>
+            <p className="text-[0.7rem] leading-relaxed text-muted-foreground">{hint}</p>
+          </div>
+          <Switch checked={field.value} onCheckedChange={field.onChange} aria-label={label} />
+        </div>
+      )}
+    />
   );
 }

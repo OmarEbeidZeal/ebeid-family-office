@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { CommandPalette } from "@/components/CommandPalette";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { MobileNav } from "@/components/layout/MobileNav";
@@ -99,6 +100,7 @@ export function AppShell({
         </main>
       </div>
       <MobileNav />
+      <CommandPalette />
     </div>
   );
 }

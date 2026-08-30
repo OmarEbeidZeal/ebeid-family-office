@@ -9,6 +9,7 @@ import { AllocationPanels } from "@/components/dashboard/AllocationPanels";
 import { SpendingPanel } from "@/components/dashboard/SpendingPanel";
 import { AdvisorPanel } from "@/components/dashboard/AdvisorPanel";
 import { GoalsStrip } from "@/components/dashboard/GoalsStrip";
+import { ForecastPanel } from "@/components/dashboard/ForecastPanel";
 import type { StatTrend } from "@/components/StatTile";
 import { useNetWorth } from "@/hooks/useNetWorth";
 import { useObservedSpending } from "@/hooks/useObservedSpending";
@@ -131,6 +132,8 @@ function Dashboard() {
       </div>
 
       <GoalsStrip />
+
+      <ForecastPanel />
     </div>
   );
 }

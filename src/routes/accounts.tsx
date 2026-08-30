@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDeleteRow } from "@/hooks/useUpsertRow";
 import { useScope } from "@/hooks/useScope";
+import { useQuickAdd } from "@/lib/quick-add";
 import {
   DEBT_ACCOUNT_TYPES,
   accountTypeLabel,
@@ -61,6 +62,11 @@ function AccountsPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<AccountRow | null>(null);
   const [showClosed, setShowClosed] = useState(false);
+
+  useQuickAdd("account", () => {
+    setEditing(null);
+    setSheetOpen(true);
+  });
 
   const visible = useMemo(
     () =>
