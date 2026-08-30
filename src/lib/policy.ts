@@ -499,6 +499,7 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
   const specPct = share(specValue, investableTotal);
   const specCost = speculativePositions.reduce((sum, p) => sum + p.costBase, 0);
   const specCostPct = share(specCost, investableTotal);
+  const specUnpriced = speculativePositions.filter((p) => !p.priced || p.valueBase === null);
   const oversized = speculativePositions.filter(
     (p) => (p.weightPct ?? 0) > POLICY_LIMITS.singleSpeculativeTrimPct,
   );
@@ -521,19 +522,26 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
             ? "breach"
             : approaching.length || sleeveStatus === "watch"
               ? "watch"
-              : "ok",
+              : specUnpriced.length
+                ? "unknown"
+                : "ok",
     headline:
       investableTotal <= 0
         ? "No liquid investable assets recorded yet."
         : oversized.length
           ? `${oversized.map((p) => `${p.ticker} at ${pct(p.weightPct)}`).join(", ")} is past the 4% trim trigger — trim back to ${POLICY_LIMITS.singleSpeculativeCapPct}%. Sleeve total ${pct(specPct)} of a ${POLICY_LIMITS.speculativeSleeveCapPct}% cap.`
-          : `Speculative sleeve is ${pct(specPct)} at market (${pct(specCostPct)} at cost) against a ${POLICY_LIMITS.speculativeSleeveCapPct}% cap; largest single name ${pct(
-              speculativePositions.reduce((max, p) => Math.max(max, p.weightPct ?? 0), 0),
-            )} of a ${POLICY_LIMITS.singleSpeculativeCapPct}% limit.`,
-    value: specPct,
+          : specUnpriced.length
+            ? `Sleeve weight cannot be measured: ${specUnpriced.map((p) => p.ticker).join(", ")} ${
+                specUnpriced.length === 1 ? "has" : "have"
+              } no price. At cost the sleeve is ${pct(specCostPct)} of a ${POLICY_LIMITS.speculativeSleeveCapPct}% cap.`
+            : `Speculative sleeve is ${pct(specPct)} at market (${pct(specCostPct)} at cost) against a ${POLICY_LIMITS.speculativeSleeveCapPct}% cap; largest single name ${pct(
+                speculativePositions.reduce((max, p) => Math.max(max, p.weightPct ?? 0), 0),
+              )} of a ${POLICY_LIMITS.singleSpeculativeCapPct}% limit.`,
+    value: specUnpriced.length ? specCostPct : specPct,
     limit: POLICY_LIMITS.speculativeSleeveCapPct,
     unit: "pct",
   });
+
 
   // Rule 8 — the goal test, with the arithmetic shown.
   const goalTest = evaluateGoalTest(input);
