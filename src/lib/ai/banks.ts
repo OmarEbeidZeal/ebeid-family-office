@@ -399,7 +399,7 @@ export function monogram(value: string | null | undefined): string {
     .filter(
       (word) =>
         word.length > 0 &&
-        !["bank", "banque", "the", "of", "and", "plc", "ltd", "limited", "uk"].includes(
+        !["the", "of", "and", "plc", "ltd", "limited", "sae", "sa", "psc"].includes(
           word.toLowerCase(),
         ),
     );
@@ -411,3 +411,4 @@ export function monogram(value: string | null | undefined): string {
   if (words.length === 1) return first.slice(0, 2).toUpperCase();
   return `${first[0]}${words[1]![0]}`.toUpperCase();
 }
+
