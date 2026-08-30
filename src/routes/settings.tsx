@@ -6,7 +6,9 @@ import { ProfileCard } from "@/components/settings/ProfileCard";
 import { HouseholdCard } from "@/components/settings/HouseholdCard";
 import { FxCard } from "@/components/settings/FxCard";
 import { MarketDataCard } from "@/components/settings/MarketDataCard";
+import { AllowanceCard } from "@/components/settings/AllowanceCard";
 import { AccessCard } from "@/components/settings/AccessCard";
+
 import { AppearanceCard } from "@/components/settings/AppearanceCard";
 import { useAuth } from "@/hooks/useAuth";
 
