@@ -52,7 +52,7 @@ export function NetWorthTrend({
                 type="button"
                 onClick={() => setRange(option.key)}
                 className={cn(
-                  "num rounded-[4px] px-2.5 py-1 text-xs transition-colors",
+                  "num flex items-center rounded-[4px] px-3 py-1 text-xs transition-colors coarse:min-h-10 lg:px-2.5",
                   range === option.key
                     ? "bg-gold-soft text-gold"
                     : "text-muted-foreground hover:text-foreground",

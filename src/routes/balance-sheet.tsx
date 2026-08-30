@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AssetSheet } from "@/components/forms/AssetSheet";
 import { LiabilitySheet } from "@/components/forms/LiabilitySheet";
+import { AllocationPanels } from "@/components/balance-sheet/AllocationPanels";
+
 import {
   useAccounts,
   useAssets,
@@ -19,6 +21,8 @@ import {
   type LiabilityRow,
 } from "@/hooks/useFinancials";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useNetWorth } from "@/hooks/useNetWorth";
+
 import { useDeleteRow } from "@/hooks/useUpsertRow";
 import { useQuickAdd } from "@/lib/quick-add";
 import { useScope } from "@/hooks/useScope";
@@ -63,6 +67,7 @@ function BalanceSheetPage() {
   const { data: liabilities = [], isLoading: liabilitiesLoading } = useLiabilities();
   const { base, convert } = useCurrency();
   const { matches, activeLabel, isHousehold } = useScope();
+  const summary = useNetWorth();
 
   const removeAsset = useDeleteRow("assets", "assets", "Asset");
   const removeLiability = useDeleteRow("liabilities", "liabilities", "Liability");
@@ -377,6 +382,8 @@ function BalanceSheetPage() {
               </div>
             </div>
           </div>
+
+          <AllocationPanels summary={summary} />
         </div>
       )}
 

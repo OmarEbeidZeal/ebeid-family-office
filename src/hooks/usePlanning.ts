@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+
 import { useCurrency } from "./useCurrency";
 import { useNetWorth } from "./useNetWorth";
 import { useObservedSpending } from "./useObservedSpending";
@@ -170,7 +171,23 @@ export function useGoalPlan() {
     return map;
   }, [lineItems]);
 
-  return { loading, plan, goals, lineItems, itemsByGoal, surplus, base };
+  /**
+   * Re-run the same arithmetic at a hypothetical monthly contribution. The
+   * "what if" slider on the goals page uses this so the projection it shows is
+   * the plan's own maths, not a second, looser model.
+   */
+  const replan = useCallback(
+    (monthlySurplus: number | null) =>
+      computeGoalPlan({
+        goals: goals.map(toGoalInput),
+        lineItems: lineItems.map(toLineItemInput),
+        toBase: (amount: number, currency: string) => convert(amount, currency, base),
+        monthlySurplus,
+      }),
+    [goals, lineItems, convert, base],
+  );
+
+  return { loading, plan, goals, lineItems, itemsByGoal, surplus, base, replan };
 }
 
 // ---------------------------------------------------------------------------

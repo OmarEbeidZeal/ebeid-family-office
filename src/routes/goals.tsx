@@ -1,22 +1,25 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Target } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
-import { SectionHeader } from "@/components/SectionHeader";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { GoalSheet } from "@/components/forms/GoalSheet";
-import { GoalCard, type FundingCheck } from "@/components/goals/GoalCard";
+import { GoalCard, type FundingCheck, type WhatIfProjection } from "@/components/goals/GoalCard";
+import { GoalTimeline } from "@/components/goals/GoalTimeline";
+import { GoalSummaryStrip } from "@/components/goals/GoalSummaryStrip";
+import { WhatIfSlider } from "@/components/goals/WhatIfSlider";
 import { db } from "@/lib/db";
 import { useDeleteRow } from "@/hooks/useUpsertRow";
 import { useQuickAdd } from "@/lib/quick-add";
 import { useScope } from "@/hooks/useScope";
 import { useGoalPlan, useForecastSource } from "@/hooks/usePlanning";
 import type { GoalRow } from "@/hooks/useFinancials";
-import { formatMoney, formatPercent } from "@/lib/format";
+import type { GoalPlanRow } from "@/lib/goal-math";
+import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/goals")({
@@ -26,7 +29,7 @@ export const Route = createFileRoute("/goals")({
       {
         name: "description",
         content:
-          "Household goals costed line by line, with the monthly contribution each one needs, stamp duty on property purchases and a status against real surplus cashflow.",
+          "The household's goals on a five-year timeline: all-in costs, what is saved, the monthly contribution each one needs and when it lands.",
       },
       { property: "og:title", content: "Goals — Ebeid Family Office" },
       {
@@ -41,8 +44,16 @@ export const Route = createFileRoute("/goals")({
   component: GoalsPage,
 });
 
+const MONTH_LABEL: Intl.DateTimeFormatOptions = { month: "short", year: "numeric" };
+
+function addMonths(from: Date, months: number) {
+  const date = new Date(from);
+  date.setMonth(date.getMonth() + Math.round(months));
+  return date;
+}
+
 function GoalsPage() {
-  const { loading, plan, goals, itemsByGoal, surplus, base } = useGoalPlan();
+  const { loading, plan, goals, itemsByGoal, surplus, base, replan } = useGoalPlan();
   const forecast = useForecastSource();
   const { matches, activeLabel, isHousehold } = useScope();
   const remove = useDeleteRow("goals", "goals", "Goal");
@@ -55,6 +66,10 @@ function GoalsPage() {
   const [overId, setOverId] = useState<string | null>(null);
   const [handleId, setHandleId] = useState<string | null>(null);
   const [pendingOrder, setPendingOrder] = useState<string[] | null>(null);
+  const [whatIf, setWhatIf] = useState<number | null>(null);
+  const [focusedGoal, setFocusedGoal] = useState<string | null>(null);
+
+  const cardRefs = useRef(new Map<string, HTMLLIElement>());
 
   useQuickAdd("goal", () => {
     setEditing(null);
@@ -78,12 +93,19 @@ function GoalsPage() {
     onSettled: () => setPendingOrder(null),
   });
 
+  // Everything on the page reads from one plan. When the slider moves, the
+  // plan is recomputed at that contribution — same arithmetic, different input.
+  const activePlan = useMemo(
+    () => (whatIf === null ? plan : replan(whatIf)),
+    [whatIf, plan, replan],
+  );
+
   const ordered = useMemo(() => {
-    const rows = plan.rows;
+    const rows = activePlan.rows;
     if (!pendingOrder) return rows;
     const rank = new Map(pendingOrder.map((id, index) => [id, index]));
     return [...rows].sort((a, b) => (rank.get(a.goal.id) ?? 99) - (rank.get(b.goal.id) ?? 99));
-  }, [plan.rows, pendingOrder]);
+  }, [activePlan.rows, pendingOrder]);
 
   const visible = useMemo(
     () => ordered.filter((row) => matches(row.goal.owner_profile_id)),
@@ -115,10 +137,19 @@ function GoalsPage() {
     setSheetOpen(true);
   };
 
+  // Selecting a marker on the timeline opens the goal it belongs to.
+  useEffect(() => {
+    if (!focusedGoal) return;
+    const node = cardRefs.current.get(focusedGoal);
+    node?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const timer = window.setTimeout(() => setFocusedGoal(null), 1800);
+    return () => window.clearTimeout(timer);
+  }, [focusedGoal]);
+
   // Whether money earmarked for near-term goals could plausibly be sitting in
   // cash. Goal funding is not tied to an account, so this compares totals
   // rather than claiming to know where each pound sits.
-  const nearTermFunded = plan.open
+  const nearTermFunded = activePlan.open
     .filter((row) => row.horizon === "near")
     .reduce((sum, row) => sum + row.funded, 0);
   const householdCash = forecast.input.cash;
@@ -150,28 +181,85 @@ function GoalsPage() {
     };
   };
 
-  const totals = plan.totals;
+  const totals = activePlan.totals;
   const surplusValue = surplus.value;
+
+  const lastCompletion = useMemo(() => {
+    const dates = activePlan.open
+      .map((row) => row.goal.target_date)
+      .filter((date): date is string => !!date)
+      .sort();
+    return dates.length ? (dates[dates.length - 1] ?? null) : null;
+  }, [activePlan.open]);
+
+  const sliderMax = useMemo(() => {
+    const anchor = Math.max(
+      totals.requiredMonthly * 1.4,
+      (surplusValue ?? 0) * 2,
+      plan.totals.requiredMonthly * 1.4,
+      1000,
+    );
+    const magnitude = Math.pow(10, Math.floor(Math.log10(anchor)));
+    return Math.ceil(anchor / magnitude) * magnitude;
+  }, [totals.requiredMonthly, surplusValue, plan.totals.requiredMonthly]);
+
+  const sliderValue = whatIf ?? Math.max(0, Math.min(surplusValue ?? 0, sliderMax));
+
+  const projections = useMemo(() => {
+    const map = new Map<string, WhatIfProjection>();
+    if (whatIf === null) return map;
+    const today = new Date();
+    for (const row of activePlan.rows) {
+      map.set(row.goal.id, projectionFor(row, today));
+    }
+    return map;
+  }, [whatIf, activePlan.rows]);
+
+  const effect = useMemo(() => {
+    const relevant = activePlan.open.filter(
+      (row) => row.requiredMonthly !== null && row.monthsRemaining !== null,
+    );
+    if (!relevant.length) {
+      return { text: "Add a cost and a date to a goal to model this.", tone: "muted" as const };
+    }
+    const onTime = relevant.filter(
+      (row) =>
+        row.monthsAtCurrentRate !== null &&
+        row.monthsRemaining !== null &&
+        row.monthsAtCurrentRate <= row.monthsRemaining + 0.5,
+    ).length;
+    const tone: "gain" | "warn" | "loss" =
+      onTime === relevant.length ? "gain" : onTime === 0 ? "loss" : "warn";
+
+    return {
+      text: `${onTime} of ${relevant.length} dated goal${relevant.length === 1 ? "" : "s"} land${
+        onTime === 1 ? "s" : ""
+      } on time`,
+      tone,
+    };
+  }, [activePlan.open]);
 
   return (
     <AppShell
       title="Goals"
       description={
         isHousehold
-          ? "What the money is actually for — costed line by line, with the contribution each one needs."
-          : `Goals owned by ${activeLabel}, plus joint ones. Funding priority is worked out across the whole household.`
+          ? "What the money is actually for."
+          : `Goals owned by ${activeLabel}, plus joint ones.`
       }
       actions={
-        <Button size="sm" onClick={() => openSheet(null)}>
+        <Button size="sm" onClick={() => openSheet(null)} className="min-h-11">
           <Plus className="mr-1.5 h-3.5 w-3.5" />
           Add goal
         </Button>
       }
     >
       {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={index} className="h-40 w-full rounded-lg" />
+        <div className="space-y-4">
+          <Skeleton className="h-56 w-full rounded-lg" />
+          <Skeleton className="h-28 w-full rounded-lg" />
+          {Array.from({ length: 2 }).map((_, index) => (
+            <Skeleton key={index} className="h-44 w-full rounded-lg" />
           ))}
         </div>
       ) : !visible.length ? (
@@ -184,72 +272,58 @@ function GoalsPage() {
               : "Add what the household is working toward — a UK property, furnishing the house in Egypt, a purchase in Jordan. Give each one a target and a date, then break it into line items so the all-in cost is honest."
           }
           action={
-            <Button size="sm" onClick={() => openSheet(null)}>
+            <Button size="sm" onClick={() => openSheet(null)} className="min-h-11">
               <Plus className="mr-1.5 h-3.5 w-3.5" />
               {goals.length ? "Add a goal" : "Add your first goal"}
             </Button>
           }
         />
       ) : (
-        <div className="space-y-6">
-          <section className="hairline rounded-lg bg-surface-raised px-5 py-4">
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              <Summary label="Open goals" value={String(totals.count)}>
-                {totals.unpriced > 0 && (
-                  <span className="text-warn">{totals.unpriced} still unpriced</span>
-                )}
-                {totals.unpriced === 0 && totals.undated > 0 && (
-                  <span className="text-warn">{totals.undated} without a date</span>
-                )}
-              </Summary>
-              <Summary label="All-in cost" value={formatMoney(totals.allIn, base, { decimals: 0 })}>
-                <span>{formatMoney(totals.remaining, base, { decimals: 0 })} still to find</span>
-              </Summary>
-              <Summary label="Set aside" value={formatMoney(totals.funded, base, { decimals: 0 })}>
-                {totals.allIn > 0 && (
-                  <span>
-                    {formatPercent((totals.funded / totals.allIn) * 100)} of the way there
-                  </span>
-                )}
-              </Summary>
-              <Summary
-                label="Needed each month"
-                value={formatMoney(totals.requiredMonthly, base, { decimals: 0 })}
-                tone="gold"
-              >
-                {surplusValue === null ? (
-                  <span className="text-warn">{surplus.label}</span>
-                ) : totals.surplusShortfall && totals.surplusShortfall > 1 ? (
-                  <span className="text-loss">
-                    {formatMoney(totals.surplusShortfall, base, { decimals: 0 })} more than the{" "}
-                    {surplus.label.toLowerCase()}
-                  </span>
-                ) : (
-                  <span className="text-gain">Within the {surplus.label.toLowerCase()}</span>
-                )}
-              </Summary>
-            </div>
+        <div className="space-y-5">
+          <GoalTimeline
+            rows={visible}
+            base={base}
+            selectedId={expanded}
+            onSelect={(goalId) => {
+              setExpanded(goalId);
+              setFocusedGoal(goalId);
+            }}
+          />
 
-            <p className="mt-4 border-t border-border pt-3 text-[0.7rem] leading-relaxed text-muted-foreground">
-              {surplus.detail}
-              {surplusValue !== null && (
-                <>
-                  {" "}
-                  Surplus of {formatMoney(surplusValue, base, { decimals: 0 })} a month is allocated
-                  down this list in order.
-                </>
-              )}
-              {totals.firstUnfundedTitle && (
-                <>
-                  {" "}
-                  <span className="text-warn">
-                    It runs out at “{totals.firstUnfundedTitle}” — drag the list to change what
-                    gives.
-                  </span>
-                </>
-              )}
-            </p>
-          </section>
+          <GoalSummaryStrip
+            allIn={totals.allIn}
+            funded={totals.funded}
+            monthly={totals.requiredMonthly}
+            lastCompletion={lastCompletion}
+            base={base}
+            monthlyNote={
+              surplusValue === null
+                ? surplus.label
+                : totals.surplusShortfall && totals.surplusShortfall > 1
+                  ? `${formatMoney(totals.surplusShortfall, base, { decimals: 0 })} more than the ${surplus.label.toLowerCase()}`
+                  : `within the ${surplus.label.toLowerCase()}`
+            }
+            monthlyTone={
+              surplusValue === null
+                ? "warn"
+                : totals.surplusShortfall && totals.surplusShortfall > 1
+                  ? "loss"
+                  : "gain"
+            }
+          />
+
+          <WhatIfSlider
+            value={sliderValue}
+            onChange={setWhatIf}
+            max={sliderMax}
+            base={base}
+            actual={surplusValue}
+            actualLabel={surplus.label}
+            effect={effect.text}
+            effectTone={effect.tone}
+            dirty={whatIf !== null}
+            onReset={() => setWhatIf(null)}
+          />
 
           {!nearTermCovered && (
             <p className="rounded-md border border-warn/30 bg-warn/10 px-4 py-3 text-xs leading-relaxed text-warn">
@@ -261,17 +335,25 @@ function GoalsPage() {
           )}
 
           <div>
-            <SectionHeader
-              title="Priority order"
-              description="Drag a goal by its handle — or focus a handle and use the arrow keys — to change which one the surplus funds first."
-            />
-            <ul className="space-y-3">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm text-foreground">In priority order</h2>
+              <p className="text-xs text-muted-foreground">
+                {totals.firstUnfundedTitle
+                  ? `Surplus runs out at “${totals.firstUnfundedTitle}” — drag to change what gives.`
+                  : "Drag a goal, or focus its handle and use the arrow keys."}
+              </p>
+            </div>
+            <ul className="space-y-4">
               {visible.map((row, index) => {
                 const goal = goalById.get(row.goal.id);
                 if (!goal) return null;
                 return (
                   <li
                     key={row.goal.id}
+                    ref={(node) => {
+                      if (node) cardRefs.current.set(row.goal.id, node);
+                      else cardRefs.current.delete(row.goal.id);
+                    }}
                     draggable={handleId === row.goal.id}
                     onDragStart={(event) => {
                       setDragId(row.goal.id);
@@ -325,6 +407,8 @@ function GoalsPage() {
                       fundingCheck={fundingCheckFor(row.horizon)}
                       dragging={dragId === row.goal.id}
                       dropTarget={overId === row.goal.id}
+                      whatIf={projections.get(row.goal.id) ?? null}
+                      highlighted={focusedGoal === row.goal.id}
                     />
                   </li>
                 );
@@ -339,22 +423,32 @@ function GoalsPage() {
   );
 }
 
-function Summary({
-  label,
-  value,
-  tone = "default",
-  children,
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "gold";
-  children?: React.ReactNode;
-}) {
-  return (
-    <div>
-      <p className="eyebrow">{label}</p>
-      <p className={cn("num mt-1 text-xl font-light", tone === "gold" && "text-gold")}>{value}</p>
-      <p className="mt-1 text-[0.7rem] text-muted-foreground">{children}</p>
-    </div>
+/** What a given contribution level does to one goal's completion date. */
+function projectionFor(row: GoalPlanRow, today: Date): WhatIfProjection {
+  if (row.status === "achieved") return { label: "Already funded.", tone: "gain" };
+  if (row.allIn <= 0) {
+    return { label: "Unpriced, so no date can be projected.", tone: "muted" };
+  }
+  if (row.monthsAtCurrentRate === null) {
+    return {
+      label: "At this level nothing reaches this goal — the ones above it take it all.",
+      tone: "loss",
+    };
+  }
+
+  const landing = addMonths(today, row.monthsAtCurrentRate).toLocaleDateString(
+    "en-GB",
+    MONTH_LABEL,
   );
+  if (row.monthsRemaining === null) {
+    return { label: `Funded by ${landing} at this rate.`, tone: "muted" };
+  }
+  if (row.monthsAtCurrentRate <= row.monthsRemaining + 0.5) {
+    return { label: `Funded by ${landing} — on time.`, tone: "gain" };
+  }
+  const late = Math.round(row.monthsAtCurrentRate - row.monthsRemaining);
+  return {
+    label: `Funded by ${landing} — ${late} month${late === 1 ? "" : "s"} later than planned.`,
+    tone: late > 12 ? "loss" : "warn",
+  };
 }

@@ -1,21 +1,22 @@
-import { StatTile, type StatTrend } from "@/components/StatTile";
+import { StatTile } from "@/components/StatTile";
 import { formatMoney, formatPercent } from "@/lib/format";
 import type { NetWorthSummary } from "@/hooks/useNetWorth";
 import type { ObservedSpending } from "@/hooks/useObservedSpending";
 
 /**
- * Runway and savings rate prefer what the statements actually show. Until two
- * complete months are imported they fall back to the recorded plan, and the
- * tile says which one it is using rather than blurring the two.
+ * Three numbers, chosen because each one can change a decision this month:
+ * how long the cash lasts, what is left over, and how much of what comes in
+ * survives. Everything else moved to the page it belongs on.
+ *
+ * All three prefer what the statements actually show; until two complete
+ * months are imported they fall back to the recorded plan and say so.
  */
 export function MetricRow({
   summary,
   spending,
-  liquidTrend,
 }: {
   summary: NetWorthSummary;
   spending: ObservedSpending;
-  liquidTrend: StatTrend | null;
 }) {
   const { base } = summary;
   const loading = summary.loading || spending.loading;
@@ -37,43 +38,7 @@ export function MetricRow({
     : summary.savingsRate;
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-      <StatTile
-        label="Liquid net worth"
-        loading={loading}
-        value={formatMoney(summary.liquidNetWorth, base, { decimals: 0 })}
-        definition="Cash, savings and investments you could realistically access within a week, less short-term debt. Pensions and private company shares are excluded."
-        trend={liquidTrend}
-      />
-      <StatTile
-        label="Illiquid net worth"
-        loading={loading}
-        value={formatMoney(summary.illiquidNetWorth, base, { decimals: 0 })}
-        definition="Wealth locked in property, pensions and private company shareholdings. Real, but not spendable."
-        sub={
-          summary.privateStakeValue > 0
-            ? `${formatMoney(summary.privateStakeValue, base, { decimals: 0 })} private stake`
-            : undefined
-        }
-      />
-      <StatTile
-        label="Monthly net cashflow"
-        loading={loading}
-        tone={netCashflow >= 0 ? "gain" : "loss"}
-        value={formatMoney(netCashflow, base, { decimals: 0 })}
-        definition={
-          useObservedCashflow
-            ? "Typical month from your imported statements: everything that came in, less everything that went out. Internal transfers are excluded."
-            : "Recorded monthly income after every planned outgoing and debt payment. Positive means the household is adding to its wealth each month."
-        }
-        sub={
-          useObservedCashflow
-            ? `${formatMoney(observedIncome, base, { decimals: 0 })} in, typical of ${monthsWord}`
-            : summary.monthlyIncome === 0
-              ? "No income recorded yet"
-              : `${formatMoney(summary.monthlyIncome, base, { decimals: 0 })} in, as planned`
-        }
-      />
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <StatTile
         label="Emergency runway"
         loading={loading}
@@ -86,7 +51,6 @@ export function MetricRow({
                 ? "neutral"
                 : "loss"
         }
-
         value={runwayMonths === null ? "—" : `${runwayMonths.toFixed(1)} mo`}
         definition={`${
           observedEssential !== null
@@ -103,6 +67,24 @@ export function MetricRow({
             : essentialSpend > 0
               ? `${formatMoney(essentialSpend, base, { decimals: 0 })}/mo committed, from your plan`
               : "Import a statement or add committed outgoings"
+        }
+      />
+      <StatTile
+        label="Spare each month"
+        loading={loading}
+        tone={netCashflow >= 0 ? "gain" : "loss"}
+        value={formatMoney(netCashflow, base, { decimals: 0 })}
+        definition={
+          useObservedCashflow
+            ? "Typical month from your imported statements: everything that came in, less everything that went out. Internal transfers are excluded."
+            : "Recorded monthly income after every planned outgoing and debt payment. Positive means the household is adding to its wealth each month."
+        }
+        sub={
+          useObservedCashflow
+            ? `${formatMoney(observedIncome, base, { decimals: 0 })} in, typical of ${monthsWord}`
+            : summary.monthlyIncome === 0
+              ? "No income recorded yet"
+              : `${formatMoney(summary.monthlyIncome, base, { decimals: 0 })} in, as planned`
         }
       />
       <StatTile

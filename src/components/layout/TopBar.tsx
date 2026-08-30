@@ -1,7 +1,7 @@
 import { Search } from "lucide-react";
 import { openCommandPalette } from "@/components/CommandPalette";
 import { useNetWorth } from "@/hooks/useNetWorth";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatReadableMoney } from "@/lib/format";
 import { ScopeToggle } from "@/components/ScopeToggle";
 import { FxIndicator } from "@/components/FxIndicator";
 import { ProfileMenu } from "./ProfileMenu";
@@ -14,34 +14,41 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
       <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
-        {/* The figure stays visible on every screen; only the wordmark shortens on mobile. */}
+        {/* The figure stays visible on every screen; on a phone it shortens
+            rather than truncating into an unreadable stub. */}
         <div className="flex min-w-0 items-center gap-2.5">
-          <Wordmark size="sm" compact className="lg:hidden" />
+          <Wordmark size="sm" compact className="hidden sm:inline-flex lg:hidden" />
           <span className="eyebrow hidden lg:inline">Household</span>
-          <span aria-hidden className="h-3.5 w-px bg-border lg:hidden" />
+          <span aria-hidden className="hidden h-3.5 w-px bg-border sm:block lg:hidden" />
           {loading ? (
             <Skeleton className="h-4 w-20" />
           ) : (
-            <span className="num truncate text-sm font-light text-foreground">
-              {hasData ? formatMoney(netWorth, base, { decimals: 0 }) : "—"}
+            <span className="num whitespace-nowrap text-sm font-light text-foreground">
+              <span className="lg:hidden">
+                {hasData ? formatReadableMoney(netWorth, base) : "—"}
+              </span>
+              <span className="hidden lg:inline">
+                {hasData ? formatMoney(netWorth, base, { decimals: 0 }) : "—"}
+              </span>
             </span>
           )}
         </div>
 
-        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
           <button
             type="button"
             onClick={openCommandPalette}
             aria-label="Open the command palette"
-            className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-surface px-2.5 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="inline-flex h-11 w-11 items-center justify-center gap-2 rounded-md border border-border bg-surface text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring lg:h-8 lg:w-auto lg:px-2.5"
           >
-            <Search className="h-3.5 w-3.5" />
+            <Search className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
             <span className="hidden lg:inline">Search</span>
             <kbd className="num hidden rounded border border-border px-1 text-[0.6rem] text-muted-foreground/80 lg:inline">
               ⌘K
             </kbd>
           </button>
-          <ScopeToggle />
+          <ScopeToggle compact className="lg:hidden" />
+          <ScopeToggle className="hidden lg:inline-flex" />
           <FxIndicator />
           <ProfileMenu />
         </div>

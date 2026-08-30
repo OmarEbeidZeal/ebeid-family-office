@@ -114,7 +114,7 @@ export function AdvisorPanel({
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Link
           to="/advisor"
-          className="inline-flex h-9 items-center rounded-md border border-border bg-surface-raised px-4 text-sm text-foreground transition-colors hover:border-gold-line hover:text-gold"
+          className="inline-flex h-9 items-center rounded-md border border-border bg-surface-raised px-4 text-sm text-foreground transition-colors hover:border-gold-line hover:text-gold coarse:min-h-11"
         >
           {hasNotes ? "Read the briefing" : "Open the advisor"}
         </Link>

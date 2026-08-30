@@ -3,14 +3,17 @@ import { Target } from "lucide-react";
 import { SectionHeader } from "@/components/SectionHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProgressRing } from "@/components/ProgressRing";
 import { GoalStatusPill } from "@/components/goals/GoalStatusPill";
-import { formatDate, formatMoney, formatPercent, GOAL_CATEGORY_LABELS } from "@/lib/format";
+import { RING_TONE, STATUS_TONE, priorityMeta } from "@/components/goals/goal-visuals";
+import { formatDate, formatMoney, formatReadableMoney } from "@/lib/format";
 import { useGoalPlan } from "@/hooks/usePlanning";
+import { cn } from "@/lib/utils";
 
 /**
- * The dashboard read on the wish list: the all-in cost, where funding stands
- * and what each goal needs every month from today. Goals are household-level,
- * so this deliberately ignores the Me/partner scope toggle.
+ * What the money is for, on the dashboard: the ring, the all-in cost and the
+ * monthly ask. Goals are household-level, so this deliberately ignores the
+ * Me/partner scope toggle.
  */
 export function GoalsStrip() {
   const { loading, plan, base } = useGoalPlan();
@@ -18,9 +21,9 @@ export function GoalsStrip() {
   const onTrack = plan.open.filter((row) => row.status === "on_track").length;
 
   return (
-    <section className="hairline rounded-lg bg-surface p-5">
+    <section className="panel p-5">
       <SectionHeader
-        title="Goals"
+        title="What it's all for"
         {...(plan.open.length > 0
           ? {
               description: `${onTrack} of ${plan.open.length} on track · ${formatMoney(plan.totals.requiredMonthly, base, { decimals: 0 })} a month needed across the open list`,
@@ -29,7 +32,7 @@ export function GoalsStrip() {
         action={
           <Link
             to="/goals"
-            className="text-xs text-muted-foreground transition-colors hover:text-gold"
+            className="-my-2 inline-flex items-center py-2 text-xs text-muted-foreground transition-colors hover:text-gold coarse:min-h-10"
           >
             All goals →
           </Link>
@@ -39,7 +42,7 @@ export function GoalsStrip() {
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[0, 1, 2, 3].map((index) => (
-            <Skeleton key={index} className="h-32 w-full" />
+            <Skeleton key={index} className="h-36 w-full" />
           ))}
         </div>
       ) : rows.length === 0 ? (
@@ -54,66 +57,69 @@ export function GoalsStrip() {
           action={
             <Link
               to="/goals"
-              className="inline-flex h-9 items-center rounded-md border border-gold-line bg-gold-soft px-4 text-sm text-gold transition-colors hover:bg-gold-soft/80"
+              className="tap inline-flex items-center rounded-md border border-gold-line bg-gold-soft px-4 text-sm text-gold transition-colors hover:bg-gold-soft/80"
             >
               {plan.rows.length === 0 ? "Set a goal" : "Add a goal"}
             </Link>
           }
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {rows.map((row) => (
-            <Link
-              key={row.goal.id}
-              to="/goals"
-              className="group flex flex-col rounded-md border border-border bg-surface-raised p-4 transition-colors hover:border-gold-line"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <p className="min-w-0 truncate text-sm text-foreground transition-colors group-hover:text-gold">
-                  {row.goal.title}
-                </p>
-                <GoalStatusPill status={row.status} className="shrink-0" />
-              </div>
+        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {rows.map((row) => {
+            const priority = priorityMeta(row.goal.priority);
+            return (
+              <li key={row.goal.id}>
+                <Link
+                  to="/goals"
+                  className="group flex h-full flex-col gap-3 rounded-md border border-border bg-surface-raised p-4 transition-colors hover:border-gold-line"
+                >
+                  <div className="flex min-w-0 items-start gap-2">
+                    <p className="min-w-0 flex-1 truncate text-sm text-foreground transition-colors group-hover:text-gold">
+                      {row.goal.title}
+                    </p>
+                    <GoalStatusPill status={row.status} className="shrink-0" />
+                  </div>
 
-              <p className="mt-1 text-[0.68rem] uppercase tracking-[0.1em] text-muted-foreground">
-                {GOAL_CATEGORY_LABELS[row.goal.goal_category] ?? row.goal.goal_category}
-                {row.goal.target_date ? ` · ${formatDate(row.goal.target_date, "short")}` : ""}
-              </p>
+                  <div className="flex items-center gap-3">
+                    <ProgressRing
+                      value={row.progressPct}
+                      size={56}
+                      stroke={5}
+                      tone={RING_TONE[STATUS_TONE[row.status]]}
+                      label={`${Math.round(Math.min(100, Math.max(0, row.progressPct)))}%`}
+                      ariaLabel={`${row.goal.title}: ${Math.round(row.progressPct)}% funded`}
+                    />
 
-              <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-border">
-                <div
-                  className="h-full rounded-full bg-gold"
-                  style={{ width: `${Math.min(100, Math.max(0, row.progressPct))}%` }}
-                />
-              </div>
-
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="num text-xs text-foreground/85">
-                  {row.allIn > 0 ? formatMoney(row.allIn, base, { decimals: 0 }) : "Not priced"}
-                </span>
-                <span className="num text-[0.7rem] text-muted-foreground">
-                  {row.allIn > 0 ? formatPercent(row.progressPct, 0) : "—"}
-                </span>
-              </div>
-
-              <div className="mt-3 border-t border-border pt-2">
-                <p className="eyebrow">Needed monthly</p>
-                <p className="num mt-0.5 text-base font-light text-foreground">
-                  {row.requiredMonthly === null
-                    ? "—"
-                    : formatMoney(row.requiredMonthly, base, { decimals: 0 })}
-                </p>
-                {row.requiredMonthly !== null && (
-                  <p className="mt-0.5 text-[0.68rem] text-muted-foreground">
-                    {row.allocatedMonthly > 0
-                      ? `${formatMoney(row.allocatedMonthly, base, { decimals: 0 })} allocated from surplus`
-                      : "No surplus allocated to this goal"}
-                  </p>
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="num text-sm font-light text-foreground">
+                        {row.requiredMonthly === null
+                          ? "—"
+                          : `${formatReadableMoney(row.requiredMonthly, base)}/mo`}
+                      </p>
+                      <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">
+                        {row.allIn > 0
+                          ? `of ${formatReadableMoney(row.allIn, base)} all-in`
+                          : "Not priced yet"}
+                      </p>
+                      <p className="mt-1.5 flex items-center gap-1.5 text-[0.68rem] text-muted-foreground">
+                        <span
+                          className={cn("h-1.5 w-1.5 shrink-0 rounded-full", priority.dot)}
+                          aria-hidden
+                        />
+                        <span className="truncate">
+                          {priority.label}
+                          {row.goal.target_date
+                            ? ` · ${formatDate(row.goal.target_date, "short")}`
+                            : ""}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
   );

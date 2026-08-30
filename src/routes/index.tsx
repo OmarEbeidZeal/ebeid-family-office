@@ -5,12 +5,8 @@ import { FirstRunPanel } from "@/components/dashboard/FirstRunPanel";
 import { HeroNetWorth, type NetWorthDelta } from "@/components/dashboard/HeroNetWorth";
 import { MetricRow } from "@/components/dashboard/MetricRow";
 import { NetWorthTrend } from "@/components/dashboard/NetWorthTrend";
-import { AllocationPanels } from "@/components/dashboard/AllocationPanels";
-import { SpendingPanel } from "@/components/dashboard/SpendingPanel";
 import { AdvisorPanel } from "@/components/dashboard/AdvisorPanel";
 import { GoalsStrip } from "@/components/dashboard/GoalsStrip";
-import { ForecastPanel } from "@/components/dashboard/ForecastPanel";
-import type { StatTrend } from "@/components/StatTile";
 import { useNetWorth } from "@/hooks/useNetWorth";
 import { useObservedSpending } from "@/hooks/useObservedSpending";
 import { useAdvisorNotes, useHoldings, useSnapshots } from "@/hooks/useFinancials";
@@ -45,13 +41,18 @@ function DashboardRoute() {
   return (
     <AppShell
       title={household?.name ?? "Household"}
-      description="Everything the household owns and owes, converted to sterling and updated as you record it."
+      description="Where the household stands today, and what it is heading toward."
     >
       <Dashboard />
     </AppShell>
   );
 }
 
+/**
+ * Five blocks, in the order a person actually asks the questions: what are we
+ * worth, can we absorb a shock, which way are we moving, what is it all for,
+ * and what should we look at next. Depth lives on the page it belongs to.
+ */
 function Dashboard() {
   const summary = useNetWorth();
   const householdSummary = useNetWorth({ householdWide: true });
@@ -83,36 +84,24 @@ function Dashboard() {
     };
   }, [snapshots, householdSummary.netWorth]);
 
-  const liquidTrend = useMemo<StatTrend | null>(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    const history = snapshots.filter((row) => row.as_of < today);
-    const previous = history[history.length - 1];
-    if (!previous) return null;
-    const previousValue = Number(previous.liquid_net_worth);
-    if (!previousValue) return null;
-    return {
-      changePct:
-        ((householdSummary.liquidNetWorth - previousValue) / Math.abs(previousValue)) * 100,
-      label: "vs last snapshot",
-    };
-  }, [snapshots, householdSummary.liquidNetWorth]);
-
   if (!summary.loading && !householdSummary.hasData) {
     return <FirstRunPanel />;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <HeroNetWorth
         netWorth={summary.netWorth}
         totalAssets={summary.totalAssets}
         totalLiabilities={summary.totalLiabilities}
+        liquidNetWorth={summary.liquidNetWorth}
+        illiquidNetWorth={summary.illiquidNetWorth}
         base={summary.base}
         loading={summary.loading}
         delta={delta}
       />
 
-      <MetricRow summary={summary} spending={spending} liquidTrend={liquidTrend} />
+      <MetricRow summary={summary} spending={spending} />
 
       <NetWorthTrend
         snapshots={snapshots}
@@ -120,20 +109,13 @@ function Dashboard() {
         loading={snapshotsQuery.isLoading || summary.loading}
       />
 
-      <AllocationPanels summary={summary} />
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <SpendingPanel />
-        <AdvisorPanel
-          summary={summary}
-          holdingsCount={holdingsQuery.data?.length ?? 0}
-          notes={notesQuery.data ?? []}
-        />
-      </div>
-
       <GoalsStrip />
 
-      <ForecastPanel />
+      <AdvisorPanel
+        summary={summary}
+        holdingsCount={holdingsQuery.data?.length ?? 0}
+        notes={notesQuery.data ?? []}
+      />
     </div>
   );
 }

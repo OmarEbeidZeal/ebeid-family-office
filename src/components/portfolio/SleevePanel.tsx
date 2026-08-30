@@ -53,15 +53,23 @@ export function SleevePanel({
           {rows.map((row) => {
             const actual = row.actualPct ?? 0;
             const marker = row.targetPct ?? row.capPct;
+            // Under-weight against a target is not "approaching limit" — it reads
+            // as a warning about too much when the truth is too little.
+            const underTarget = row.capPct === null && row.driftPp !== null && row.driftPp < 0;
             return (
               <li key={row.sleeve}>
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-foreground/90">{row.label}</span>
                     {measurable && row.status !== "ok" && row.status !== "not_applicable" && (
-                      <PolicyPill status={row.status} size="xs" />
+                      <PolicyPill
+                        status={row.status}
+                        size="xs"
+                        {...(underTarget ? { label: "Below target" } : {})}
+                      />
                     )}
                   </div>
+
                   <span className="num text-xs text-muted-foreground">
                     <span className="text-foreground">
                       {row.actualPct === null ? "—" : formatPercent(row.actualPct)}

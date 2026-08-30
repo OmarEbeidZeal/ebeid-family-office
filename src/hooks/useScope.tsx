@@ -15,6 +15,8 @@ export type Scope = string;
 export type ScopeOption = {
   id: Scope;
   label: string;
+  /** Phone-width label — the toggle has to fit beside the net worth figure. */
+  short: string;
   disabled?: boolean;
   hint?: string;
 };
@@ -46,12 +48,13 @@ export function ScopeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const options = useMemo<ScopeOption[]>(() => {
-    const list: ScopeOption[] = [{ id: "household", label: "Household" }];
-    if (profile) list.push({ id: profile.id, label: "Me" });
+    const list: ScopeOption[] = [{ id: "household", label: "Household", short: "All" }];
+    if (profile) list.push({ id: profile.id, label: "Me", short: "Me" });
 
     const partners = members.filter((member) => member.id !== profile?.id);
     for (const partner of partners) {
-      list.push({ id: partner.id, label: personName(partner) });
+      const name = personName(partner);
+      list.push({ id: partner.id, label: name, short: name.split(" ")[0] ?? name });
     }
 
     // Partner named during onboarding but not yet signed up: show the tab so
@@ -60,6 +63,7 @@ export function ScopeProvider({ children }: { children: ReactNode }) {
       list.push({
         id: "partner-pending",
         label: household.partner_display_name,
+        short: household.partner_display_name.split(" ")[0] ?? household.partner_display_name,
         disabled: true,
         hint: `Invite ${household.partner_display_name} from Settings to track her side separately.`,
       });

@@ -46,6 +46,26 @@ export function formatCompact(value: number, currency: string) {
   return `${sign}${currencySymbol(currency)}${compact}`;
 }
 
+const trimZeros = (value: string) => value.replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
+
+/**
+ * Rounded for reading rather than for accounting: £1.24M, £48.3k, £8,450.
+ * Orientation figures use this; the exact number is always one hover or tap
+ * away through `<Money>`.
+ */
+export function formatReadableAmount(value: number) {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000_000) return `${trimZeros((abs / 1_000_000_000).toFixed(2))}B`;
+  if (abs >= 1_000_000) return `${trimZeros((abs / 1_000_000).toFixed(2))}M`;
+  if (abs >= 10_000) return `${trimZeros((abs / 1_000).toFixed(1))}k`;
+  return formatAmount(abs, { decimals: abs < 100 && abs % 1 !== 0 ? 2 : 0 });
+}
+
+export function formatReadableMoney(value: number, currency: string) {
+  const sign = value < 0 ? "−" : "";
+  return `${sign}${currencySymbol(currency)}${formatReadableAmount(value)}`;
+}
+
 export function formatSignedPercent(value: number, decimals = 1) {
   return `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value).toFixed(decimals)}%`;
 }

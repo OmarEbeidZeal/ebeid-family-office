@@ -87,6 +87,8 @@ export type GoalRow = {
   financed_amount: number;
   financed_rate: number | null;
   financed_term_years: number | null;
+  /** Path inside the private goal-images bucket; never a public URL. */
+  image_path: string | null;
 };
 
 export type GoalLineItemRow = {
