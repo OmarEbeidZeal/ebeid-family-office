@@ -31,7 +31,7 @@ export function CoverageGaps({
     <section>
       <SectionHeader
         title="Missing months"
-        description="Every month between the first and the most recent statement should have a file behind it. These do not, so spending for them is understated until you import them."
+        description="Every month up to last month should have a statement behind it. These do not, so spending for them is understated until you import them."
       />
       <ul className="hairline space-y-0 rounded-lg bg-surface">
         {gaps.map((gap) => {
