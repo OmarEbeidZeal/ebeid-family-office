@@ -487,7 +487,10 @@ function chunkText(text: string): string[] {
   return chunks;
 }
 
-export async function extractFromPdfText(text: string): Promise<ExtractionResult> {
+export async function extractFromPdfText(
+  runner: JsonRunner,
+  text: string,
+): Promise<ExtractionResult> {
   const chunks = chunkText(text);
   const notes: string[] = [];
   if (chunks.length > MAX_CHUNKS) {
@@ -496,21 +499,25 @@ export async function extractFromPdfText(text: string): Promise<ExtractionResult
     );
   }
 
-  const metaPromise = aiJson<{
-    period_start: string;
-    period_end: string;
-    opening_balance: string;
-    closing_balance: string;
-    currency: string;
-  }>({
-    model: AI_MODELS.cheap,
-    system:
-      "You read bank statement headers. Return the statement period, opening and closing balances and the ISO currency code exactly as printed. Use an empty string for anything the text does not state. Dates must be ISO yyyy-mm-dd.",
-    user: `Statement text (start):\n\n${text.slice(0, 4000)}\n\nStatement text (end):\n\n${text.slice(-2500)}`,
-    schemaName: "statement_meta",
-    schema: META_SCHEMA,
-    maxTokens: 600,
-  }).catch(() => null);
+  const metaPromise = runner
+    .json<
+      {
+        period_start: string;
+        period_end: string;
+        opening_balance: string;
+        closing_balance: string;
+        currency: string;
+      } & RawIdentity
+    >({
+      system: `You read bank statement headers. Return the statement period, opening and closing balances and the ISO currency code exactly as printed. Use an empty string for anything the text does not state. Dates must be ISO yyyy-mm-dd.
+
+${IDENTITY_RULES}`,
+      user: `Statement text (start):\n\n${text.slice(0, 4000)}\n\nStatement text (end):\n\n${text.slice(-2500)}`,
+      schemaName: "statement_meta",
+      schema: META_SCHEMA,
+      maxTokens: 900,
+    })
+    .catch(() => null);
 
   const results: RawTransaction[] = [];
   const CONCURRENCY = 3;
@@ -519,7 +526,7 @@ export async function extractFromPdfText(text: string): Promise<ExtractionResult
     const batch = chunks.slice(start, start + CONCURRENCY);
     const parsed = await Promise.all(
       batch.map((chunk) =>
-        aiJson<{
+        runner.json<{
           transactions: Array<{
             date: string;
             description: string;
@@ -528,7 +535,6 @@ export async function extractFromPdfText(text: string): Promise<ExtractionResult
             balance_after: string;
           }>;
         }>({
-          model: AI_MODELS.strong,
           system: PDF_SYSTEM,
           user: `Statement text section ${start + batch.indexOf(chunk) + 1} of ${chunks.length}:\n\n${chunk}`,
           schemaName: "pdf_transactions",
@@ -537,6 +543,7 @@ export async function extractFromPdfText(text: string): Promise<ExtractionResult
         }),
       ),
     );
+
 
     for (const page of parsed) {
       for (const row of page.transactions ?? []) {
