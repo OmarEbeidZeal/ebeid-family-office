@@ -6,7 +6,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
  * Household / Me / partner perspective. Every page reads the active scope from
  * the same context, so switching here re-frames the whole system.
  */
-export function ScopeToggle({ className }: { className?: string }) {
+export function ScopeToggle({
+  className,
+  compact = false,
+}: {
+  className?: string;
+  compact?: boolean;
+}) {
   const { scope, setScope, options } = useScope();
 
   return (
@@ -35,7 +41,7 @@ export function ScopeToggle({ className }: { className?: string }) {
                 : "text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:text-muted-foreground",
             )}
           >
-            {option.label}
+            {compact ? option.short : option.label}
           </button>
         );
 

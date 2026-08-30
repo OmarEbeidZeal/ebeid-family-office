@@ -17,9 +17,9 @@ export function TopBar() {
         {/* The figure stays visible on every screen; on a phone it shortens
             rather than truncating into an unreadable stub. */}
         <div className="flex min-w-0 items-center gap-2.5">
-          <Wordmark size="sm" compact className="lg:hidden" />
+          <Wordmark size="sm" compact className="hidden sm:inline-flex lg:hidden" />
           <span className="eyebrow hidden lg:inline">Household</span>
-          <span aria-hidden className="h-3.5 w-px bg-border lg:hidden" />
+          <span aria-hidden className="hidden h-3.5 w-px bg-border sm:block lg:hidden" />
           {loading ? (
             <Skeleton className="h-4 w-20" />
           ) : (
@@ -47,7 +47,8 @@ export function TopBar() {
               ⌘K
             </kbd>
           </button>
-          <ScopeToggle />
+          <ScopeToggle compact className="lg:hidden" />
+          <ScopeToggle className="hidden lg:inline-flex" />
           <FxIndicator />
           <ProfileMenu />
         </div>
