@@ -32,7 +32,7 @@ export function GoalsStrip() {
         action={
           <Link
             to="/goals"
-            className="text-xs text-muted-foreground transition-colors hover:text-gold"
+            className="-my-2 inline-flex items-center py-2 text-xs text-muted-foreground transition-colors hover:text-gold coarse:min-h-10"
           >
             All goals →
           </Link>
