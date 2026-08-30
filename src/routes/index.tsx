@@ -11,6 +11,7 @@ import { AdvisorPanel } from "@/components/dashboard/AdvisorPanel";
 import { GoalsStrip } from "@/components/dashboard/GoalsStrip";
 import type { StatTrend } from "@/components/StatTile";
 import { useNetWorth } from "@/hooks/useNetWorth";
+import { useObservedSpending } from "@/hooks/useObservedSpending";
 import { useHoldings, useSnapshots } from "@/hooks/useFinancials";
 import { useSnapshotSync } from "@/hooks/useSnapshotSync";
 import { useAuth } from "@/hooks/useAuth";
@@ -53,6 +54,7 @@ function DashboardRoute() {
 function Dashboard() {
   const summary = useNetWorth();
   const householdSummary = useNetWorth({ householdWide: true });
+  const spending = useObservedSpending();
   const snapshotsQuery = useSnapshots();
   const holdingsQuery = useHoldings();
   useSnapshotSync();
@@ -108,7 +110,7 @@ function Dashboard() {
         delta={delta}
       />
 
-      <MetricRow summary={summary} liquidTrend={liquidTrend} />
+      <MetricRow summary={summary} spending={spending} liquidTrend={liquidTrend} />
 
       <NetWorthTrend
         snapshots={snapshots}

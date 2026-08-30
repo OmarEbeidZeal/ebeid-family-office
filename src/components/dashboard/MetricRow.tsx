@@ -1,15 +1,38 @@
 import { StatTile, type StatTrend } from "@/components/StatTile";
 import { formatMoney, formatPercent } from "@/lib/format";
 import type { NetWorthSummary } from "@/hooks/useNetWorth";
+import type { ObservedSpending } from "@/hooks/useObservedSpending";
 
+/**
+ * Runway and savings rate prefer what the statements actually show. Until two
+ * complete months are imported they fall back to the recorded plan, and the
+ * tile says which one it is using rather than blurring the two.
+ */
 export function MetricRow({
   summary,
+  spending,
   liquidTrend,
 }: {
   summary: NetWorthSummary;
+  spending: ObservedSpending;
   liquidTrend: StatTrend | null;
 }) {
-  const { base, loading } = summary;
+  const { base } = summary;
+  const loading = summary.loading || spending.loading;
+
+  const observedEssential = spending.essentialBaseline;
+  const essentialSpend = observedEssential ?? summary.essentialSpend;
+  const runwayMonths = essentialSpend > 0 ? summary.liquidCash / essentialSpend : null;
+  const monthsWord = `${spending.completeMonthCount} complete month${spending.completeMonthCount === 1 ? "" : "s"}`;
+
+  const observedIncome = spending.incomeBaseline;
+  const observedSpend = spending.spendBaseline;
+  const useObservedCashflow =
+    observedIncome !== null && observedIncome > 0 && observedSpend !== null;
+  const netCashflow = useObservedCashflow ? observedIncome - observedSpend : summary.netCashflow;
+  const savingsRate = useObservedCashflow
+    ? ((observedIncome - observedSpend) / observedIncome) * 100
+    : summary.savingsRate;
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -34,44 +57,64 @@ export function MetricRow({
       <StatTile
         label="Monthly net cashflow"
         loading={loading}
-        tone={summary.netCashflow >= 0 ? "gain" : "loss"}
-        value={formatMoney(summary.netCashflow, base, { decimals: 0 })}
-        definition="Recorded monthly income after every planned outgoing and debt payment. Positive means the household is adding to its wealth each month."
+        tone={netCashflow >= 0 ? "gain" : "loss"}
+        value={formatMoney(netCashflow, base, { decimals: 0 })}
+        definition={
+          useObservedCashflow
+            ? "Typical month from your imported statements: everything that came in, less everything that went out. Internal transfers are excluded."
+            : "Recorded monthly income after every planned outgoing and debt payment. Positive means the household is adding to its wealth each month."
+        }
         sub={
-          summary.monthlyIncome === 0
-            ? "No income recorded yet"
-            : `${formatMoney(summary.monthlyIncome, base, { decimals: 0 })} in`
+          useObservedCashflow
+            ? `${formatMoney(observedIncome, base, { decimals: 0 })} in, typical of ${monthsWord}`
+            : summary.monthlyIncome === 0
+              ? "No income recorded yet"
+              : `${formatMoney(summary.monthlyIncome, base, { decimals: 0 })} in, as planned`
         }
       />
       <StatTile
         label="Emergency runway"
         loading={loading}
         tone={
-          summary.runwayMonths === null
+          runwayMonths === null
             ? "neutral"
-            : summary.runwayMonths >= 6
+            : runwayMonths >= 6
               ? "gain"
-              : summary.runwayMonths >= 3
+              : runwayMonths >= 3
                 ? "neutral"
                 : "loss"
         }
-        value={summary.runwayMonths === null ? "—" : `${summary.runwayMonths.toFixed(1)} mo`}
-        definition="How many months of committed spending your accessible cash covers if income stopped tomorrow. Six months is the usual first target."
+        value={runwayMonths === null ? "—" : `${runwayMonths.toFixed(1)} mo`}
+        definition={
+          observedEssential !== null
+            ? "How many months of your observed essential spending your accessible cash covers if income stopped tomorrow. Six months is the usual first target."
+            : "How many months of committed spending your accessible cash covers if income stopped tomorrow. Six months is the usual first target."
+        }
         sub={
-          summary.essentialSpend > 0
-            ? `${formatMoney(summary.essentialSpend, base, { decimals: 0 })}/mo committed`
-            : "Add committed outgoings to calculate"
+          observedEssential !== null
+            ? `${formatMoney(observedEssential, base, { decimals: 0 })}/mo essentials, observed`
+            : essentialSpend > 0
+              ? `${formatMoney(essentialSpend, base, { decimals: 0 })}/mo committed, from your plan`
+              : "Import a statement or add committed outgoings"
         }
       />
       <StatTile
         label="Savings rate"
         loading={loading}
-        tone={
-          summary.savingsRate === null ? "neutral" : summary.savingsRate >= 20 ? "gain" : "neutral"
+        tone={savingsRate === null ? "neutral" : savingsRate >= 20 ? "gain" : "neutral"}
+        value={savingsRate === null ? "—" : formatPercent(savingsRate)}
+        definition={
+          useObservedCashflow
+            ? "The share of the money that actually landed in your accounts that survived the month."
+            : "The share of recorded income left over after everything you spend and repay each month."
         }
-        value={summary.savingsRate === null ? "—" : formatPercent(summary.savingsRate)}
-        definition="The share of recorded income left over after everything you spend and repay each month."
-        sub={summary.savingsRate === null ? "Add income to calculate" : undefined}
+        sub={
+          savingsRate === null
+            ? "Import a statement or add income to calculate"
+            : useObservedCashflow
+              ? `Median of ${monthsWord}`
+              : "From your recorded plan"
+        }
       />
     </div>
   );

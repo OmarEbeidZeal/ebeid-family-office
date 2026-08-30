@@ -33,10 +33,13 @@ export function AccountSheet({
   open,
   onOpenChange,
   account,
+  onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   account?: AccountRow | null;
+  /** Fired with the saved account's id, so callers can select what was just created. */
+  onSaved?: ((id: string) => void) | undefined;
 }) {
   const { members, profile } = useAuth();
   const save = useSaveRow("accounts", "accounts", "Account");
@@ -75,7 +78,7 @@ export function AccountSheet({
   const isDebt = DEBT_ACCOUNT_TYPES.includes(accountType);
 
   const onSubmit = form.handleSubmit(async (values) => {
-    await save.mutateAsync({
+    const savedId = await save.mutateAsync({
       id: account?.id,
       values: {
         nickname: values.nickname,
@@ -90,6 +93,7 @@ export function AccountSheet({
         last_balance_update: new Date().toISOString(),
       },
     });
+    if (savedId) onSaved?.(savedId);
     onOpenChange(false);
   });
 
