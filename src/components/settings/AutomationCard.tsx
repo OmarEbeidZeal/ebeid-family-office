@@ -71,6 +71,8 @@ function RunLine({
   // as a gap in the trend chart.
   const overdue = Date.now() - new Date(run.ran_at).getTime() > overdueAfterHours * 3_600_000;
 
+  const needsExplaining = run.status === "failed" || run.status === "partial";
+
   return (
     <>
       <p className={cn("mt-1 flex items-center justify-end gap-1.5 text-xs", status.tone)}>
@@ -79,7 +81,13 @@ function RunLine({
           {status.label} {relativeTime(run.ran_at)}
         </span>
       </p>
-      {overdue && (
+      {/* A failure is only useful if it says what went wrong and what to do. */}
+      {needsExplaining && run.message && (
+        <p className="ml-auto mt-1 max-w-[18rem] text-xs leading-relaxed text-muted-foreground">
+          {run.message}
+        </p>
+      )}
+      {overdue && !needsExplaining && (
         <p className="mt-0.5 text-xs text-warn">Overdue — it has missed at least one turn.</p>
       )}
     </>
