@@ -448,7 +448,11 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
   });
 
   // Rule 6 — target allocation, and crypto inside the satellite sleeve.
+  // Sleeve weights are only meaningful once every recorded holding has a price;
+  // an unpriced book reads as 0% in every sleeve, which is an absence of data,
+  // not an allocation to report.
   const allocation = allocationRows(sleeveValues, investableTotal);
+  const allocationMeasurable = positions.length === 0 || input.unpricedCount === 0;
   const worstDrift = allocation.reduce(
     (worst, row) =>
       row.targetPct !== null && row.driftPp !== null && Math.abs(row.driftPp) > Math.abs(worst)
@@ -458,6 +462,9 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
   );
   const cryptoPct = share(sleeveValues.crypto, investableTotal);
   const cryptoStatus = capStatus(cryptoPct, POLICY_LIMITS.cryptoCapPct);
+  const unpricedNote = `${input.unpricedCount} of ${positions.length} holding${
+    positions.length === 1 ? "" : "s"
+  } ${input.unpricedCount === 1 ? "has" : "have"} no price`;
   findings.push({
     rule: 6,
     id: "target-allocation",
@@ -465,22 +472,27 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     status:
       investableTotal <= 0
         ? "not_applicable"
-        : cryptoStatus === "breach"
-          ? "breach"
-          : Math.abs(worstDrift) >= POLICY_LIMITS.driftPct
-            ? "watch"
-            : "ok",
+        : !allocationMeasurable
+          ? "unknown"
+          : cryptoStatus === "breach"
+            ? "breach"
+            : Math.abs(worstDrift) >= POLICY_LIMITS.driftPct
+              ? "watch"
+              : "ok",
     headline:
       investableTotal <= 0
         ? "No liquid investable assets recorded yet."
-        : `${allocation
-            .filter((row) => row.targetPct !== null)
-            .map((row) => `${row.label} ${pct(row.actualPct, 0)}/${row.targetPct}%`)
-            .join(" · ")}. Crypto ${pct(cryptoPct)} of a ${POLICY_LIMITS.cryptoCapPct}% cap.`,
-    value: worstDrift,
+        : !allocationMeasurable
+          ? `Allocation cannot be measured: ${unpricedNote}, so every sleeve reads 0% whatever is actually held.`
+          : `${allocation
+              .filter((row) => row.targetPct !== null)
+              .map((row) => `${row.label} ${pct(row.actualPct, 0)}/${row.targetPct}%`)
+              .join(" · ")}. Crypto ${pct(cryptoPct)} of a ${POLICY_LIMITS.cryptoCapPct}% cap.`,
+    value: allocationMeasurable ? worstDrift : null,
     limit: POLICY_LIMITS.driftPct,
     unit: "pct",
   });
+
 
   // Rule 7 — the speculative sleeve, in aggregate and name by name.
   const specValue = sleeveValues.satellite + sleeveValues.crypto;
