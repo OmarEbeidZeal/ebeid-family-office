@@ -436,7 +436,10 @@ function projectionFor(row: GoalPlanRow, today: Date): WhatIfProjection {
     };
   }
 
-  const landing = addMonths(today, row.monthsAtCurrentRate).toLocaleDateString("en-GB", MONTH_LABEL);
+  const landing = addMonths(today, row.monthsAtCurrentRate).toLocaleDateString(
+    "en-GB",
+    MONTH_LABEL,
+  );
   if (row.monthsRemaining === null) {
     return { label: `Funded by ${landing} at this rate.`, tone: "muted" };
   }

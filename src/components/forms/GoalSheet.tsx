@@ -21,7 +21,6 @@ import { useSaveRow } from "@/hooks/useUpsertRow";
 import { removeGoalImage } from "@/hooks/useGoalImage";
 import type { GoalRow } from "@/hooks/useFinancials";
 
-
 const schema = z.object({
   title: z.string().min(2, "Name the goal"),
   goal_category: z.string(),
@@ -64,7 +63,6 @@ export function GoalSheet({
   const save = useSaveRow("goals", "goals", "Goal");
   const initialImage = goal?.image_path ?? null;
   const [imagePath, setImagePath] = useState<string | null>(initialImage);
-
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -353,7 +351,6 @@ export function GoalSheet({
       </FullRow>
 
       <FullRow>
-
         <Field label="Notes">
           <Textarea
             rows={3}

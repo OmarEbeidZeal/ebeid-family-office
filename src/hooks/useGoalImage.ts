@@ -34,7 +34,12 @@ export async function uploadGoalImage(file: File, householdId: string) {
     throw new Error("That image is over 5MB. Choose a smaller one or export it at a lower size.");
   }
 
-  const extension = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const extension =
+    file.name
+      .split(".")
+      .pop()
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]/g, "") || "jpg";
   const path = `${householdId}/${crypto.randomUUID()}.${extension}`;
 
   const { error } = await supabase.storage.from(GOAL_IMAGE_BUCKET).upload(path, file, {

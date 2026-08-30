@@ -21,13 +21,15 @@ export const STATUS_MARKER: Record<"gain" | "warn" | "loss" | "muted", string> =
   muted: "bg-surface-raised border-border-strong text-muted-foreground",
 };
 
-export const RING_TONE: Record<"gain" | "warn" | "loss" | "muted", "gain" | "gold" | "loss" | "muted"> =
-  {
-    gain: "gain",
-    warn: "gold",
-    loss: "loss",
-    muted: "muted",
-  };
+export const RING_TONE: Record<
+  "gain" | "warn" | "loss" | "muted",
+  "gain" | "gold" | "loss" | "muted"
+> = {
+  gain: "gain",
+  warn: "gold",
+  loss: "loss",
+  muted: "muted",
+};
 
 export type PriorityKey = "must_have" | "want" | "nice_to_have";
 
@@ -59,5 +61,7 @@ export const PRIORITY_META: Record<
 };
 
 export function priorityMeta(priority: string) {
-  return PRIORITY_META[(priority as PriorityKey) in PRIORITY_META ? (priority as PriorityKey) : "want"];
+  return PRIORITY_META[
+    (priority as PriorityKey) in PRIORITY_META ? (priority as PriorityKey) : "want"
+  ];
 }

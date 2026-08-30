@@ -113,11 +113,9 @@ export function GoalsStrip() {
                             : ""}
                         </span>
                       </p>
-
                     </div>
                   </div>
                 </Link>
-
               </li>
             );
           })}

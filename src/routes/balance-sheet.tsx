@@ -69,7 +69,6 @@ function BalanceSheetPage() {
   const { matches, activeLabel, isHousehold } = useScope();
   const summary = useNetWorth();
 
-
   const removeAsset = useDeleteRow("assets", "assets", "Asset");
   const removeLiability = useDeleteRow("liabilities", "liabilities", "Liability");
 
@@ -386,7 +385,6 @@ function BalanceSheetPage() {
 
           <AllocationPanels summary={summary} />
         </div>
-
       )}
 
       <AssetSheet open={assetSheet} onOpenChange={setAssetSheet} asset={editingAsset} />

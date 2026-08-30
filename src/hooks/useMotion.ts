@@ -76,4 +76,3 @@ export function useCountUp(value: number, options?: { duration?: number; enabled
 
   return display;
 }
-

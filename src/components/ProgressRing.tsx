@@ -78,7 +78,10 @@ export function ProgressRing({
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          className={cn("stroke-current transition-[stroke-dashoffset] duration-700 ease-out", TONE_CLASS[tone])}
+          className={cn(
+            "stroke-current transition-[stroke-dashoffset] duration-700 ease-out",
+            TONE_CLASS[tone],
+          )}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">

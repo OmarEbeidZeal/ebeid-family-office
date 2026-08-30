@@ -60,10 +60,7 @@ export function Money({
     className,
   );
 
-  const wrapperClass = cn(
-    "inline-flex flex-col",
-    align === "right" ? "items-end" : "items-start",
-  );
+  const wrapperClass = cn("inline-flex flex-col", align === "right" ? "items-end" : "items-start");
 
   if (!readable) {
     return (

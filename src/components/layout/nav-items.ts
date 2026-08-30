@@ -55,10 +55,7 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const SETTINGS_ITEM: NavItem = { to: "/settings", label: "Settings", icon: Settings };
 
-export const NAV_ITEMS: NavItem[] = [
-  ...NAV_GROUPS.flatMap((group) => group.items),
-  SETTINGS_ITEM,
-];
+export const NAV_ITEMS: NavItem[] = [...NAV_GROUPS.flatMap((group) => group.items), SETTINGS_ITEM];
 
 /** The mobile tab bar: four destinations plus More. */
 export const MOBILE_PRIMARY = ["/", "/goals", "/accounts", "/transactions"] as const;

@@ -45,9 +45,7 @@ export function GoalTimeline({
 
     const maxCost = Math.max(1, ...within.map((row) => row.allIn));
 
-    const ordered = [...within].sort(
-      (a, b) => (a.monthsRemaining ?? 0) - (b.monthsRemaining ?? 0),
-    );
+    const ordered = [...within].sort((a, b) => (a.monthsRemaining ?? 0) - (b.monthsRemaining ?? 0));
 
     // Two lanes, alternating when markers would collide, so labels stay legible.
     let lastLeft = -100;

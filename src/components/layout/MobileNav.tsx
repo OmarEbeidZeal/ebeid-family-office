@@ -64,7 +64,10 @@ export function MobileNav() {
       </nav>
 
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-        <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto border-border bg-surface">
+        <SheetContent
+          side="bottom"
+          className="max-h-[85dvh] overflow-y-auto border-border bg-surface"
+        >
           <SheetHeader className="text-left">
             <SheetTitle className="eyebrow text-foreground/70">Everything else</SheetTitle>
           </SheetHeader>

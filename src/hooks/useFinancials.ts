@@ -91,7 +91,6 @@ export type GoalRow = {
   image_path: string | null;
 };
 
-
 export type GoalLineItemRow = {
   id: string;
   goal_id: string;

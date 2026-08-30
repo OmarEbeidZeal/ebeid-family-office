@@ -66,7 +66,6 @@ export function formatReadableMoney(value: number, currency: string) {
   return `${sign}${currencySymbol(currency)}${formatReadableAmount(value)}`;
 }
 
-
 export function formatSignedPercent(value: number, decimals = 1) {
   return `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(value).toFixed(decimals)}%`;
 }

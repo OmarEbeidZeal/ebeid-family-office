@@ -234,9 +234,7 @@ export function GoalCard({
             />
             <Detail
               label="Cash needed at completion"
-              value={
-                row.cashNeeded > 0 ? formatMoney(row.cashNeeded, base, { decimals: 0 }) : "—"
-              }
+              value={row.cashNeeded > 0 ? formatMoney(row.cashNeeded, base, { decimals: 0 }) : "—"}
               hint={
                 row.hasBreakdown
                   ? row.gap > 1
