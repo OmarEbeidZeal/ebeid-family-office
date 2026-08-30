@@ -2,6 +2,7 @@ import {
   BarChart3,
   Building2,
   CalendarRange,
+  FileUp,
   GitCompare,
   LayoutDashboard,
   MessageSquareText,
