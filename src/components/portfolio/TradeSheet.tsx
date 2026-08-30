@@ -27,6 +27,9 @@ const schema = z.object({
 
 type Values = z.infer<typeof schema>;
 
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+
 /**
  * Trades are the source of truth for quantity and average cost — a database
  * trigger recomputes both on every write, so neither is ever typed by hand.
