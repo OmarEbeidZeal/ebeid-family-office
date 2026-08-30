@@ -484,11 +484,14 @@ function GoalsStep() {
             value={form.goal_category}
             onChange={(value) => setForm({ ...form, goal_category: value })}
             options={[
-              { value: "emergency", label: "Emergency" },
+              { value: "emergency_fund", label: "Emergency fund" },
               { value: "property", label: "Property" },
+              { value: "home_improvement", label: "Home improvement" },
               { value: "education", label: "Education" },
-              { value: "retirement", label: "Retirement" },
+              { value: "business", label: "Business" },
+              { value: "family", label: "Family" },
               { value: "travel", label: "Travel" },
+              { value: "retirement", label: "Retirement" },
               { value: "other", label: "Other" },
             ]}
           />
@@ -513,8 +516,8 @@ function GoalsStep() {
               currency: form.currency,
               goal_category: form.goal_category,
               target_date: form.target_date || null,
-              priority: "medium",
-              status: "active",
+              priority: "want",
+              status: "saving",
             },
           });
           setForm({ title: "", target_amount: "", currency: "GBP", goal_category: "other", target_date: "" });
