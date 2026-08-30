@@ -23,6 +23,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SpendingRouteImport } from './routes/spending'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as ApiAdvisorChatRouteImport } from './routes/api/advisor/chat'
+import { Route as ApiPublicBankLogoRouteImport } from './routes/api/public/bank-logo'
 import { Route as ApiPublicHooksFxRefreshRouteImport } from './routes/api/public/hooks/fx-refresh'
 import { Route as ApiPublicHooksImportQueueRouteImport } from './routes/api/public/hooks/import-queue'
 import { Route as ApiPublicHooksMarketCloseRouteImport } from './routes/api/public/hooks/market-close'
@@ -99,6 +100,11 @@ const ApiAdvisorChatRoute = ApiAdvisorChatRouteImport.update({
   path: '/api/advisor/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicBankLogoRoute = ApiPublicBankLogoRouteImport.update({
+  id: '/api/public/bank-logo',
+  path: '/api/public/bank-logo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksFxRefreshRoute = ApiPublicHooksFxRefreshRouteImport.update({
   id: '/api/public/hooks/fx-refresh',
   path: '/api/public/hooks/fx-refresh',
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
+  '/api/public/bank-logo': typeof ApiPublicBankLogoRoute
   '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
   '/api/public/hooks/import-queue': typeof ApiPublicHooksImportQueueRoute
   '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
+  '/api/public/bank-logo': typeof ApiPublicBankLogoRoute
   '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
   '/api/public/hooks/import-queue': typeof ApiPublicHooksImportQueueRoute
   '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
+  '/api/public/bank-logo': typeof ApiPublicBankLogoRoute
   '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
   '/api/public/hooks/import-queue': typeof ApiPublicHooksImportQueueRoute
   '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
@@ -210,6 +219,7 @@ export interface FileRouteTypes {
     | '/spending'
     | '/transactions'
     | '/api/advisor/chat'
+    | '/api/public/bank-logo'
     | '/api/public/hooks/fx-refresh'
     | '/api/public/hooks/import-queue'
     | '/api/public/hooks/market-close'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/spending'
     | '/transactions'
     | '/api/advisor/chat'
+    | '/api/public/bank-logo'
     | '/api/public/hooks/fx-refresh'
     | '/api/public/hooks/import-queue'
     | '/api/public/hooks/market-close'
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
     | '/spending'
     | '/transactions'
     | '/api/advisor/chat'
+    | '/api/public/bank-logo'
     | '/api/public/hooks/fx-refresh'
     | '/api/public/hooks/import-queue'
     | '/api/public/hooks/market-close'
@@ -274,6 +286,7 @@ export interface RootRouteChildren {
   SpendingRoute: typeof SpendingRoute
   TransactionsRoute: typeof TransactionsRoute
   ApiAdvisorChatRoute: typeof ApiAdvisorChatRoute
+  ApiPublicBankLogoRoute: typeof ApiPublicBankLogoRoute
   ApiPublicHooksFxRefreshRoute: typeof ApiPublicHooksFxRefreshRoute
   ApiPublicHooksImportQueueRoute: typeof ApiPublicHooksImportQueueRoute
   ApiPublicHooksMarketCloseRoute: typeof ApiPublicHooksMarketCloseRoute
@@ -381,6 +394,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdvisorChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/bank-logo': {
+      id: '/api/public/bank-logo'
+      path: '/api/public/bank-logo'
+      fullPath: '/api/public/bank-logo'
+      preLoaderRoute: typeof ApiPublicBankLogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/fx-refresh': {
       id: '/api/public/hooks/fx-refresh'
       path: '/api/public/hooks/fx-refresh'
@@ -434,6 +454,7 @@ const rootRouteChildren: RootRouteChildren = {
   SpendingRoute: SpendingRoute,
   TransactionsRoute: TransactionsRoute,
   ApiAdvisorChatRoute: ApiAdvisorChatRoute,
+  ApiPublicBankLogoRoute: ApiPublicBankLogoRoute,
   ApiPublicHooksFxRefreshRoute: ApiPublicHooksFxRefreshRoute,
   ApiPublicHooksImportQueueRoute: ApiPublicHooksImportQueueRoute,
   ApiPublicHooksMarketCloseRoute: ApiPublicHooksMarketCloseRoute,
