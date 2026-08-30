@@ -184,7 +184,23 @@ export function TradeSheet({
           : "Fees are added to a buy's cost and deducted from a sell's proceeds."
       }
     >
+      {needsOpeningLot && selected && (
+        <FullRow>
+          <p className="rounded-md border border-warn/40 bg-warn-soft px-3 py-2 text-xs leading-relaxed text-warn">
+            {selected.ticker} currently shows {Number(selected.quantity)} units
+            {selected.avg_cost
+              ? ` at ${formatMoney(Number(selected.avg_cost), selected.currency, { decimals: 2 })}`
+              : ""}{" "}
+            entered by hand. Once trades exist they become the source of truth, so that position is
+            written down first as an opening lot
+            {selected.opened_at ? ` dated ${selected.opened_at}` : ""}. Edit or delete it in the
+            trade list if the real history differs.
+          </p>
+        </FullRow>
+      )}
+
       <FullRow>
+
         <Field label="Holding" error={form.formState.errors.holding_id?.message}>
           <Controller
             control={form.control}
