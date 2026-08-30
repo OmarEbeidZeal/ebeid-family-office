@@ -100,10 +100,11 @@ export function SleevePanel({
                 </div>
 
                 <p className="mt-1 text-[0.7rem] leading-relaxed text-muted-foreground">
-                  {row.driftPp !== null && Math.abs(row.driftPp) >= 5
-                    ? `${Math.abs(row.driftPp).toFixed(1)}pp ${row.driftPp > 0 ? "above" : "below"} target — rule 11 calls for a rebalance at the next contribution.`
+                  {measurable && row.driftPp !== null && Math.abs(row.driftPp) >= 5
+                    ? `${Math.abs(row.driftPp).toFixed(1)}pp ${row.driftPp > 0 ? "above" : "below"} target — rule 12 calls for a rebalance at the next contribution.`
                     : notes[row.sleeve]}
                 </p>
+
               </li>
             );
           })}
