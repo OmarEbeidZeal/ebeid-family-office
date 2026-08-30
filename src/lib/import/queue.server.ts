@@ -47,19 +47,22 @@ export async function pendingStatements(
 
   let query = supabase
     .from("statements")
-    .select(CLAIM_COLUMNS)
+    .select(`${CLAIM_COLUMNS}, locked_at`)
     .in("status", ["queued", "extracting", "parsing"])
     .lt("attempts", MAX_ATTEMPTS)
     .or(`next_attempt_at.is.null,next_attempt_at.lte.${now}`)
-    .or(`locked_at.is.null,locked_at.lte.${staleLease}`)
     .order("created_at", { ascending: true })
-    .limit(options.limit ?? 25);
+    .limit((options.limit ?? 25) * 2);
 
   if (options.householdId) query = query.eq("household_id", options.householdId);
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []) as QueuedStatement[];
+
+  // A live lease means another worker holds it; only an expired one is fair game.
+  return ((data ?? []) as Array<QueuedStatement & { locked_at: string | null }>)
+    .filter((row) => !row.locked_at || row.locked_at <= staleLease)
+    .slice(0, options.limit ?? 25);
 }
 
 /**
