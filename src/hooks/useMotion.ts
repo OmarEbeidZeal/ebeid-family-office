@@ -34,6 +34,7 @@ export function useCountUp(value: number, options?: { duration?: number; enabled
   const [display, setDisplay] = useState(value);
   const played = useRef(false);
   const frame = useRef<number | null>(null);
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const target = Number.isFinite(value) ? value : 0;
@@ -55,11 +56,24 @@ export function useCountUp(value: number, options?: { duration?: number; enabled
     };
 
     frame.current = requestAnimationFrame(step);
+
+    // A frame loop stalls in a hidden or throttled tab. A money figure must
+    // never be left frozen part-way through a count, so the true value also
+    // lands on a timer regardless of whether frames kept coming.
+    settle.current = setTimeout(() => {
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+      frame.current = null;
+      setDisplay(target);
+    }, duration + 150);
+
     return () => {
       if (frame.current !== null) cancelAnimationFrame(frame.current);
       frame.current = null;
+      if (settle.current !== null) clearTimeout(settle.current);
+      settle.current = null;
     };
   }, [value, duration, enabled, reduced]);
 
   return display;
 }
+
