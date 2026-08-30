@@ -391,6 +391,11 @@ export function applyMapping(rows: string[][], mapping: ColumnMapping): Extracti
     closing = last.balance_after;
   }
 
+  const identity = cleanIdentity(mapping);
+  const currency = /^[A-Z]{3}$/.test(mapping.currency_code?.toUpperCase() ?? "")
+    ? mapping.currency_code.toUpperCase()
+    : (transactions.find((t) => t.currency)?.currency ?? null);
+
   return {
     transactions,
     skippedRows,
@@ -400,12 +405,12 @@ export function applyMapping(rows: string[][], mapping: ColumnMapping): Extracti
       period_end: last?.booked_date ?? null,
       opening_balance: opening,
       closing_balance: closing,
-      currency: /^[A-Z]{3}$/.test(mapping.currency_code?.toUpperCase() ?? "")
-        ? mapping.currency_code.toUpperCase()
-        : (transactions.find((t) => t.currency)?.currency ?? null),
+      currency,
+      identity,
     },
   };
 }
+
 
 /* ----------------------------------------------------------------- PDF text */
 
