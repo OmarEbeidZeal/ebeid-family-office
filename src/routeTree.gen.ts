@@ -16,6 +16,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BalanceSheetRouteImport } from './routes/balance-sheet'
 import { Route as ForecastRouteImport } from './routes/forecast'
 import { Route as GoalsRouteImport } from './routes/goals'
+import { Route as ImportRouteImport } from './routes/import'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as ScenariosRouteImport } from './routes/scenarios'
@@ -63,6 +64,11 @@ const ForecastRoute = ForecastRouteImport.update({
 const GoalsRoute = GoalsRouteImport.update({
   id: '/goals',
   path: '/goals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImportRoute = ImportRouteImport.update({
+  id: '/import',
+  path: '/import',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/balance-sheet': typeof BalanceSheetRoute
   '/forecast': typeof ForecastRoute
   '/goals': typeof GoalsRoute
+  '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
   '/portfolio': typeof PortfolioRoute
   '/scenarios': typeof ScenariosRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/balance-sheet': typeof BalanceSheetRoute
   '/forecast': typeof ForecastRoute
   '/goals': typeof GoalsRoute
+  '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
   '/portfolio': typeof PortfolioRoute
   '/scenarios': typeof ScenariosRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/balance-sheet': typeof BalanceSheetRoute
   '/forecast': typeof ForecastRoute
   '/goals': typeof GoalsRoute
+  '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
   '/portfolio': typeof PortfolioRoute
   '/scenarios': typeof ScenariosRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/balance-sheet'
     | '/forecast'
     | '/goals'
+    | '/import'
     | '/onboarding'
     | '/portfolio'
     | '/scenarios'
@@ -234,6 +244,7 @@ export interface FileRouteTypes {
     | '/balance-sheet'
     | '/forecast'
     | '/goals'
+    | '/import'
     | '/onboarding'
     | '/portfolio'
     | '/scenarios'
@@ -256,6 +267,7 @@ export interface FileRouteTypes {
     | '/balance-sheet'
     | '/forecast'
     | '/goals'
+    | '/import'
     | '/onboarding'
     | '/portfolio'
     | '/scenarios'
@@ -279,6 +291,7 @@ export interface RootRouteChildren {
   BalanceSheetRoute: typeof BalanceSheetRoute
   ForecastRoute: typeof ForecastRoute
   GoalsRoute: typeof GoalsRoute
+  ImportRoute: typeof ImportRoute
   OnboardingRoute: typeof OnboardingRoute
   PortfolioRoute: typeof PortfolioRoute
   ScenariosRoute: typeof ScenariosRoute
@@ -343,6 +356,13 @@ declare module '@tanstack/react-router' {
       path: '/goals'
       fullPath: '/goals'
       preLoaderRoute: typeof GoalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/import': {
+      id: '/import'
+      path: '/import'
+      fullPath: '/import'
+      preLoaderRoute: typeof ImportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -447,6 +467,7 @@ const rootRouteChildren: RootRouteChildren = {
   BalanceSheetRoute: BalanceSheetRoute,
   ForecastRoute: ForecastRoute,
   GoalsRoute: GoalsRoute,
+  ImportRoute: ImportRoute,
   OnboardingRoute: OnboardingRoute,
   PortfolioRoute: PortfolioRoute,
   ScenariosRoute: ScenariosRoute,
