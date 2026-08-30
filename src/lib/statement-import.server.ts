@@ -418,6 +418,7 @@ export async function importExtracted(
           };
           if (result.merchant) entry.row.merchant = result.merchant;
         });
+        for (const note of categoriser.notes) if (!notes.includes(note)) notes.push(note);
       } catch (error) {
         // Import the money even when categorisation is unavailable; the review
         // queue then holds everything uncategorised.
@@ -427,6 +428,7 @@ export async function importExtracted(
             : "Transactions were imported but not categorised.";
       }
     }
+
 
     /* -------------------------------------------------------------- write */
     const payload = fresh.map((row, index) => {
