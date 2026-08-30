@@ -140,7 +140,7 @@ type ColumnMapping = {
   amount_sign_convention: string;
   currency_code: string;
   notes: string;
-};
+} & RawIdentity;
 
 const MAPPING_SCHEMA = {
   type: "object",
@@ -160,6 +160,7 @@ const MAPPING_SCHEMA = {
     },
     currency_code: { type: "string" },
     notes: { type: "string" },
+    ...IDENTITY_PROPERTIES,
   },
   required: [
     "header_row_index",
@@ -174,6 +175,7 @@ const MAPPING_SCHEMA = {
     "amount_sign_convention",
     "currency_code",
     "notes",
+    ...IDENTITY_KEYS,
   ],
   additionalProperties: false,
 } as const;
@@ -189,27 +191,33 @@ Rules:
 - description_columns may list several columns that should be joined with a space.
 - date_format describes the order of the numbers in the date column. Only report YMD when the year genuinely comes first.
 - currency_code is the ISO code if the file states one, otherwise an empty string.
-- notes: one short sentence naming the bank or format if you recognise it, otherwise empty.`;
+- notes: one short sentence naming the bank or format if you recognise it, otherwise empty.
+
+${IDENTITY_RULES}
+Export files often carry the bank name, holder and account number in the preamble rows above the header — read them from there.`;
 
 /** Header row plus the first fifteen data rows — never the whole file. */
 export const PREVIEW_ROWS = 16;
 
-export async function inferColumnMapping(previewRows: string[][]): Promise<ColumnMapping> {
+export async function inferColumnMapping(
+  runner: JsonRunner,
+  previewRows: string[][],
+): Promise<ColumnMapping> {
   const preview = previewRows
     .filter((row) => row.some((cell) => (cell ?? "").trim().length > 0))
     .slice(0, PREVIEW_ROWS)
     .map((row, index) => `${index}: ${JSON.stringify(row)}`)
     .join("\n");
 
-  return aiJson<ColumnMapping>({
-    model: AI_MODELS.cheap,
+  return runner.json<ColumnMapping>({
     system: MAPPING_SYSTEM,
-    user: `Here are the first rows of a bank statement export. Map its columns.\n\n${preview}`,
+    user: `Here are the first rows of a bank statement export. Map its columns and read whose account it is.\n\n${preview}`,
     schemaName: "column_mapping",
     schema: MAPPING_SCHEMA,
-    maxTokens: 1200,
+    maxTokens: 1500,
   });
 }
+
 
 function joinCells(row: string[], indexes: number[]): string {
   return indexes
