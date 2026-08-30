@@ -201,8 +201,10 @@ Still open (needs Omar, or the platform)
 - [x] `FINNHUB_API_KEY` — added and verified with a live quote; the portfolio prices from Finnhub
       with an "as of" timestamp and a 60-second cache.
 - [ ] Publish once so the scheduled endpoints go live on the production URL the scheduler calls.
-      Until then the four jobs fire on time and get a 404, and Settings → Automatic updates will
-      keep saying "not run yet".
+      Verified end to end against the running app: a correct credential is accepted and each job
+      does its work, a wrong one is refused. Against the published URL the calls currently 404
+      because it still serves a build from before these routes existed — Settings → Automatic
+      updates says so in as many words until the next publish.
 - [ ] `RESEND_API_KEY` — optional. Add it in Project Settings → Secrets to switch the emailed
       briefing on; everything else works without it.
 - [ ] Haya's invitation — add her address under Settings → Access so she gets her own sign-in.
