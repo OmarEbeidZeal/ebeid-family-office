@@ -219,6 +219,9 @@ export function computeNetWorth(input: NetWorthInput) {
     liquidNetWorth,
     illiquidNetWorth,
     liquidCash,
+    reserveCash,
+    otherCurrencyCash,
+
     privateStakeValue,
     pensionValue,
     propertyValue,
