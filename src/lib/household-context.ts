@@ -643,6 +643,7 @@ export function buildHouseholdContext(input: ContextInput) {
     policy: findings.map((finding) => ({
       rule: finding.rule,
       id: finding.id,
+      label: finding.label,
       status: finding.status,
       headline: finding.headline,
     })),
