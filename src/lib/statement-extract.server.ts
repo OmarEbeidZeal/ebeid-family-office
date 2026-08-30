@@ -592,6 +592,12 @@ ${IDENTITY_RULES}`,
       currency: /^[A-Za-z]{3}$/.test(meta?.currency ?? "")
         ? (meta?.currency ?? "").toUpperCase()
         : null,
+      identity: cleanIdentity(meta),
+    },
+  };
+}
+
+        : null,
     },
   };
 }
