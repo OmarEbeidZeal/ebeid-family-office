@@ -80,7 +80,7 @@ export const BANKS: BankEntry[] = [
   { domain: "firstdirect.com", name: "first direct", country: "GB", aliases: ["first direct"] },
   { domain: "cynergybank.co.uk", name: "Cynergy Bank", country: "GB", aliases: ["cynergy"] },
   {
-    domain: "amex.co.uk",
+    domain: "americanexpress.com",
     name: "American Express",
     country: "GB",
     aliases: ["american express", "amex"],
@@ -174,7 +174,7 @@ export const BANKS: BankEntry[] = [
     aliases: ["abu dhabi islamic bank egypt", "adib egypt"],
   },
   {
-    domain: "banquesaudifransi.com",
+    domain: "ca-egypt.com",
     name: "Crédit Agricole Egypt",
     country: "EG",
     aliases: ["credit agricole egypt", "crédit agricole egypt"],
@@ -198,13 +198,13 @@ export const BANKS: BankEntry[] = [
     aliases: ["attijariwafa"],
   },
   {
-    domain: "ebank.gov.eg",
+    domain: "ebebank.com",
     name: "Export Development Bank of Egypt",
     country: "EG",
     aliases: ["export development bank"],
   },
   {
-    domain: "nbk.com.eg",
+    domain: "nbk.com",
     name: "NBK Egypt",
     country: "EG",
     aliases: ["national bank of kuwait egypt", "nbk egypt"],
@@ -216,7 +216,7 @@ export const BANKS: BankEntry[] = [
     country: "EG",
     aliases: ["efg hermes", "efg holding"],
   },
-  { domain: "cieg.com", name: "CI Capital", country: "EG", aliases: ["ci capital"] },
+  { domain: "cicapital.com", name: "CI Capital", country: "EG", aliases: ["ci capital"] },
 
   /* -------------------------------------------------------------------- Jordan */
   {
@@ -226,7 +226,7 @@ export const BANKS: BankEntry[] = [
     aliases: ["arab bank", "البنك العربي"],
   },
   {
-    domain: "housingbank.com",
+    domain: "hbtf.com",
     name: "Housing Bank for Trade and Finance",
     country: "JO",
     aliases: ["housing bank", "بنك الاسكان"],
@@ -262,7 +262,7 @@ export const BANKS: BankEntry[] = [
     aliases: ["capital bank"],
   },
   {
-    domain: "etihadbank.com",
+    domain: "bankaletihad.com",
     name: "Bank al Etihad",
     country: "JO",
     aliases: ["bank al etihad", "etihad bank", "بنك الاتحاد"],
@@ -287,7 +287,7 @@ export const BANKS: BankEntry[] = [
   },
   { domain: "safwabank.com", name: "Safwa Islamic Bank", country: "JO", aliases: ["safwa"] },
   {
-    domain: "arabislamicbank.com",
+    domain: "iiabank.com.jo",
     name: "Jordan Islamic Arab Bank",
     country: "JO",
     aliases: ["islamic international arab bank", "iiab"],
@@ -398,9 +398,16 @@ export function monogram(value: string | null | undefined): string {
     .split(/\s+/)
     .filter(
       (word) =>
-        word.length > 0 && !["bank", "the", "of", "and", "plc"].includes(word.toLowerCase()),
+        word.length > 0 &&
+        !["bank", "banque", "the", "of", "and", "plc", "ltd", "limited", "uk"].includes(
+          word.toLowerCase(),
+        ),
     );
   if (!words.length) return "··";
-  if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
-  return `${words[0]![0]}${words[1]![0]}`.toUpperCase();
+  const first = words[0]!;
+  // A bank that prints itself as an acronym — HSBC, CIB, NBE, ADCB — reads
+  // better as the first two letters of that acronym than as two initials.
+  if (/^[A-Z0-9]{2,}$/.test(first)) return first.slice(0, 2);
+  if (words.length === 1) return first.slice(0, 2).toUpperCase();
+  return `${first[0]}${words[1]![0]}`.toUpperCase();
 }
