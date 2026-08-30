@@ -101,16 +101,19 @@ export function GoalsStrip() {
                           ? `of ${formatReadableMoney(row.allIn, base)} all-in`
                           : "Not priced yet"}
                       </p>
-                      <p className="mt-1.5 flex items-center gap-1.5 truncate text-[0.68rem] text-muted-foreground">
+                      <p className="mt-1.5 flex items-center gap-1.5 text-[0.68rem] text-muted-foreground">
                         <span
                           className={cn("h-1.5 w-1.5 shrink-0 rounded-full", priority.dot)}
                           aria-hidden
                         />
-                        {priority.label}
-                        {row.goal.target_date
-                          ? ` · ${formatDate(row.goal.target_date, "short")}`
-                          : ""}
+                        <span className="truncate">
+                          {priority.label}
+                          {row.goal.target_date
+                            ? ` · ${formatDate(row.goal.target_date, "short")}`
+                            : ""}
+                        </span>
                       </p>
+
                     </div>
                   </div>
                 </Link>
