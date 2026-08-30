@@ -251,8 +251,11 @@ function PortfolioPage() {
             rows={allocation}
             base={base}
             investableTotal={context.investableTotal}
+            unpricedCount={totals.unpricedCount}
+            holdingCount={totals.pricedCount + totals.unpricedCount}
             loading={loading}
           />
+
           <TradesPanel
             trades={tradesForHoldings}
             holdings={holdings.data ?? []}
