@@ -62,7 +62,7 @@ export function ImportFileRow({
   const reviewable = ["imported", "parsed", "needs_review"].includes(statement.status);
 
   return (
-    <li className="flex flex-wrap items-center gap-3 border-b border-hairline px-3 py-2.5 last:border-0">
+    <li className="flex flex-wrap items-center gap-3 border-b border-border px-3 py-2.5 last:border-0">
       <BankMark institution={institution} domain={statement.detected_institution_domain} size={26} />
 
       <div className="min-w-0 flex-1">
