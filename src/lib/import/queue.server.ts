@@ -40,7 +40,7 @@ const CLAIM_COLUMNS =
 /** Statements ready to run now: queued, past their backoff, not held by anyone. */
 export async function pendingStatements(
   supabase: Client,
-  options: { householdId?: string; limit?: number } = {},
+  options: { householdId?: string | undefined; limit?: number | undefined } = {},
 ): Promise<QueuedStatement[]> {
   const now = new Date().toISOString();
   const staleLease = new Date(Date.now() - LEASE_MS).toISOString();
@@ -217,7 +217,7 @@ export async function refreshBatch(supabase: Client, batchId: string): Promise<B
 }
 
 /** Every batch that still has work in it, so a sweep knows what to recount. */
-export async function activeBatchIds(supabase: Client, householdId?: string): Promise<string[]> {
+export async function activeBatchIds(supabase: Client, householdId?: string | undefined): Promise<string[]> {
   let query = supabase.from("import_batches").select("id").in("status", ["queued", "running"]);
   if (householdId) query = query.eq("household_id", householdId);
   const { data } = await query;

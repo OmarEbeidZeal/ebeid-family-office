@@ -42,14 +42,14 @@ export type ResolveInput = {
   userId: string;
   proposalId: string;
   action: "create" | "link" | "reject";
-  accountId?: string | null;
-  nickname?: string | null;
-  accountType?: AccountType | null;
-  currency?: string | null;
-  country?: string | null;
-  institution?: string | null;
-  ownerProfileId?: string | null;
-  isJoint?: boolean;
+  accountId?: string | null | undefined;
+  nickname?: string | null | undefined;
+  accountType?: AccountType | null | undefined;
+  currency?: string | null | undefined;
+  country?: string | null | undefined;
+  institution?: string | null | undefined;
+  ownerProfileId?: string | null | undefined;
+  isJoint?: boolean | undefined;
 };
 
 export type ResolveOutcome = {

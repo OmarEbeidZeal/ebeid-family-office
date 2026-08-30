@@ -40,7 +40,7 @@ export type QueueRunSummary = {
 
 export async function runImportQueue(
   supabase: Client,
-  options: { householdId?: string; limit?: number } = {},
+  options: { householdId?: string | undefined; limit?: number | undefined } = {},
 ): Promise<QueueRunSummary> {
   const limit = Math.min(options.limit ?? FILES_PER_RUN, 20);
   const candidates = await pendingStatements(supabase, {
