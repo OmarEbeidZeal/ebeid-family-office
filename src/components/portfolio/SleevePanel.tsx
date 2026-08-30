@@ -49,7 +49,6 @@ export function SleevePanel({
           ))}
         </div>
       ) : (
-
         <ul className="space-y-3.5">
           {rows.map((row) => {
             const actual = row.actualPct ?? 0;
@@ -104,7 +103,6 @@ export function SleevePanel({
                     ? `${Math.abs(row.driftPp).toFixed(1)}pp ${row.driftPp > 0 ? "above" : "below"} target — rule 12 calls for a rebalance at the next contribution.`
                     : notes[row.sleeve]}
                 </p>
-
               </li>
             );
           })}

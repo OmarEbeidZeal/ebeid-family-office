@@ -925,7 +925,6 @@ export function concentrationRows(input: PolicyInput): ConcentrationRow[] {
       (bookUnpriced ? unpricedDetail : ""),
   });
 
-
   rows.push({
     key: "soft-currency",
     label: "Soft currency",
