@@ -8,10 +8,7 @@ import type { AdvisorNoteRow } from "@/hooks/useFinancials";
 import { Markdown } from "@/components/advisor/Markdown";
 import { cn } from "@/lib/utils";
 
-const SEVERITY: Record<
-  string,
-  { icon: typeof Info; tone: string; ring: string; label: string }
-> = {
+const SEVERITY: Record<string, { icon: typeof Info; tone: string; ring: string; label: string }> = {
   urgent: {
     icon: AlertTriangle,
     tone: "text-loss",

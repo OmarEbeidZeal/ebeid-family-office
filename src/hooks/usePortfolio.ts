@@ -134,7 +134,9 @@ export function useHouseholdPosition() {
   );
 
   const result = useMemo(() => {
-    const breakdown = spending.hasData ? spending.breakdown(spending.thisMonth, spending.lastMonth) : [];
+    const breakdown = spending.hasData
+      ? spending.breakdown(spending.thisMonth, spending.lastMonth)
+      : [];
     const watchQuotes: Record<string, { price: number | null; asOf: string | null }> = {};
     for (const [ticker, quote] of Object.entries(watchMarket.quotes)) {
       watchQuotes[ticker] = {

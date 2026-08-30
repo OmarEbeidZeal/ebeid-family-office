@@ -53,7 +53,9 @@ export function PortfolioSummary({
         tone={totals.dayChangeBase > 0 ? "gain" : totals.dayChangeBase < 0 ? "loss" : "neutral"}
         loading={!!loading}
         sub={
-          totals.dayChangePct === null ? "No previous close available" : formatSignedPercent(totals.dayChangePct)
+          totals.dayChangePct === null
+            ? "No previous close available"
+            : formatSignedPercent(totals.dayChangePct)
         }
       />
 

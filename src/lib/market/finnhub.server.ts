@@ -73,7 +73,11 @@ function num(value: unknown): number | null {
 }
 
 export function createFinnhubProvider(apiKey: string): PriceProvider {
-  async function call<T>(path: string, params: Record<string, string>, ticker?: string): Promise<T> {
+  async function call<T>(
+    path: string,
+    params: Record<string, string>,
+    ticker?: string,
+  ): Promise<T> {
     const url = new URL(`${BASE_URL}${path}`);
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
     url.searchParams.set("token", apiKey);
@@ -104,7 +108,9 @@ export function createFinnhubProvider(apiKey: string): PriceProvider {
     label: "Finnhub",
 
     async quotes(tickers: string[]): Promise<QuoteOutcome[]> {
-      const unique = Array.from(new Set(tickers.map((t) => t.trim().toUpperCase()))).filter(Boolean);
+      const unique = Array.from(new Set(tickers.map((t) => t.trim().toUpperCase()))).filter(
+        Boolean,
+      );
 
       return inBatches(unique, async (ticker): Promise<QuoteOutcome> => {
         try {

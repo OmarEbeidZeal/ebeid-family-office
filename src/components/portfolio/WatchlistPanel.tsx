@@ -65,14 +65,21 @@ export function WatchlistPanel({
         <ul className="space-y-2.5">
           {items.map((item) => {
             const quote = quotes[item.ticker.toUpperCase()];
-            const priced = !!quote && quote.price !== null && quote.source !== "stale" && quote.source !== "none";
+            const priced =
+              !!quote &&
+              quote.price !== null &&
+              quote.source !== "stale" &&
+              quote.source !== "none";
             const distance =
               priced && item.target_price
                 ? ((item.target_price - quote.price!) / quote.price!) * 100
                 : null;
 
             return (
-              <li key={item.id} className="rounded-md border border-border bg-surface-raised/40 p-4">
+              <li
+                key={item.id}
+                className="rounded-md border border-border bg-surface-raised/40 p-4"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <button
@@ -105,9 +112,7 @@ export function WatchlistPanel({
                               quote.changePct === null && "text-muted-foreground",
                             )}
                           >
-                            {quote.changePct === null
-                              ? "—"
-                              : formatSignedPercent(quote.changePct)}
+                            {quote.changePct === null ? "—" : formatSignedPercent(quote.changePct)}
                             <span className="ml-1.5 text-muted-foreground">
                               {quote.asOf ? relativeTime(quote.asOf) : ""}
                             </span>
@@ -128,7 +133,10 @@ export function WatchlistPanel({
 
                 {(item.target_price || distance !== null) && (
                   <p className="num mt-2 text-xs text-muted-foreground">
-                    Target {item.target_price ? formatMoney(item.target_price, quote?.currency ?? "USD", { decimals: 2 }) : "—"}
+                    Target{" "}
+                    {item.target_price
+                      ? formatMoney(item.target_price, quote?.currency ?? "USD", { decimals: 2 })
+                      : "—"}
                     {distance !== null && (
                       <span className={cn("ml-2", distance > 0 ? "text-gain" : "text-loss")}>
                         {formatSignedPercent(distance)} away

@@ -42,9 +42,7 @@ function AdvisorPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const suggestions = useMemo(() => buildSuggestions(context, base), [context, base]);
-  const hasPosition =
-    context.investable.total !== null &&
-    (context.net_worth.assets ?? 0) > 0;
+  const hasPosition = context.investable.total !== null && (context.net_worth.assets ?? 0) > 0;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });

@@ -11,7 +11,11 @@ import { z } from "zod";
 import { authenticateRequest, UnauthorizedError } from "@/lib/api-auth.server";
 import { loadAdvisorContext, NoHouseholdError } from "@/lib/advisor/context.server";
 import { advisorSystemPrompt, ADVISOR_MODEL } from "@/lib/advisor/prompt";
-import { AdvisorGatewayError, streamAdvisor, type AdvisorInputItem } from "@/lib/advisor/gateway.server";
+import {
+  AdvisorGatewayError,
+  streamAdvisor,
+  type AdvisorInputItem,
+} from "@/lib/advisor/gateway.server";
 
 const bodySchema = z.object({
   message: z.string().trim().min(1).max(4000),

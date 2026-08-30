@@ -211,7 +211,10 @@ export function buildHouseholdContext(input: ContextInput) {
     if (!position.priced) continue;
     const accountId = position.holding.account_id;
     if (accountId) {
-      pricedByAccount.set(accountId, (pricedByAccount.get(accountId) ?? 0) + (position.marketValueBase ?? 0));
+      pricedByAccount.set(
+        accountId,
+        (pricedByAccount.get(accountId) ?? 0) + (position.marketValueBase ?? 0),
+      );
     } else {
       unaccountedHoldingsValue += position.marketValueBase ?? 0;
     }
@@ -262,7 +265,9 @@ export function buildHouseholdContext(input: ContextInput) {
       asset.is_liquid && asset.asset_class !== "private_equity" && asset.asset_class !== "pension",
   );
   const liquidAssetValue = liquidNonAccountAssets.reduce(
-    (sum, asset) => sum + toBase(Number(asset.current_value) * (Number(asset.ownership_pct) / 100), asset.currency),
+    (sum, asset) =>
+      sum +
+      toBase(Number(asset.current_value) * (Number(asset.ownership_pct) / 100), asset.currency),
     0,
   );
   investableTotal += liquidAssetValue + unaccountedHoldingsValue;
@@ -311,8 +316,13 @@ export function buildHouseholdContext(input: ContextInput) {
       ? input.spending.incomeMonthly - input.spending.totalMonthly
       : null;
   const monthlySurplus =
-    observedSurplus !== null ? observedSurplus : netWorth.monthlyIncome > 0 ? netWorth.netCashflow : null;
-  const surplusSource = observedSurplus !== null ? "observed" : netWorth.monthlyIncome > 0 ? "planned" : "none";
+    observedSurplus !== null
+      ? observedSurplus
+      : netWorth.monthlyIncome > 0
+        ? netWorth.netCashflow
+        : null;
+  const surplusSource =
+    observedSurplus !== null ? "observed" : netWorth.monthlyIncome > 0 ? "planned" : "none";
 
   // ---- Goals -------------------------------------------------------------
   const goals = input.goals.map((goal) => {
@@ -399,7 +409,8 @@ export function buildHouseholdContext(input: ContextInput) {
   const currencyExposure = netWorth.allocationByCurrency.map((slice) => ({
     currency: slice.name,
     value_base: round(slice.value),
-    pct_of_assets: netWorth.totalAssets > 0 ? round((slice.value / netWorth.totalAssets) * 100, 1) : null,
+    pct_of_assets:
+      netWorth.totalAssets > 0 ? round((slice.value / netWorth.totalAssets) * 100, 1) : null,
     soft: SOFT_CURRENCIES.includes(slice.name),
   }));
 
@@ -447,7 +458,9 @@ export function buildHouseholdContext(input: ContextInput) {
     .map((asset) => ({
       name: asset.name,
       asset_class: assetClassLabel(asset.asset_class),
-      value_base: round(toBase(Number(asset.current_value) * (Number(asset.ownership_pct) / 100), asset.currency)),
+      value_base: round(
+        toBase(Number(asset.current_value) * (Number(asset.ownership_pct) / 100), asset.currency),
+      ),
       last_valued_at: asset.last_valued_at,
     }));
 
@@ -527,10 +540,14 @@ export function buildHouseholdContext(input: ContextInput) {
     },
     cashflow: {
       monthly_income: round(
-        input.spending?.incomeMonthly != null ? input.spending.incomeMonthly : netWorth.monthlyIncome,
+        input.spending?.incomeMonthly != null
+          ? input.spending.incomeMonthly
+          : netWorth.monthlyIncome,
       ),
       monthly_spend: round(
-        input.spending?.totalMonthly != null ? input.spending.totalMonthly : netWorth.monthlyExpenses,
+        input.spending?.totalMonthly != null
+          ? input.spending.totalMonthly
+          : netWorth.monthlyExpenses,
       ),
       monthly_surplus: round(monthlySurplus),
       surplus_source: surplusSource,

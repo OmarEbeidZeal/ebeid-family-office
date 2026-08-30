@@ -66,7 +66,10 @@ async function rows<T>(client: Client, table: string, householdId: string): Prom
   return (data ?? []) as T[];
 }
 
-function buildToBase(fx: { base_ccy: string; quote_ccy: string; rate: number }[], base: string): ToBase {
+function buildToBase(
+  fx: { base_ccy: string; quote_ccy: string; rate: number }[],
+  base: string,
+): ToBase {
   const map: Record<string, number> = { GBP: 1 };
   for (const row of fx) {
     if (row.base_ccy !== "GBP") continue;
@@ -217,10 +220,10 @@ export async function loadAdvisorContext(
   if (tickers.length) {
     try {
       const result = await loadQuotes(tickers, { includeProfiles: true });
-      quotes = Object.fromEntries(result.quotes.map((quote) => [quote.ticker.toUpperCase(), quote]));
-      profiles = Object.fromEntries(
-        result.profiles.map((row) => [row.ticker.toUpperCase(), row]),
+      quotes = Object.fromEntries(
+        result.quotes.map((quote) => [quote.ticker.toUpperCase(), quote]),
       );
+      profiles = Object.fromEntries(result.profiles.map((row) => [row.ticker.toUpperCase(), row]));
       marketAvailable = result.configured;
       marketMessage = result.message;
     } catch (error) {

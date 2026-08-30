@@ -52,14 +52,17 @@ export function normaliseTickers(tickers: string[]): string[] {
 
 const ageSeconds = (iso: string, now: number) => (now - new Date(iso).getTime()) / 1000;
 
-function snapshotToQuote(row: SnapshotRow, source: "cache" | "stale", error: string | null): QuoteResult {
+function snapshotToQuote(
+  row: SnapshotRow,
+  source: "cache" | "stale",
+  error: string | null,
+): QuoteResult {
   return {
     ticker: row.ticker,
     price: Number(row.price),
     currency: row.currency || null,
     previousClose: row.previous_close === null ? null : Number(row.previous_close),
-    change:
-      row.previous_close === null ? null : Number(row.price) - Number(row.previous_close),
+    change: row.previous_close === null ? null : Number(row.price) - Number(row.previous_close),
     changePct: row.change_pct === null ? null : Number(row.change_pct),
     asOf: row.as_of,
     source,
@@ -83,13 +86,18 @@ async function latestSnapshots(tickers: string[]): Promise<Map<string, SnapshotR
   return map;
 }
 
-async function readProfiles(tickers: string[]): Promise<Map<string, SecurityProfileRow & {
-  profile_as_of: string | null;
-  metrics_as_of: string | null;
-  news_as_of: string | null;
-  metrics: unknown;
-  news: unknown;
-}>> {
+async function readProfiles(tickers: string[]): Promise<
+  Map<
+    string,
+    SecurityProfileRow & {
+      profile_as_of: string | null;
+      metrics_as_of: string | null;
+      news_as_of: string | null;
+      metrics: unknown;
+      news: unknown;
+    }
+  >
+> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin
     .from("security_profiles")
@@ -97,13 +105,16 @@ async function readProfiles(tickers: string[]): Promise<Map<string, SecurityProf
       "ticker, name, exchange, currency, country, industry, market_cap, profile_as_of, metrics_as_of, news_as_of, metrics, news",
     )
     .in("ticker", tickers);
-  const map = new Map<string, never>() as Map<string, SecurityProfileRow & {
-    profile_as_of: string | null;
-    metrics_as_of: string | null;
-    news_as_of: string | null;
-    metrics: unknown;
-    news: unknown;
-  }>;
+  const map = new Map<string, never>() as Map<
+    string,
+    SecurityProfileRow & {
+      profile_as_of: string | null;
+      metrics_as_of: string | null;
+      news_as_of: string | null;
+      metrics: unknown;
+      news: unknown;
+    }
+  >;
   for (const row of data ?? []) map.set(row.ticker, row as never);
   return map;
 }
@@ -406,7 +417,9 @@ export async function loadSecurityDetail(ticker: string): Promise<SecurityDetail
     }
 
     if (dirty) {
-      await supabaseAdmin.from("security_profiles").upsert(patch as never, { onConflict: "ticker" });
+      await supabaseAdmin
+        .from("security_profiles")
+        .upsert(patch as never, { onConflict: "ticker" });
     }
   }
 

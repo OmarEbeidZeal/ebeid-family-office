@@ -58,7 +58,11 @@ function describe(status: number, body: string): AdvisorGatewayError {
       true,
     );
   }
-  return new AdvisorGatewayError(`The AI service rejected the request (${status}). ${snippet}`, status, false);
+  return new AdvisorGatewayError(
+    `The AI service rejected the request (${status}). ${snippet}`,
+    status,
+    false,
+  );
 }
 
 export type AdvisorInputItem = {
@@ -208,9 +212,7 @@ export async function* streamAdvisor(
             true,
           );
         } else if (type === "response.completed") {
-          const detail = event["response"] as
-            | { usage?: { output_tokens?: number } }
-            | undefined;
+          const detail = event["response"] as { usage?: { output_tokens?: number } } | undefined;
           yield { type: "usage", outputTokens: detail?.usage?.output_tokens ?? null };
         }
       }

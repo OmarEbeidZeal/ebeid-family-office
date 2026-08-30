@@ -133,7 +133,8 @@ export function computeNetWorth(input: NetWorthInput) {
   const committedExpenses = expenses
     .filter((row) => row.confidence === "committed")
     .reduce(
-      (sum, row) => sum + monthlyEquivalent(toBase(Number(row.amount), row.currency), row.frequency),
+      (sum, row) =>
+        sum + monthlyEquivalent(toBase(Number(row.amount), row.currency), row.frequency),
       0,
     );
   const liabilityPayments = liabilities.reduce(

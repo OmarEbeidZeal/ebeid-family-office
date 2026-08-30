@@ -106,7 +106,9 @@ export function useAdvisorChat() {
 
             if (event.type === "reasoning") {
               setTurn((current) =>
-                current ? { ...current, reasoning: current.reasoning + (event.delta ?? "") } : current,
+                current
+                  ? { ...current, reasoning: current.reasoning + (event.delta ?? "") }
+                  : current,
               );
             } else if (event.type === "text") {
               setTurn((current) =>

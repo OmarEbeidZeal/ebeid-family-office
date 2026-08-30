@@ -101,9 +101,7 @@ export function TradeSheet({
         if (error) throw error;
         return;
       }
-      const { error } = await db
-        .from("trades")
-        .insert({ ...payload, household_id: household!.id });
+      const { error } = await db.from("trades").insert({ ...payload, household_id: household!.id });
       if (error) throw error;
     },
     onSuccess: () => {

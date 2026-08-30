@@ -72,7 +72,10 @@ export function MarketDataBanner({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2.5">
           <TriangleAlert
-            className={cn("mt-0.5 h-4 w-4 shrink-0", missingKey ? "text-warn" : "text-muted-foreground")}
+            className={cn(
+              "mt-0.5 h-4 w-4 shrink-0",
+              missingKey ? "text-warn" : "text-muted-foreground",
+            )}
           />
           <div className="min-w-0">
             <p className={cn("text-sm", missingKey ? "text-warn" : "text-foreground")}>

@@ -5,7 +5,13 @@ import { RowActions } from "@/components/RowActions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { formatAmount, formatMoney, formatPercent, formatSignedPercent, relativeTime } from "@/lib/format";
+import {
+  formatAmount,
+  formatMoney,
+  formatPercent,
+  formatSignedPercent,
+  relativeTime,
+} from "@/lib/format";
 import { SLEEVE_LABELS } from "@/lib/policy";
 import type { Position } from "@/lib/portfolio";
 
@@ -76,7 +82,9 @@ function PriceCell({ position }: { position: Position }) {
   if (position.priced && position.price !== null) {
     return (
       <div className="flex flex-col items-end">
-        <span className="num">{formatMoney(position.price, position.priceCurrency, { decimals: 2 })}</span>
+        <span className="num">
+          {formatMoney(position.price, position.priceCurrency, { decimals: 2 })}
+        </span>
         <span className="text-[0.65rem] leading-tight text-muted-foreground">
           {position.asOf ? relativeTime(position.asOf) : "as of unknown"}
         </span>

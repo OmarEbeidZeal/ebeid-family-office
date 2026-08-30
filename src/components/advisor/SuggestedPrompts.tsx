@@ -19,7 +19,6 @@ export function buildSuggestions(context: HouseholdContext, base: string): strin
     suggestions.push(rulePrompt(breaches[0]!, "Walk me through the breach on"));
   }
 
-
   const liquidity = context.liquidity;
   if (liquidity.months_covered !== null && liquidity.months_covered < liquidity.target_months) {
     suggestions.push(
@@ -83,9 +82,10 @@ export function buildSuggestions(context: HouseholdContext, base: string): strin
     suggestions.push(rulePrompt(watches[0]!, "We are drifting on"));
   }
 
-
   if (context.holdings.length && suggestions.length < 6) {
-    suggestions.push("Review the portfolio against the investment policy and tell me what to fix first.");
+    suggestions.push(
+      "Review the portfolio against the investment policy and tell me what to fix first.",
+    );
   }
 
   return suggestions.slice(0, 6);

@@ -16,9 +16,7 @@ function valueLabel(row: ConcentrationRow) {
 
 function limitLabel(row: ConcentrationRow) {
   if (row.limit === null) return null;
-  return row.unit === "pct"
-    ? `limit ${formatPercent(row.limit, 0)}`
-    : `target ${row.limit} months`;
+  return row.unit === "pct" ? `limit ${formatPercent(row.limit, 0)}` : `target ${row.limit} months`;
 }
 
 /**

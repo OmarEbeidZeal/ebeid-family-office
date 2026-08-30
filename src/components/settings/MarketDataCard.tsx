@@ -40,14 +40,17 @@ export function MarketDataCard() {
     >
       <div className="space-y-3">
         {result && tone && Icon ? (
-          <div className={cn("rounded-md border px-3 py-2.5 text-xs leading-relaxed", tone.className)}>
+          <div
+            className={cn("rounded-md border px-3 py-2.5 text-xs leading-relaxed", tone.className)}
+          >
             <p className="flex items-start gap-2">
               <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>{result.message}</span>
             </p>
             {result.sample && (
               <p className="num mt-2 pl-5.5 text-[0.7rem] opacity-90">
-                {result.sample.ticker} {result.sample.price.toFixed(2)} USD · priced {relativeTime(result.sample.asOf)}
+                {result.sample.ticker} {result.sample.price.toFixed(2)} USD · priced{" "}
+                {relativeTime(result.sample.asOf)}
               </p>
             )}
           </div>

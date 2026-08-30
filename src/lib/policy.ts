@@ -277,7 +277,10 @@ export function isRestrictedSector(position: {
   ticker: string;
 }): boolean | null {
   if (!isSingleName(position.securityType)) return false;
-  if (matches(position.industry, RESTRICTED_KEYWORDS) || matches(position.name, RESTRICTED_KEYWORDS))
+  if (
+    matches(position.industry, RESTRICTED_KEYWORDS) ||
+    matches(position.name, RESTRICTED_KEYWORDS)
+  )
     return true;
   // No industry classification yet — the app says so rather than assuming.
   return position.industry ? false : null;
@@ -400,7 +403,9 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     id: "tech-concentration",
     label: "Single-name technology",
     status:
-      equityPoolBase > 0 ? capStatus(techPct, POLICY_LIMITS.techSingleNameCapPct) : "not_applicable",
+      equityPoolBase > 0
+        ? capStatus(techPct, POLICY_LIMITS.techSingleNameCapPct)
+        : "not_applicable",
     headline:
       equityPoolBase > 0
         ? `Single-name technology is ${pct(techPct)} of the ${money(equityPoolBase, input.base)} liquid equity portfolio against a ${POLICY_LIMITS.techSingleNameCapPct}% cap.`
@@ -411,7 +416,8 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
   });
 
   // Rule 4 — the reserve.
-  const reserveMonths = essentialMonthly && essentialMonthly > 0 ? gbpCash / essentialMonthly : null;
+  const reserveMonths =
+    essentialMonthly && essentialMonthly > 0 ? gbpCash / essentialMonthly : null;
   const reserveStatus: PolicyStatus =
     reserveMonths === null
       ? "unknown"
@@ -493,7 +499,6 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     unit: "pct",
   });
 
-
   // Rule 7 — the speculative sleeve, in aggregate and name by name.
   const specValue = sleeveValues.satellite + sleeveValues.crypto;
   const specPct = share(specValue, investableTotal);
@@ -542,7 +547,6 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     unit: "pct",
   });
 
-
   // Rule 8 — the goal test, with the arithmetic shown.
   const goalTest = evaluateGoalTest(input);
   findings.push(goalTest);
@@ -553,7 +557,8 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     rule: 9,
     id: "written-thesis",
     label: "Written thesis",
-    status: speculativePositions.length === 0 ? "not_applicable" : missingThesis.length ? "breach" : "ok",
+    status:
+      speculativePositions.length === 0 ? "not_applicable" : missingThesis.length ? "breach" : "ok",
     headline: speculativePositions.length
       ? missingThesis.length
         ? `${missingThesis.map((p) => p.ticker).join(", ")} has no written thesis and falsification condition on file.`
@@ -632,7 +637,6 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     value: allocationMeasurable ? worstDrift : null,
     limit: POLICY_LIMITS.driftPct,
     unit: "pct",
-
   });
 
   return findings;
@@ -720,7 +724,8 @@ function nextCapitalRung(input: PolicyInput, reserveMonths: number | null): stri
     const shortfall = (POLICY_LIMITS.reserveMonths - reserveMonths) * (input.essentialMonthly ?? 0);
     return `top up the liquidity reserve by ${money(shortfall, input.base)} (rung 2)`;
   }
-  if (reserveMonths === null) return "establish the essential-spending baseline so the reserve can be measured (rung 2)";
+  if (reserveMonths === null)
+    return "establish the essential-spending baseline so the reserve can be measured (rung 2)";
   const expensiveDebt = input.highRateDebts[0];
   if (expensiveDebt)
     return `clear ${expensiveDebt.name} at ${expensiveDebt.ratePct.toFixed(2)}% (rung 3)`;
@@ -728,7 +733,9 @@ function nextCapitalRung(input: PolicyInput, reserveMonths: number | null): stri
   if (unrecorded.length)
     return `record this year's ISA and pension contributions for ${unrecorded
       .map((a) => a.person)
-      .join(" and ")} — with nothing logged, rungs 4 and 5 cannot be measured (${input.daysToTaxYearEnd} days to 5 April)`;
+      .join(
+        " and ",
+      )} — with nothing logged, rungs 4 and 5 cannot be measured (${input.daysToTaxYearEnd} days to 5 April)`;
   const isaLeft = input.allowances.filter((a) => a.isaRemaining > 0);
   if (isaLeft.length)
     return `use the remaining ISA allowance — ${isaLeft
@@ -876,7 +883,10 @@ export function concentrationRows(input: PolicyInput): ConcentrationRow[] {
     value: share(input.sleeveValues.crypto, investableTotal),
     limit: POLICY_LIMITS.cryptoCapPct,
     unit: "pct",
-    status: capStatus(share(input.sleeveValues.crypto, investableTotal), POLICY_LIMITS.cryptoCapPct),
+    status: capStatus(
+      share(input.sleeveValues.crypto, investableTotal),
+      POLICY_LIMITS.cryptoCapPct,
+    ),
     rule: 6,
     detail: "Rule 6: crypto counts inside the satellite sleeve and is capped at 5% on its own.",
   });
@@ -896,7 +906,8 @@ export function concentrationRows(input: PolicyInput): ConcentrationRow[] {
         ? capStatus(share(techValue, input.equityPoolBase), POLICY_LIMITS.techSingleNameCapPct)
         : "not_applicable",
     rule: 3,
-    detail: "Rule 3: direct single-name technology is capped at 25% of the liquid equity portfolio.",
+    detail:
+      "Rule 3: direct single-name technology is capped at 25% of the liquid equity portfolio.",
   });
 
   rows.push({
@@ -908,7 +919,10 @@ export function concentrationRows(input: PolicyInput): ConcentrationRow[] {
     unit: "pct",
     status:
       input.netWorth > 0
-        ? capStatus(share(input.softCurrencyValue, input.netWorth), POLICY_LIMITS.softCurrencyCapPct)
+        ? capStatus(
+            share(input.softCurrencyValue, input.netWorth),
+            POLICY_LIMITS.softCurrencyCapPct,
+          )
         : "not_applicable",
     rule: 10,
     detail: "Rule 10: soft-currency assets stay at or below 30% of household net worth.",

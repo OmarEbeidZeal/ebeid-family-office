@@ -61,7 +61,9 @@ export function SecurityDetailSheet({
         <SheetHeader className="border-b border-border px-6 py-5 text-left">
           <SheetTitle className="num text-base font-light tracking-tight">
             {ticker}
-            {profile?.name ? <span className="ml-2 text-muted-foreground">{profile.name}</span> : null}
+            {profile?.name ? (
+              <span className="ml-2 text-muted-foreground">{profile.name}</span>
+            ) : null}
           </SheetTitle>
           <SheetDescription className="text-xs leading-relaxed">
             {profile
@@ -151,7 +153,9 @@ export function SecurityDetailSheet({
                           {item.headline}
                         </a>
                         <p className="mt-1 text-[0.7rem] text-muted-foreground">
-                          {[item.source, relativeTime(item.publishedAt)].filter(Boolean).join(" · ")}
+                          {[item.source, relativeTime(item.publishedAt)]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </p>
                       </li>
                     ))}

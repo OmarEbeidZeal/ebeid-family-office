@@ -34,9 +34,7 @@ export function Markdown({ children, className }: { children: string; className?
               {content}
             </h4>
           ),
-          ul: ({ children: content }) => (
-            <ul className="mb-3 space-y-1.5 last:mb-0">{content}</ul>
-          ),
+          ul: ({ children: content }) => <ul className="mb-3 space-y-1.5 last:mb-0">{content}</ul>,
           ol: ({ children: content }) => (
             <ol className="mb-3 list-decimal space-y-1.5 pl-5 last:mb-0 marker:text-muted-foreground">
               {content}

@@ -213,11 +213,7 @@ function PortfolioPage() {
           />
           {!loading && visiblePositions.length === 0 ? (
             <EmptyState
-              title={
-                holdings.data?.length
-                  ? "No holdings in this view"
-                  : "No holdings recorded"
-              }
+              title={holdings.data?.length ? "No holdings in this view" : "No holdings recorded"}
               body={
                 holdings.data?.length
                   ? "Switch the perspective toggle back to Household to see every position, or add a holding owned by this person."
@@ -235,7 +231,9 @@ function PortfolioPage() {
               base={base}
               loading={loading}
               onSelect={onSelect}
-              onEdit={(position) => setHoldingSheet({ open: true, holding: position.holding as HoldingRow })}
+              onEdit={(position) =>
+                setHoldingSheet({ open: true, holding: position.holding as HoldingRow })
+              }
               onDelete={(position) => deleteHolding.mutate(position.id)}
               onTrade={(position) =>
                 setTradeSheet({ open: true, trade: null, holdingId: position.id })
@@ -244,11 +242,7 @@ function PortfolioPage() {
           )}
         </section>
 
-        <ReconciliationPanel
-          rows={reconciliation}
-          accounts={accounts.data ?? []}
-          base={base}
-        />
+        <ReconciliationPanel rows={reconciliation} accounts={accounts.data ?? []} base={base} />
 
         <ConcentrationPanel rows={concentration} loading={loading} />
 

@@ -121,14 +121,12 @@ export function buildPositions(input: {
 
     const dayChangeNative =
       price === null || previousClose === null ? null : (price - previousClose) * quantity;
-    const dayChangeBase =
-      dayChangeNative === null ? null : toBase(dayChangeNative, priceCurrency);
+    const dayChangeBase = dayChangeNative === null ? null : toBase(dayChangeNative, priceCurrency);
     const dayChangePct =
       price === null || !previousClose ? null : ((price - previousClose) / previousClose) * 100;
 
     const targetPrice = holding.target_price == null ? null : Number(holding.target_price);
-    const distanceToTargetPct =
-      targetPrice && price ? ((targetPrice - price) / price) * 100 : null;
+    const distanceToTargetPct = targetPrice && price ? ((targetPrice - price) / price) * 100 : null;
 
     return {
       id: holding.id,
@@ -166,7 +164,10 @@ export function buildPositions(input: {
     };
   });
 
-  const pricedTotal = rows.reduce((sum, row) => sum + (row.priced ? (row.marketValueBase ?? 0) : 0), 0);
+  const pricedTotal = rows.reduce(
+    (sum, row) => sum + (row.priced ? (row.marketValueBase ?? 0) : 0),
+    0,
+  );
   for (const row of rows) {
     row.portfolioWeightPct =
       row.priced && pricedTotal > 0 ? ((row.marketValueBase ?? 0) / pricedTotal) * 100 : null;
@@ -288,8 +289,7 @@ export function reconcileAccounts(
       const native =
         r.priceCurrency === account.currency
           ? (r.marketValueNative ?? 0)
-          : toBase(r.marketValueNative ?? 0, r.priceCurrency) /
-            (toBase(1, account.currency) || 1);
+          : toBase(r.marketValueNative ?? 0, r.priceCurrency) / (toBase(1, account.currency) || 1);
       return sum + native;
     }, 0);
     results.push({
@@ -297,8 +297,7 @@ export function reconcileAccounts(
       pricedValueBase,
       recordedBalanceBase,
       differenceBase,
-      differencePct:
-        recordedBalanceBase > 0 ? (differenceBase / recordedBalanceBase) * 100 : null,
+      differencePct: recordedBalanceBase > 0 ? (differenceBase / recordedBalanceBase) * 100 : null,
       pricedValueNative,
       accountCurrency: account.currency,
       unpricedInAccount: rows.length - priced.length,
