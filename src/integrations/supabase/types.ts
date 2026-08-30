@@ -14,6 +14,169 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_identifiers: {
+        Row: {
+          account_id: string
+          created_at: string
+          household_id: string
+          id: string
+          identifier_hash: string
+          kind: string
+          last4: string | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          household_id: string
+          id?: string
+          identifier_hash: string
+          kind?: string
+          last4?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          household_id?: string
+          id?: string
+          identifier_hash?: string
+          kind?: string
+          last4?: string | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_identifiers_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_identifiers_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_proposals: {
+        Row: {
+          account_type: string | null
+          closing_balance: number | null
+          closing_balance_date: string | null
+          country: string | null
+          created_at: string
+          currency: string | null
+          fingerprint: string
+          holder: string | null
+          household_id: string
+          id: string
+          identifier_hash: string | null
+          identifier_kind: string | null
+          identifier_last4: string | null
+          institution: string | null
+          institution_domain: string | null
+          match_confidence: number
+          match_reason: string | null
+          matched_account_id: string | null
+          opening_balance: number | null
+          period_end: string | null
+          period_start: string | null
+          resolved_account_id: string | null
+          resolved_at: string | null
+          statement_count: number
+          status: string
+          suggested_nickname: string
+          updated_at: string
+        }
+        Insert: {
+          account_type?: string | null
+          closing_balance?: number | null
+          closing_balance_date?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          fingerprint: string
+          holder?: string | null
+          household_id: string
+          id?: string
+          identifier_hash?: string | null
+          identifier_kind?: string | null
+          identifier_last4?: string | null
+          institution?: string | null
+          institution_domain?: string | null
+          match_confidence?: number
+          match_reason?: string | null
+          matched_account_id?: string | null
+          opening_balance?: number | null
+          period_end?: string | null
+          period_start?: string | null
+          resolved_account_id?: string | null
+          resolved_at?: string | null
+          statement_count?: number
+          status?: string
+          suggested_nickname: string
+          updated_at?: string
+        }
+        Update: {
+          account_type?: string | null
+          closing_balance?: number | null
+          closing_balance_date?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          fingerprint?: string
+          holder?: string | null
+          household_id?: string
+          id?: string
+          identifier_hash?: string | null
+          identifier_kind?: string | null
+          identifier_last4?: string | null
+          institution?: string | null
+          institution_domain?: string | null
+          match_confidence?: number
+          match_reason?: string | null
+          matched_account_id?: string | null
+          opening_balance?: number | null
+          period_end?: string | null
+          period_start?: string | null
+          resolved_account_id?: string | null
+          resolved_at?: string | null
+          statement_count?: number
+          status?: string
+          suggested_nickname?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_proposals_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_proposals_matched_account_id_fkey"
+            columns: ["matched_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_proposals_resolved_account_id_fkey"
+            columns: ["resolved_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       accounts: {
         Row: {
           account_type: string
@@ -21,14 +184,18 @@ export type Database = {
           created_at: string
           currency: string
           current_balance: number
+          discovered_from: string
           household_id: string
           id: string
+          identifier_mask: string | null
           institution: string | null
+          institution_domain: string | null
           is_active: boolean
           is_joint: boolean
           last_balance_update: string | null
           nickname: string
           owner_profile_id: string | null
+          statement_holder: string | null
           updated_at: string
         }
         Insert: {
@@ -37,14 +204,18 @@ export type Database = {
           created_at?: string
           currency?: string
           current_balance?: number
+          discovered_from?: string
           household_id: string
           id?: string
+          identifier_mask?: string | null
           institution?: string | null
+          institution_domain?: string | null
           is_active?: boolean
           is_joint?: boolean
           last_balance_update?: string | null
           nickname: string
           owner_profile_id?: string | null
+          statement_holder?: string | null
           updated_at?: string
         }
         Update: {
@@ -53,14 +224,18 @@ export type Database = {
           created_at?: string
           currency?: string
           current_balance?: number
+          discovered_from?: string
           household_id?: string
           id?: string
+          identifier_mask?: string | null
           institution?: string | null
+          institution_domain?: string | null
           is_active?: boolean
           is_joint?: boolean
           last_balance_update?: string | null
           nickname?: string
           owner_profile_id?: string | null
+          statement_holder?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -193,6 +368,54 @@ export type Database = {
             columns: ["related_goal_id"]
             isOneToOne: false
             referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_settings: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          job: string
+          model: string | null
+          provider: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          job: string
+          model?: string | null
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          job?: string
+          model?: string | null
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_settings_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -856,6 +1079,78 @@ export type Database = {
         }
         Relationships: []
       }
+      import_batches: {
+        Row: {
+          accounts_proposed: number
+          created_at: string
+          created_by: string | null
+          duplicate_files: number
+          duplicates_skipped: number
+          failed_files: number
+          finished_at: string | null
+          finished_files: number
+          household_id: string
+          id: string
+          message: string | null
+          started_at: string | null
+          status: string
+          total_files: number
+          transactions_imported: number
+          updated_at: string
+        }
+        Insert: {
+          accounts_proposed?: number
+          created_at?: string
+          created_by?: string | null
+          duplicate_files?: number
+          duplicates_skipped?: number
+          failed_files?: number
+          finished_at?: string | null
+          finished_files?: number
+          household_id: string
+          id?: string
+          message?: string | null
+          started_at?: string | null
+          status?: string
+          total_files?: number
+          transactions_imported?: number
+          updated_at?: string
+        }
+        Update: {
+          accounts_proposed?: number
+          created_at?: string
+          created_by?: string | null
+          duplicate_files?: number
+          duplicates_skipped?: number
+          failed_files?: number
+          finished_at?: string | null
+          finished_files?: number
+          household_id?: string
+          id?: string
+          message?: string | null
+          started_at?: string | null
+          status?: string
+          total_files?: number
+          transactions_imported?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_batches_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       income_streams: {
         Row: {
           annual_growth_rate: number
@@ -1256,66 +1551,114 @@ export type Database = {
       statements: {
         Row: {
           account_id: string | null
+          attempts: number
           closing_balance: number | null
           created_at: string
           currency: string | null
+          detected_account_type: string | null
+          detected_country: string | null
+          detected_holder: string | null
+          detected_identifier_kind: string | null
+          detected_institution: string | null
+          detected_institution_domain: string | null
+          detected_last4: string | null
           discrepancy: number | null
           duplicate_count: number
           error_message: string | null
+          file_hash: string | null
           file_name: string | null
           file_path: string
           file_size: number | null
           household_id: string
           id: string
+          import_batch_id: string | null
+          locked_at: string | null
+          match_confidence: number | null
+          match_reason: string | null
+          next_attempt_at: string | null
           opening_balance: number | null
           parsed_at: string | null
           period_end: string | null
           period_start: string | null
+          proposal_id: string | null
           status: string
+          summary: Json | null
           transaction_count: number | null
           updated_at: string
           uploaded_by: string | null
         }
         Insert: {
           account_id?: string | null
+          attempts?: number
           closing_balance?: number | null
           created_at?: string
           currency?: string | null
+          detected_account_type?: string | null
+          detected_country?: string | null
+          detected_holder?: string | null
+          detected_identifier_kind?: string | null
+          detected_institution?: string | null
+          detected_institution_domain?: string | null
+          detected_last4?: string | null
           discrepancy?: number | null
           duplicate_count?: number
           error_message?: string | null
+          file_hash?: string | null
           file_name?: string | null
           file_path: string
           file_size?: number | null
           household_id: string
           id?: string
+          import_batch_id?: string | null
+          locked_at?: string | null
+          match_confidence?: number | null
+          match_reason?: string | null
+          next_attempt_at?: string | null
           opening_balance?: number | null
           parsed_at?: string | null
           period_end?: string | null
           period_start?: string | null
+          proposal_id?: string | null
           status?: string
+          summary?: Json | null
           transaction_count?: number | null
           updated_at?: string
           uploaded_by?: string | null
         }
         Update: {
           account_id?: string | null
+          attempts?: number
           closing_balance?: number | null
           created_at?: string
           currency?: string | null
+          detected_account_type?: string | null
+          detected_country?: string | null
+          detected_holder?: string | null
+          detected_identifier_kind?: string | null
+          detected_institution?: string | null
+          detected_institution_domain?: string | null
+          detected_last4?: string | null
           discrepancy?: number | null
           duplicate_count?: number
           error_message?: string | null
+          file_hash?: string | null
           file_name?: string | null
           file_path?: string
           file_size?: number | null
           household_id?: string
           id?: string
+          import_batch_id?: string | null
+          locked_at?: string | null
+          match_confidence?: number | null
+          match_reason?: string | null
+          next_attempt_at?: string | null
           opening_balance?: number | null
           parsed_at?: string | null
           period_end?: string | null
           period_start?: string | null
+          proposal_id?: string | null
           status?: string
+          summary?: Json | null
           transaction_count?: number | null
           updated_at?: string
           uploaded_by?: string | null
@@ -1333,6 +1676,20 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "statements_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "statements_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "account_proposals"
             referencedColumns: ["id"]
           },
           {
