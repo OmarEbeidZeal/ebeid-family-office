@@ -141,7 +141,7 @@ export function ImportStatementDialog({
       try {
         if (!statementId) {
           patch(item.key, { status: "uploading", message: "" });
-          const safeName = item.file.name.replace(/[^\w.\-]+/g, "_").slice(-80);
+          const safeName = item.file.name.replace(/[^\w.-]+/g, "_").slice(-80);
           const path = `${household.id}/${accountId}/${crypto.randomUUID()}-${safeName}`;
 
           const { error: uploadError } = await supabase.storage

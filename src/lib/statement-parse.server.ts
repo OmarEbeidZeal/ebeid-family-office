@@ -87,7 +87,7 @@ export function parseAmountCell(raw: unknown): ParsedAmount | null {
   }
 
   // Strip everything that isn't a digit, separator or sign.
-  const cleaned = text.replace(/[^0-9.,\-]/g, "");
+  const cleaned = text.replace(/[^0-9.,-]/g, "");
   if (!cleaned || !/[0-9]/.test(cleaned)) return null;
 
   const body = cleaned.replace(/-/g, "");
