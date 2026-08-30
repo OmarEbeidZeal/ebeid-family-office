@@ -3,6 +3,8 @@
 @import "tw-animate-css";
 
 @custom-variant light (&:is(.light *));
+/* Touch devices get larger hit areas without changing the pointer layout. */
+@custom-variant coarse (@media (pointer: coarse));
 
 /*
  * Ebeid Family Office design system.

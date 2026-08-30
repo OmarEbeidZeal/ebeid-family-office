@@ -35,7 +35,7 @@ export function ScopeToggle({
             disabled={option.disabled}
             onClick={() => !option.disabled && setScope(option.id)}
             className={cn(
-              "rounded-[4px] px-3 py-2.5 text-xs transition-colors lg:px-2.5 lg:py-1",
+              "flex min-h-11 items-center rounded-[4px] px-3 text-xs transition-colors lg:min-h-0 lg:px-2.5 lg:py-1",
               active
                 ? "bg-gold-soft text-gold"
                 : "text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:text-muted-foreground",

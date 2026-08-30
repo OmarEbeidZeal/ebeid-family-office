@@ -38,7 +38,7 @@ export function StatTile({
             <button
               type="button"
               aria-label={`What ${label} means`}
-              className="rounded-sm text-muted-foreground/50 opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100"
+              className="-m-2 rounded-sm p-2 text-muted-foreground/50 opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:opacity-100 coarse:opacity-100"
             >
               <Info className="h-3.5 w-3.5" />
             </button>
