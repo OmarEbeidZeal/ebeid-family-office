@@ -57,7 +57,10 @@ export function GoalStatusPill({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button type="button" className="cursor-help">
+        <button
+          type="button"
+          className="relative cursor-help rounded-full after:absolute after:content-[''] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring coarse:after:-inset-2.5"
+        >
           {pill}
         </button>
       </TooltipTrigger>

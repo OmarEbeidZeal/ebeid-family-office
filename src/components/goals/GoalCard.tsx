@@ -210,7 +210,7 @@ export function GoalCard({
             type="button"
             onClick={onToggle}
             aria-expanded={expanded}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring coarse:min-h-11"
           >
             {expanded ? "Hide detail" : "Detail"}
             <ChevronDown
