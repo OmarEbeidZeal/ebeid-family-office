@@ -81,12 +81,13 @@ export function MetricRow({
         tone={
           runwayMonths === null
             ? "neutral"
-            : runwayMonths >= 6
+            : runwayMonths >= 12
               ? "gain"
-              : runwayMonths >= 3
+              : runwayMonths >= 6
                 ? "neutral"
                 : "loss"
         }
+
         value={runwayMonths === null ? "—" : `${runwayMonths.toFixed(1)} mo`}
         definition={`${
           observedEssential !== null
