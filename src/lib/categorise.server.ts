@@ -6,7 +6,7 @@
  * batches, and every AI answer carries a confidence that drives the review
  * queue.
  */
-import { AI_MODELS, aiJson } from "./ai.server";
+import type { JsonRunner } from "./ai/runner.server";
 import { normaliseDescription, similarity } from "./text";
 
 export type CategoryRef = {
