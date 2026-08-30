@@ -39,14 +39,16 @@ function SettingsPage() {
   return (
     <AppShell
       title="Settings"
-      description="Who is in the household, what currency it reports in, and who may sign in."
+      description="Who is in the household, what currency it reports in, allowance capacity, market data and who may sign in."
     >
       <div className="space-y-5">
         <ProfileCard />
         <HouseholdCard />
         <AccessCard />
+        <AllowanceCard />
         <FxCard />
         <MarketDataCard />
+
         <AppearanceCard />
 
         <section className="hairline flex flex-wrap items-center justify-between gap-4 rounded-lg bg-surface p-5 sm:p-6">
