@@ -546,8 +546,18 @@ export async function importExtracted(
         discrepancy,
         error_message: needsReview ? message : null,
         parsed_at: new Date().toISOString(),
+        summary: {
+          inserted: insertedIds.length,
+          duplicates,
+          skipped_rows: extraction.skippedRows,
+          notes,
+          categorised_by: categoriser
+            ? { provider: categoriser.provider, model: categoriser.model }
+            : null,
+        },
       })
       .eq("id", statementId);
+
 
     return {
       status: needsReview ? "needs_review" : "parsed",
