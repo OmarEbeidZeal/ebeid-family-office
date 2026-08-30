@@ -126,8 +126,9 @@ Polish pass
 - [x] Consistency: one `<Money>`, tabular figures, both themes checked page by page
 
 Still open (needs Omar, or the platform)
-- [ ] `FINNHUB_API_KEY` — add it in Project Settings → Secrets. Until then the portfolio says
-      plainly that market data is unavailable rather than showing a stale or invented price.
+- [x] `FINNHUB_API_KEY` — added and verified with a live quote; the portfolio prices from Finnhub
+      with an "as of" timestamp and a 60-second cache.
+
 - [ ] Weekly briefing schedule — `pg_cron` / `pg_net` are unavailable on this project, so
       briefings are generated on demand from `/advisor`.
 - [ ] Haya's invitation — add her address under Settings → Access so she gets her own sign-in.
