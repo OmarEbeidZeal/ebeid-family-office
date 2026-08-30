@@ -22,8 +22,11 @@ export function MetricRow({
 
   const observedEssential = spending.essentialBaseline;
   const essentialSpend = observedEssential ?? summary.essentialSpend;
-  const runwayMonths = essentialSpend > 0 ? summary.liquidCash / essentialSpend : null;
+  // Policy rule 4 counts GBP cash only. ISA, GIA and crypto balances are
+  // liquid but they are investments, so they never pad the runway.
+  const runwayMonths = essentialSpend > 0 ? summary.reserveCash / essentialSpend : null;
   const monthsWord = `${spending.completeMonthCount} complete month${spending.completeMonthCount === 1 ? "" : "s"}`;
+
 
   const observedIncome = spending.incomeBaseline;
   const observedSpend = spending.spendBaseline;
