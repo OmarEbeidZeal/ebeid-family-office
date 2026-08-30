@@ -321,6 +321,13 @@ export function valuationMethodLabel(method: string | null | undefined) {
 
 /** Cash-like accounts that can genuinely be spent this week. */
 export const LIQUID_ACCOUNT_TYPES = ["current", "savings", "isa", "gia", "cash", "crypto"];
+/**
+ * Spendable cash the emergency reserve is measured from. ISA, GIA and crypto
+ * balances are investments — liquid, but never part of the reserve, because
+ * policy rule 4 counts months of essential spending held in cash.
+ */
+export const RESERVE_ACCOUNT_TYPES = ["current", "savings", "cash"];
+
 /** Accounts that hold a balance owed rather than held. */
 export const DEBT_ACCOUNT_TYPES = ["credit_card", "loan", "mortgage"];
 /** Locked until retirement age — never counted as spendable. */

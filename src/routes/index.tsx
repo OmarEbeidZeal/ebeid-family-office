@@ -12,7 +12,7 @@ import { GoalsStrip } from "@/components/dashboard/GoalsStrip";
 import type { StatTrend } from "@/components/StatTile";
 import { useNetWorth } from "@/hooks/useNetWorth";
 import { useObservedSpending } from "@/hooks/useObservedSpending";
-import { useHoldings, useSnapshots } from "@/hooks/useFinancials";
+import { useAdvisorNotes, useHoldings, useSnapshots } from "@/hooks/useFinancials";
 import { useSnapshotSync } from "@/hooks/useSnapshotSync";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDate } from "@/lib/format";
@@ -57,6 +57,7 @@ function Dashboard() {
   const spending = useObservedSpending();
   const snapshotsQuery = useSnapshots();
   const holdingsQuery = useHoldings();
+  const notesQuery = useAdvisorNotes();
   useSnapshotSync();
 
   const snapshots = useMemo(
@@ -122,7 +123,11 @@ function Dashboard() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <SpendingPanel />
-        <AdvisorPanel summary={summary} holdingsCount={holdingsQuery.data?.length ?? 0} />
+        <AdvisorPanel
+          summary={summary}
+          holdingsCount={holdingsQuery.data?.length ?? 0}
+          notes={notesQuery.data ?? []}
+        />
       </div>
 
       <GoalsStrip />

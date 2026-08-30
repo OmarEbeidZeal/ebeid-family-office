@@ -139,10 +139,78 @@ export type HoldingRow = {
   account_id: string | null;
   ticker: string;
   name: string | null;
+  exchange: string | null;
   security_type: string;
+  sleeve: string;
   quantity: number;
   avg_cost: number | null;
   currency: string;
+  thesis: string | null;
+  falsification: string | null;
+  target_price: number | null;
+  realised_pnl: number;
+  opened_at: string | null;
+  notes: string | null;
+};
+
+export type TradeRow = {
+  id: string;
+  holding_id: string;
+  account_id: string | null;
+  side: string;
+  trade_date: string;
+  quantity: number;
+  price: number;
+  fees: number;
+  currency: string;
+  notes: string | null;
+};
+
+export type WatchlistRow = {
+  id: string;
+  ticker: string;
+  name: string | null;
+  security_type: string | null;
+  conviction: string | null;
+  target_price: number | null;
+  thesis: string;
+  falsification: string;
+  added_by: string | null;
+  created_at: string;
+};
+
+export type AdvisorNoteRow = {
+  id: string;
+  kind: string;
+  severity: string;
+  title: string;
+  body: string | null;
+  related_goal_id: string | null;
+  related_ticker: string | null;
+  is_read: boolean;
+  fingerprint: string | null;
+  generated_at: string;
+};
+
+export type AdvisorMessageRow = {
+  id: string;
+  role: string;
+  content: string;
+  reasoning: string | null;
+  model: string | null;
+  created_at: string;
+};
+
+export type TaxAllowanceRow = {
+  id: string;
+  profile_id: string | null;
+  tax_year: string;
+  isa_used: number;
+  jisa_used: number;
+  lisa_used: number;
+  pension_used: number;
+  employer_match_secured: boolean;
+  notes: string | null;
 };
 
 function useTable<T>(key: string, table: string, order?: string) {
@@ -169,6 +237,11 @@ export const useForecastExpenses = () =>
   useTable<ForecastExpenseRow>("forecast_expenses", "forecast_expenses");
 export const useCategories = () => useTable<CategoryRow>("categories", "categories");
 export const useHoldings = () => useTable<HoldingRow>("holdings", "holdings");
+export const useTrades = () => useTable<TradeRow>("trades", "trades", "trade_date");
+export const useWatchlist = () => useTable<WatchlistRow>("watchlist", "watchlist", "created_at");
+export const useAdvisorNotes = () =>
+  useTable<AdvisorNoteRow>("advisor_notes", "advisor_notes", "generated_at");
+export const useTaxAllowances = () => useTable<TaxAllowanceRow>("tax_allowances", "tax_allowances");
 export const useSnapshots = () =>
   useTable<SnapshotRow>("net_worth_snapshots", "net_worth_snapshots", "as_of");
 

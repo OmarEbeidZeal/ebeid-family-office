@@ -87,7 +87,9 @@ export type Database = {
           created_at: string
           household_id: string
           id: string
+          model: string | null
           profile_id: string | null
+          reasoning: string | null
           role: string
           updated_at: string
         }
@@ -97,7 +99,9 @@ export type Database = {
           created_at?: string
           household_id: string
           id?: string
+          model?: string | null
           profile_id?: string | null
+          reasoning?: string | null
           role: string
           updated_at?: string
         }
@@ -107,7 +111,9 @@ export type Database = {
           created_at?: string
           household_id?: string
           id?: string
+          model?: string | null
           profile_id?: string | null
+          reasoning?: string | null
           role?: string
           updated_at?: string
         }
@@ -132,6 +138,7 @@ export type Database = {
         Row: {
           body: string | null
           created_at: string
+          fingerprint: string | null
           generated_at: string
           household_id: string
           id: string
@@ -146,6 +153,7 @@ export type Database = {
         Insert: {
           body?: string | null
           created_at?: string
+          fingerprint?: string | null
           generated_at?: string
           household_id: string
           id?: string
@@ -160,6 +168,7 @@ export type Database = {
         Update: {
           body?: string | null
           created_at?: string
+          fingerprint?: string | null
           generated_at?: string
           household_id?: string
           id?: string
@@ -664,6 +673,7 @@ export type Database = {
           created_at: string
           currency: string
           exchange: string | null
+          falsification: string | null
           household_id: string
           id: string
           name: string | null
@@ -671,7 +681,11 @@ export type Database = {
           opened_at: string | null
           owner_profile_id: string | null
           quantity: number
+          realised_pnl: number
           security_type: string
+          sleeve: string
+          target_price: number | null
+          thesis: string | null
           ticker: string
           updated_at: string
         }
@@ -681,6 +695,7 @@ export type Database = {
           created_at?: string
           currency?: string
           exchange?: string | null
+          falsification?: string | null
           household_id: string
           id?: string
           name?: string | null
@@ -688,7 +703,11 @@ export type Database = {
           opened_at?: string | null
           owner_profile_id?: string | null
           quantity?: number
+          realised_pnl?: number
           security_type?: string
+          sleeve?: string
+          target_price?: number | null
+          thesis?: string | null
           ticker: string
           updated_at?: string
         }
@@ -698,6 +717,7 @@ export type Database = {
           created_at?: string
           currency?: string
           exchange?: string | null
+          falsification?: string | null
           household_id?: string
           id?: string
           name?: string | null
@@ -705,7 +725,11 @@ export type Database = {
           opened_at?: string | null
           owner_profile_id?: string | null
           quantity?: number
+          realised_pnl?: number
           security_type?: string
+          sleeve?: string
+          target_price?: number | null
+          thesis?: string | null
           ticker?: string
           updated_at?: string
         }
@@ -1088,6 +1112,66 @@ export type Database = {
           },
         ]
       }
+      security_profiles: {
+        Row: {
+          country: string | null
+          created_at: string
+          currency: string | null
+          exchange: string | null
+          id: string
+          industry: string | null
+          logo: string | null
+          market_cap: number | null
+          metrics: Json | null
+          metrics_as_of: string | null
+          name: string | null
+          news: Json | null
+          news_as_of: string | null
+          profile: Json | null
+          profile_as_of: string | null
+          ticker: string
+          updated_at: string
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          exchange?: string | null
+          id?: string
+          industry?: string | null
+          logo?: string | null
+          market_cap?: number | null
+          metrics?: Json | null
+          metrics_as_of?: string | null
+          name?: string | null
+          news?: Json | null
+          news_as_of?: string | null
+          profile?: Json | null
+          profile_as_of?: string | null
+          ticker: string
+          updated_at?: string
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          exchange?: string | null
+          id?: string
+          industry?: string | null
+          logo?: string | null
+          market_cap?: number | null
+          metrics?: Json | null
+          metrics_as_of?: string | null
+          name?: string | null
+          news?: Json | null
+          news_as_of?: string | null
+          profile?: Json | null
+          profile_as_of?: string | null
+          ticker?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       statements: {
         Row: {
           account_id: string | null
@@ -1175,6 +1259,136 @@ export type Database = {
             columns: ["uploaded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_allowances: {
+        Row: {
+          created_at: string
+          employer_match_secured: boolean
+          household_id: string
+          id: string
+          isa_used: number
+          jisa_used: number
+          lisa_used: number
+          notes: string | null
+          pension_used: number
+          profile_id: string | null
+          tax_year: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employer_match_secured?: boolean
+          household_id: string
+          id?: string
+          isa_used?: number
+          jisa_used?: number
+          lisa_used?: number
+          notes?: string | null
+          pension_used?: number
+          profile_id?: string | null
+          tax_year: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employer_match_secured?: boolean
+          household_id?: string
+          id?: string
+          isa_used?: number
+          jisa_used?: number
+          lisa_used?: number
+          notes?: string | null
+          pension_used?: number
+          profile_id?: string | null
+          tax_year?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_allowances_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_allowances_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trades: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          currency: string
+          fees: number
+          holding_id: string
+          household_id: string
+          id: string
+          notes: string | null
+          price: number
+          quantity: number
+          side: string
+          trade_date: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          currency: string
+          fees?: number
+          holding_id: string
+          household_id: string
+          id?: string
+          notes?: string | null
+          price: number
+          quantity: number
+          side: string
+          trade_date?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          currency?: string
+          fees?: number
+          holding_id?: string
+          household_id?: string
+          id?: string
+          notes?: string | null
+          price?: number
+          quantity?: number
+          side?: string
+          trade_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trades_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trades_holding_household_fk"
+            columns: ["holding_id", "household_id"]
+            isOneToOne: false
+            referencedRelation: "holdings"
+            referencedColumns: ["id", "household_id"]
+          },
+          {
+            foreignKeyName: "trades_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
             referencedColumns: ["id"]
           },
         ]
@@ -1343,12 +1557,13 @@ export type Database = {
           added_by: string | null
           conviction: string | null
           created_at: string
+          falsification: string
           household_id: string
           id: string
           name: string | null
           security_type: string | null
           target_price: number | null
-          thesis: string | null
+          thesis: string
           ticker: string
           updated_at: string
         }
@@ -1356,12 +1571,13 @@ export type Database = {
           added_by?: string | null
           conviction?: string | null
           created_at?: string
+          falsification: string
           household_id: string
           id?: string
           name?: string | null
           security_type?: string | null
           target_price?: number | null
-          thesis?: string | null
+          thesis: string
           ticker: string
           updated_at?: string
         }
@@ -1369,12 +1585,13 @@ export type Database = {
           added_by?: string | null
           conviction?: string | null
           created_at?: string
+          falsification?: string
           household_id?: string
           id?: string
           name?: string | null
           security_type?: string | null
           target_price?: number | null
-          thesis?: string | null
+          thesis?: string
           ticker?: string
           updated_at?: string
         }

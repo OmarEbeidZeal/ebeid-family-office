@@ -22,7 +22,9 @@ export function MetricRow({
 
   const observedEssential = spending.essentialBaseline;
   const essentialSpend = observedEssential ?? summary.essentialSpend;
-  const runwayMonths = essentialSpend > 0 ? summary.liquidCash / essentialSpend : null;
+  // Policy rule 4 counts GBP cash only. ISA, GIA and crypto balances are
+  // liquid but they are investments, so they never pad the runway.
+  const runwayMonths = essentialSpend > 0 ? summary.reserveCash / essentialSpend : null;
   const monthsWord = `${spending.completeMonthCount} complete month${spending.completeMonthCount === 1 ? "" : "s"}`;
 
   const observedIncome = spending.incomeBaseline;
@@ -78,18 +80,23 @@ export function MetricRow({
         tone={
           runwayMonths === null
             ? "neutral"
-            : runwayMonths >= 6
+            : runwayMonths >= 12
               ? "gain"
-              : runwayMonths >= 3
+              : runwayMonths >= 6
                 ? "neutral"
                 : "loss"
         }
+
         value={runwayMonths === null ? "—" : `${runwayMonths.toFixed(1)} mo`}
-        definition={
+        definition={`${
           observedEssential !== null
-            ? "How many months of your observed essential spending your accessible cash covers if income stopped tomorrow. Six months is the usual first target."
-            : "How many months of committed spending your accessible cash covers if income stopped tomorrow. Six months is the usual first target."
-        }
+            ? "How many months of your observed essential spending your GBP cash covers if income stopped tomorrow."
+            : "How many months of committed spending your GBP cash covers if income stopped tomorrow."
+        } Policy rule 4 asks for twelve. ISA, GIA and crypto balances are investments, so they are left out.${
+          summary.otherCurrencyCash > 0
+            ? ` A further ${formatMoney(summary.otherCurrencyCash, base, { decimals: 0 })} sits in non-GBP cash and is excluded.`
+            : ""
+        }`}
         sub={
           observedEssential !== null
             ? `${formatMoney(observedEssential, base, { decimals: 0 })}/mo essentials, observed`

@@ -17,10 +17,10 @@ export const NAV_ITEMS = [
   { to: "/balance-sheet", label: "Balance Sheet", icon: Scale, ready: true },
   { to: "/transactions", label: "Transactions", icon: Receipt, ready: true },
   { to: "/spending", label: "Spending", icon: PiggyBank, ready: true },
-  { to: "/portfolio", label: "Portfolio", icon: BarChart3, ready: false },
+  { to: "/portfolio", label: "Portfolio", icon: BarChart3, ready: true },
   { to: "/goals", label: "Goals", icon: Target, ready: true },
   { to: "/forecast", label: "Forecast", icon: CalendarRange, ready: false },
-  { to: "/advisor", label: "Advisor", icon: MessageSquareText, ready: false },
+  { to: "/advisor", label: "Advisor", icon: MessageSquareText, ready: true },
   { to: "/settings", label: "Settings", icon: Settings, ready: true },
 ] as const;
 
