@@ -12,10 +12,10 @@ export function SectionHeader({
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h2 className="text-sm font-medium uppercase tracking-[0.14em] text-muted-foreground">
-          {title}
-        </h2>
-        {description && <p className="mt-1 text-sm text-muted-foreground/80">{description}</p>}
+        <h2 className="eyebrow text-foreground/70">{title}</h2>
+        {description && (
+          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{description}</p>
+        )}
       </div>
       {action}
     </div>

@@ -1,39 +1,56 @@
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
 import { useScope } from "@/hooks/useScope";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-export function ScopeToggle() {
-  const { profile, members } = useAuth();
-  const { scope, setScope } = useScope();
-
-  const options = [
-    { value: profile?.id ?? "me", label: "Me" },
-    ...members
-      .filter((member) => member.id !== profile?.id)
-      .map((member) => ({
-        value: member.id,
-        label: member.display_name ?? member.full_name ?? "Partner",
-      })),
-    { value: "household", label: "Household" },
-  ];
+/**
+ * Household / Me / partner perspective. Every page reads the active scope from
+ * the same context, so switching here re-frames the whole system.
+ */
+export function ScopeToggle({ className }: { className?: string }) {
+  const { scope, setScope, options } = useScope();
 
   return (
-    <div className="hairline inline-flex rounded-lg bg-surface p-0.5">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => setScope(option.value)}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-            scope === option.value
-              ? "bg-gold-soft text-gold"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {option.label}
-        </button>
-      ))}
+    <div
+      className={cn(
+        "inline-flex items-center rounded-md border border-border bg-surface p-0.5",
+        className,
+      )}
+      role="tablist"
+      aria-label="Perspective"
+    >
+      {options.map((option) => {
+        const active = option.id === scope;
+        const button = (
+          <button
+            key={option.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            disabled={option.disabled}
+            onClick={() => !option.disabled && setScope(option.id)}
+            className={cn(
+              "rounded-[4px] px-2.5 py-1 text-xs transition-colors",
+              active
+                ? "bg-gold-soft text-gold"
+                : "text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:text-muted-foreground",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+
+        if (!option.hint) return button;
+        return (
+          <Tooltip key={option.id}>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">{button}</span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[15rem] text-xs leading-relaxed">
+              {option.hint}
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
     </div>
   );
 }

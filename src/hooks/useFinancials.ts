@@ -18,6 +18,20 @@ export type AccountRow = {
   last_balance_update: string | null;
 };
 
+export type ShareholdingMetadata = {
+  share_count?: number | null;
+  ownership_note?: string | null;
+  /** The household's percentage of the company. The stored current_value is already
+   *  the household's slice, so ownership_pct on the row stays 100. */
+  stake_pct?: number | null;
+  price_per_share?: number | null;
+  company_valuation?: number | null;
+  valuation_basis?: string | null;
+  vesting_status?: string | null;
+  vested_pct?: number | null;
+  liquidity_restriction?: string | null;
+};
+
 export type AssetRow = {
   id: string;
   owner_profile_id: string | null;
@@ -33,6 +47,7 @@ export type AssetRow = {
   last_valued_at: string | null;
   notes: string | null;
   is_liquid: boolean;
+  metadata: ShareholdingMetadata | null;
 };
 
 export type LiabilityRow = {
@@ -56,12 +71,15 @@ export type GoalRow = {
   owner_profile_id: string | null;
   title: string;
   goal_category: string;
+  country: string | null;
+  description: string | null;
   target_amount: number;
   currency: string;
   target_date: string | null;
   priority: string;
   status: string;
   funded_amount: number;
+  notes: string | null;
 };
 
 export type IncomeRow = {
@@ -73,6 +91,7 @@ export type IncomeRow = {
   net_amount: number | null;
   currency: string;
   frequency: string;
+  annual_growth_rate: number;
 };
 
 export type ForecastExpenseRow = {
@@ -114,6 +133,18 @@ export type SnapshotRow = {
   liquid_net_worth: number;
 };
 
+export type HoldingRow = {
+  id: string;
+  owner_profile_id: string | null;
+  account_id: string | null;
+  ticker: string;
+  name: string | null;
+  security_type: string;
+  quantity: number;
+  avg_cost: number | null;
+  currency: string;
+};
+
 function useTable<T>(key: string, table: string, order?: string) {
   const { household } = useAuth();
   return useQuery({
@@ -137,6 +168,7 @@ export const useIncomeStreams = () => useTable<IncomeRow>("income_streams", "inc
 export const useForecastExpenses = () =>
   useTable<ForecastExpenseRow>("forecast_expenses", "forecast_expenses");
 export const useCategories = () => useTable<CategoryRow>("categories", "categories");
+export const useHoldings = () => useTable<HoldingRow>("holdings", "holdings");
 export const useSnapshots = () =>
   useTable<SnapshotRow>("net_worth_snapshots", "net_worth_snapshots", "as_of");
 
@@ -160,15 +192,4 @@ export function useRecentTransactions(monthsBack = 2) {
   });
 }
 
-export function monthlyEquivalent(amount: number, frequency: string) {
-  switch (frequency) {
-    case "monthly":
-      return amount;
-    case "quarterly":
-      return amount / 3;
-    case "annual":
-      return amount / 12;
-    default:
-      return 0;
-  }
-}
+export { monthlyEquivalent } from "@/lib/format";

@@ -1,204 +1,285 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Plus, Landmark } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { SectionHeader } from "@/components/SectionHeader";
 import { EmptyState } from "@/components/EmptyState";
-import { DataTable, type Column } from "@/components/DataTable";
 import { Money } from "@/components/Money";
+import { RowActions } from "@/components/RowActions";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AccountDialog } from "@/components/forms/AccountDialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AccountSheet } from "@/components/forms/AccountSheet";
 import { useAccounts, type AccountRow } from "@/hooks/useFinancials";
 import { useAuth } from "@/hooks/useAuth";
-import { useScope } from "@/hooks/useScope";
+import { useCurrency } from "@/hooks/useCurrency";
 import { useDeleteRow } from "@/hooks/useUpsertRow";
-import { DEBT_ACCOUNT_TYPES, monthsAgoLabel, titleise } from "@/lib/format";
+import { useScope } from "@/hooks/useScope";
+import {
+  DEBT_ACCOUNT_TYPES,
+  accountTypeLabel,
+  balanceAgeTone,
+  countryLabel,
+  relativeAge,
+} from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/accounts")({
   head: () => ({
     meta: [
-      { title: "Accounts | Ebeid Family Office" },
+      { title: "Accounts — Ebeid Family Office" },
       {
         name: "description",
         content:
-          "Every bank, brokerage, pension and card across the UK, Egypt, Jordan and the US in one ledger.",
+          "Every bank, savings, ISA, SIPP, GIA and crypto account across the UK, Egypt, Jordan and the US, with balances converted to sterling.",
       },
-      { property: "og:title", content: "Accounts | Ebeid Family Office" },
+      { property: "og:title", content: "Accounts — Ebeid Family Office" },
       {
         property: "og:description",
-        content: "Every bank, brokerage, pension and card across four markets in one ledger.",
+        content: "Household cash and investment accounts, grouped by owner and country.",
       },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: AccountsRoute,
+  component: AccountsPage,
 });
 
-function AccountsRoute() {
-  return (
-    <AppShell>
-      <Accounts />
-    </AppShell>
-  );
-}
+type Group = {
+  key: string;
+  label: string;
+  countries: { code: string; accounts: AccountRow[] }[];
+  total: number;
+};
 
-function Accounts() {
-  const { data, isLoading } = useAccounts();
-  const { matches } = useScope();
+function AccountsPage() {
+  const { data: accounts = [], isLoading } = useAccounts();
   const { members } = useAuth();
+  const { base, convert } = useCurrency();
+  const { matches, activeLabel, isHousehold } = useScope();
   const remove = useDeleteRow("accounts", "accounts", "Account");
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<AccountRow | null>(null);
 
-  const rows = useMemo(
-    () => (data ?? []).filter((account) => matches(account.owner_profile_id)),
-    [data, matches],
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editing, setEditing] = useState<AccountRow | null>(null);
+  const [showClosed, setShowClosed] = useState(false);
+
+  const visible = useMemo(
+    () =>
+      accounts.filter(
+        (account) => matches(account.owner_profile_id) && (showClosed || account.is_active),
+      ),
+    [accounts, matches, showClosed],
   );
 
-  const groups = useMemo(() => {
-    const banking = rows.filter(
-      (row) =>
-        !DEBT_ACCOUNT_TYPES.includes(row.account_type) &&
-        !["pension", "gia", "isa", "brokerage"].includes(row.account_type),
-    );
-    const investing = rows.filter((row) =>
-      ["pension", "gia", "isa", "brokerage"].includes(row.account_type),
-    );
-    const debt = rows.filter((row) => DEBT_ACCOUNT_TYPES.includes(row.account_type));
-    return [
-      { title: "Banking & cash", rows: banking },
-      { title: "Investments & pensions", rows: investing },
-      { title: "Credit & borrowing", rows: debt },
-    ].filter((group) => group.rows.length > 0);
-  }, [rows]);
-
-  const ownerLabel = (id: string | null, isJoint: boolean) => {
-    if (isJoint || !id) return "Joint";
-    const member = members.find((m) => m.id === id);
-    return member?.display_name ?? member?.full_name ?? "—";
+  const signedBase = (account: AccountRow) => {
+    const value = convert(Number(account.current_balance), account.currency, base);
+    return DEBT_ACCOUNT_TYPES.includes(account.account_type) ? -value : value;
   };
 
-  const columns: Column<AccountRow>[] = [
-    {
-      key: "name",
-      header: "Account",
-      render: (row) => (
-        <div>
-          <p className="font-medium">{row.nickname}</p>
-          <p className="text-xs text-muted-foreground">
-            {[row.institution, titleise(row.account_type), row.country].filter(Boolean).join(" · ")}
-          </p>
-        </div>
-      ),
-    },
-    {
-      key: "owner",
-      header: "Owner",
-      render: (row) => ownerLabel(row.owner_profile_id, row.is_joint),
-    },
-    {
-      key: "updated",
-      header: "Updated",
-      render: (row) => (
-        <span className="text-xs text-muted-foreground">
-          {monthsAgoLabel(row.last_balance_update)}
-        </span>
-      ),
-    },
-    {
-      key: "balance",
-      header: "Balance",
-      align: "right",
-      render: (row) => (
-        <Money
-          amount={
-            DEBT_ACCOUNT_TYPES.includes(row.account_type)
-              ? -Math.abs(Number(row.current_balance))
-              : Number(row.current_balance)
-          }
-          currency={row.currency}
-        />
-      ),
-    },
-    {
-      key: "actions",
-      header: "",
-      align: "right",
-      render: (row) => (
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`Edit ${row.nickname}`}
-            onClick={() => {
-              setEditing(row);
-              setOpen(true);
-            }}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`Delete ${row.nickname}`}
-            onClick={() => {
-              if (window.confirm(`Delete ${row.nickname}? This cannot be undone.`)) {
-                remove.mutate(row.id);
-              }
-            }}
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+  const groups = useMemo<Group[]>(() => {
+    const byOwner = new Map<string, AccountRow[]>();
+    for (const account of visible) {
+      const key =
+        account.is_joint || !account.owner_profile_id ? "joint" : account.owner_profile_id;
+      const list = byOwner.get(key) ?? [];
+      list.push(account);
+      byOwner.set(key, list);
+    }
+
+    const ownerLabel = (key: string) => {
+      if (key === "joint") return "Joint";
+      const member = members.find((profile) => profile.id === key);
+      return member?.display_name ?? member?.full_name ?? member?.email ?? "Unassigned";
+    };
+
+    return [...byOwner.entries()]
+      .map(([key, list]) => {
+        const byCountry = new Map<string, AccountRow[]>();
+        for (const account of list) {
+          const countryList = byCountry.get(account.country) ?? [];
+          countryList.push(account);
+          byCountry.set(account.country, countryList);
+        }
+        return {
+          key,
+          label: ownerLabel(key),
+          countries: [...byCountry.entries()]
+            .map(([code, rows]) => ({
+              code,
+              accounts: rows.sort((a, b) => b.current_balance - a.current_balance),
+            }))
+            .sort((a, b) => a.code.localeCompare(b.code)),
+          total: list.reduce((sum, account) => sum + signedBase(account), 0),
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, members, base, convert]);
+
+  const grandTotal = groups.reduce((sum, group) => sum + group.total, 0);
+  const closedCount = accounts.filter((account) => !account.is_active).length;
+
+  const openSheet = (account: AccountRow | null) => {
+    setEditing(account);
+    setSheetOpen(true);
+  };
 
   return (
-    <div className="space-y-8">
-      <SectionHeader
-        title="Accounts"
-        description="Balances you update manually today; statement import arrives in the next phase."
-        action={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              setOpen(true);
-            }}
-          >
-            <Plus className="size-4" /> Add account
-          </Button>
-        }
-      />
-
+    <AppShell
+      title="Accounts"
+      description={
+        isHousehold
+          ? "Cash and investment accounts across every jurisdiction, converted to sterling."
+          : `Accounts held by ${activeLabel}, plus everything joint.`
+      }
+      actions={
+        <Button size="sm" onClick={() => openSheet(null)}>
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Add account
+        </Button>
+      }
+    >
       {isLoading ? (
-        <DataTable columns={columns} rows={[]} loading />
-      ) : rows.length === 0 ? (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-28 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : !visible.length ? (
         <EmptyState
-          title="No accounts yet"
-          body="Add the everyday current account first, then savings, ISAs, the Egyptian and Jordanian accounts, and any cards. Balances feed the dashboard immediately."
+          icon={<Landmark className="h-4 w-4" />}
+          title="No accounts recorded yet"
+          body="Add the current accounts, savings, ISAs, SIPPs, brokerage and crypto accounts you hold — in any currency, in any country. Balances stay exactly as you enter them."
           action={
-            <Button
-              onClick={() => {
-                setEditing(null);
-                setOpen(true);
-              }}
-            >
+            <Button size="sm" onClick={() => openSheet(null)}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
               Add your first account
             </Button>
           }
         />
       ) : (
-        groups.map((group) => (
-          <section key={group.title}>
-            <SectionHeader title={group.title} />
-            <DataTable columns={columns} rows={group.rows} />
-          </section>
-        ))
+        <div className="space-y-8">
+          {groups.map((group) => (
+            <section key={group.key}>
+              <div className="mb-2 flex items-end justify-between gap-4">
+                <h2 className="eyebrow text-foreground/70">{group.label}</h2>
+                <div className="text-right">
+                  <p className="eyebrow text-muted-foreground">Subtotal</p>
+                  <Money amount={group.total} currency={base} hideConverted className="text-sm" />
+                </div>
+              </div>
+
+              <div className="hairline overflow-hidden rounded-lg bg-surface">
+                {group.countries.map((country, countryIndex) => (
+                  <div key={country.code}>
+                    <div
+                      className={cn(
+                        "flex items-center justify-between bg-surface-raised px-4 py-2",
+                        countryIndex > 0 && "border-t border-border",
+                      )}
+                    >
+                      <span className="eyebrow text-muted-foreground">
+                        {countryLabel(country.code)}
+                      </span>
+                      <span className="num text-xs text-muted-foreground">
+                        {country.accounts.length}{" "}
+                        {country.accounts.length === 1 ? "account" : "accounts"}
+                      </span>
+                    </div>
+
+                    {country.accounts.map((account) => (
+                      <AccountRowItem
+                        key={account.id}
+                        account={account}
+                        onEdit={() => openSheet(account)}
+                        onDelete={() => remove.mutate(account.id)}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
+
+          <div className="hairline flex items-center justify-between rounded-lg bg-surface-raised px-4 py-4">
+            <div>
+              <p className="eyebrow text-muted-foreground">Total account value</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Card and loan balances are netted off.
+              </p>
+            </div>
+            <Money
+              amount={grandTotal}
+              currency={base}
+              hideConverted
+              className="text-xl font-light tracking-tight"
+            />
+          </div>
+
+          {closedCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowClosed((value) => !value)}
+              className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              {showClosed ? "Hide" : "Show"} {closedCount} closed{" "}
+              {closedCount === 1 ? "account" : "accounts"}
+            </button>
+          )}
+        </div>
       )}
 
-      <AccountDialog open={open} onOpenChange={setOpen} account={editing} />
+      <AccountSheet open={sheetOpen} onOpenChange={setSheetOpen} account={editing} />
+    </AppShell>
+  );
+}
+
+function AccountRowItem({
+  account,
+  onEdit,
+  onDelete,
+}: {
+  account: AccountRow;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const isDebt = DEBT_ACCOUNT_TYPES.includes(account.account_type);
+  const tone = balanceAgeTone(account.last_balance_update);
+
+  return (
+    <div className="flex items-center gap-4 border-t border-border px-4 py-3.5 first:border-t-0">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate text-sm text-foreground">{account.nickname}</p>
+          <Badge variant="outline" className="text-[0.65rem]">
+            {accountTypeLabel(account.account_type)}
+          </Badge>
+          {!account.is_active && (
+            <Badge variant="secondary" className="text-[0.65rem]">
+              Closed
+            </Badge>
+          )}
+        </div>
+        <p className="mt-1 truncate text-xs text-muted-foreground">
+          {account.institution ?? "Institution not recorded"}
+          <span className="mx-1.5 text-border">·</span>
+          <span className={cn(tone === "warn" && "text-warn")}>
+            {relativeAge(account.last_balance_update)}
+          </span>
+        </p>
+      </div>
+
+      <Money
+        amount={isDebt ? -Number(account.current_balance) : Number(account.current_balance)}
+        currency={account.currency}
+        className={cn("text-sm", isDebt && "text-loss")}
+      />
+
+      <RowActions
+        label={account.nickname}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        deleteDescription="The account and its recorded balance are removed from every total. Transactions linked to it are not deleted."
+      />
     </div>
   );
 }
