@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Field, SelectNative } from "./FormField";
 import { FormSheet, FullRow } from "./FormSheet";
+import { GoalImageField } from "@/components/goals/GoalImageField";
 import {
   COUNTRIES,
   CURRENCIES,
@@ -17,7 +18,9 @@ import {
 } from "@/lib/format";
 import { useAuth } from "@/hooks/useAuth";
 import { useSaveRow } from "@/hooks/useUpsertRow";
+import { removeGoalImage } from "@/hooks/useGoalImage";
 import type { GoalRow } from "@/hooks/useFinancials";
+
 
 const schema = z.object({
   title: z.string().min(2, "Name the goal"),
@@ -59,6 +62,9 @@ export function GoalSheet({
 }) {
   const { members } = useAuth();
   const save = useSaveRow("goals", "goals", "Goal");
+  const initialImage = goal?.image_path ?? null;
+  const [imagePath, setImagePath] = useState<string | null>(initialImage);
+
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -110,7 +116,17 @@ export function GoalSheet({
       additional_property: goal?.additional_property ?? false,
       non_uk_resident: goal?.non_uk_resident ?? false,
     });
+    setImagePath(goal?.image_path ?? null);
   }, [open, goal, form]);
+
+  /**
+   * An upload that never made it into a saved row is deleted rather than left
+   * orphaned in the bucket.
+   */
+  const handleOpenChange = (next: boolean) => {
+    if (!next && imagePath && imagePath !== initialImage) void removeGoalImage(imagePath);
+    onOpenChange(next);
+  };
 
   const category = form.watch("goal_category");
   const isProperty = category === "property";
@@ -136,15 +152,19 @@ export function GoalSheet({
         first_time_buyer: values.first_time_buyer,
         additional_property: values.additional_property,
         non_uk_resident: values.non_uk_resident,
+        image_path: imagePath,
       },
     });
+    // The photo it replaced is no longer referenced by anything.
+    if (initialImage && initialImage !== imagePath) await removeGoalImage(initialImage);
     onOpenChange(false);
   });
 
   return (
     <FormSheet
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
+
       title={goal ? "Edit goal" : "Add goal"}
       description="A goal with a number and a date can be planned against. One without either is only a wish."
       onSubmit={onSubmit}
@@ -329,6 +349,11 @@ export function GoalSheet({
       )}
 
       <FullRow>
+        <GoalImageField value={imagePath} onChange={setImagePath} />
+      </FullRow>
+
+      <FullRow>
+
         <Field label="Notes">
           <Textarea
             rows={3}

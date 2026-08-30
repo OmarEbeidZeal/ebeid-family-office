@@ -106,21 +106,28 @@ export function NetWorthProjectionChart({ points, base }: ChartProps) {
               );
             }}
           />
-          {goalMonths.map((point) => (
-            <ReferenceLine
-              key={point.key}
-              x={point.label}
-              stroke="var(--gold)"
-              strokeDasharray="3 3"
-              strokeOpacity={0.8}
-              label={{
-                value: point.events.find((event) => event.kind === "goal")?.title ?? "",
-                position: "insideTopLeft",
-                fill: "var(--gold)",
-                fontSize: 10,
-              }}
-            />
-          ))}
+          {goalMonths.map((point, index) => {
+            const title = point.events.find((event) => event.kind === "goal")?.title ?? "";
+            return (
+              <ReferenceLine
+                key={point.key}
+                x={point.label}
+                stroke="var(--gold)"
+                strokeDasharray="3 3"
+                strokeOpacity={0.8}
+                label={{
+                  // Goals a few months apart would otherwise print their names on
+                  // top of each other; each successive marker drops a line.
+                  value: title.length > 18 ? `${title.slice(0, 17)}…` : title,
+                  position: "insideTopLeft",
+                  fill: "var(--gold)",
+                  fontSize: 10,
+                  dy: (index % 3) * 13,
+                }}
+              />
+            );
+          })}
+
           <Area
             type="monotone"
             dataKey="netWorth"

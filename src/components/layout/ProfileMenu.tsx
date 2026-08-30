@@ -30,7 +30,7 @@ export function ProfileMenu() {
         <button
           type="button"
           aria-label="Account menu"
-          className="num flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface text-[0.7rem] text-foreground transition-colors hover:border-gold-line hover:text-gold"
+          className="num flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface text-[0.7rem] text-foreground transition-colors hover:border-gold-line hover:text-gold lg:h-8 lg:w-8"
         >
           {initials || <UserRound className="h-4 w-4" />}
         </button>

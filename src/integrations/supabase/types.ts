@@ -615,6 +615,7 @@ export type Database = {
           goal_category: string
           household_id: string
           id: string
+          image_path: string | null
           non_uk_resident: boolean
           notes: string | null
           owner_profile_id: string | null
@@ -640,6 +641,7 @@ export type Database = {
           goal_category?: string
           household_id: string
           id?: string
+          image_path?: string | null
           non_uk_resident?: boolean
           notes?: string | null
           owner_profile_id?: string | null
@@ -665,6 +667,7 @@ export type Database = {
           goal_category?: string
           household_id?: string
           id?: string
+          image_path?: string | null
           non_uk_resident?: boolean
           notes?: string | null
           owner_profile_id?: string | null

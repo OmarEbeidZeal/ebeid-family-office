@@ -22,6 +22,29 @@
   --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
   --font-numeric: "IBM Plex Sans", "Outfit", ui-sans-serif, system-ui, sans-serif;
 
+  /*
+   * Reading rhythm. Body copy is set generously — this should read like a
+   * private bank's statement, not a trading terminal — while headline figures
+   * stay tight so the size contrast between a number and its label is loud.
+   */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.5;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.6;
+  --text-base: 1rem;
+  --text-base--line-height: 1.65;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.3125rem;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 1.2;
+  --text-3xl: 2.125rem;
+  --text-3xl--line-height: 1.15;
+  --text-4xl: 2.75rem;
+  --text-4xl--line-height: 1.08;
+
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
@@ -187,12 +210,35 @@
     background: var(--color-gold-soft);
   }
 
+  /* Every interactive element shows where the keyboard is, without exception. */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
   /* The scrollbar should read as part of the instrument, not the browser. */
   * {
     scrollbar-color: var(--color-border-strong) transparent;
     scrollbar-width: thin;
   }
+
+  /*
+   * Reduced motion is honoured completely: nothing animates, nothing slides,
+   * and every element renders in its final state on arrival.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
+
 
 /* Every monetary or quantitative figure in the app uses this. */
 @utility num {
@@ -245,3 +291,46 @@
 @utility rise {
   animation: efo-rise 0.42s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
+
+@keyframes efo-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The page transition: a quiet fade, nothing more. */
+@utility page-enter {
+  animation: efo-fade 0.3s ease-out both;
+}
+
+/*
+ * The standard panel. One surface, one hairline, one generous inset — used
+ * everywhere so no two sections of the app disagree about their own edges.
+ */
+@utility panel {
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+}
+
+/* Nothing tappable is smaller than a thumb. */
+@utility tap {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+/* Legible text over a photograph, in either theme. */
+@utility photo-scrim {
+  background-image: linear-gradient(
+    to top,
+    color-mix(in oklab, var(--color-surface) 96%, transparent) 0%,
+    color-mix(in oklab, var(--color-surface) 88%, transparent) 45%,
+    color-mix(in oklab, var(--color-surface) 62%, transparent) 100%
+  );
+}
+

@@ -23,7 +23,7 @@ export function FxIndicator({ className }: { className?: string }) {
           onClick={() => void refresh()}
           disabled={refreshing}
           className={cn(
-            "inline-flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60",
+            "inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-surface px-3 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60 lg:min-h-0 lg:px-2.5 lg:py-1.5",
             className,
           )}
         >

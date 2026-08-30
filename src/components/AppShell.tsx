@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { CommandPalette } from "@/components/CommandPalette";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
@@ -38,6 +38,7 @@ export function AppShell({
 }) {
   const { session, loading, profile, household, profileLoading } = useAuth();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   const accounts = useAccounts();
   const assets = useAssets();
@@ -78,25 +79,27 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <Sidebar />
-      <div className="lg:pl-56">
+      <div className="lg:pl-60">
         <TopBar />
-        <main className="mx-auto max-w-[88rem] px-4 pb-24 pt-6 sm:px-6 lg:pb-12">
-          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-light tracking-tight text-foreground sm:text-2xl">
-                {title}
-              </h1>
-              {description && (
-                <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  {description}
-                </p>
-              )}
+        <main className="mx-auto max-w-[88rem] px-4 pb-28 pt-8 sm:px-8 lg:pb-16">
+          <div key={pathname} className="page-enter">
+            <div className="mb-8 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-light tracking-tight text-foreground sm:text-2xl">
+                  {title}
+                </h1>
+                {description && (
+                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                    {description}
+                  </p>
+                )}
+              </div>
+              {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
             </div>
-            {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+            {children}
           </div>
-          {children}
         </main>
       </div>
       <MobileNav />
@@ -104,3 +107,4 @@ export function AppShell({
     </div>
   );
 }
+
