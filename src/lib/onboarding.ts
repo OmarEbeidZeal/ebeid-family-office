@@ -37,18 +37,18 @@ export const ONBOARDING_STEPS = [
 
 export type OnboardingStepKey = (typeof ONBOARDING_STEPS)[number]["key"];
 
-/** True when the household explicitly parked setup for this browser session. */
+/** True when the household explicitly parked setup on this device. */
 export function isOnboardingDeferred() {
   if (typeof window === "undefined") return false;
-  return window.sessionStorage.getItem(ONBOARDING_DEFERRED_KEY) === "1";
+  return window.localStorage.getItem(ONBOARDING_DEFERRED_KEY) === "1";
 }
 
 export function deferOnboarding() {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(ONBOARDING_DEFERRED_KEY, "1");
+  window.localStorage.setItem(ONBOARDING_DEFERRED_KEY, "1");
 }
 
 export function clearOnboardingDeferral() {
   if (typeof window === "undefined") return;
-  window.sessionStorage.removeItem(ONBOARDING_DEFERRED_KEY);
+  window.localStorage.removeItem(ONBOARDING_DEFERRED_KEY);
 }
