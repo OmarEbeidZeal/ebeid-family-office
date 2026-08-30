@@ -19,6 +19,16 @@ import {
 } from "@/lib/statements.functions";
 import { useAuth } from "./useAuth";
 
+/** What the reader recorded about a file once it had been through the pipeline. */
+export type StatementSummary = {
+  inserted?: number | null;
+  duplicates?: number | null;
+  skipped_rows?: number | null;
+  notes?: string[] | null;
+  extraction_notes?: string[] | null;
+  categorised_by?: { provider?: string | null; model?: string | null } | null;
+};
+
 export type ImportStatementRow = {
   id: string;
   household_id: string;
@@ -49,7 +59,7 @@ export type ImportStatementRow = {
   detected_account_type: string | null;
   match_confidence: number | null;
   match_reason: string | null;
-  summary: string | null;
+  summary: StatementSummary | null;
   error_message: string | null;
   parsed_at: string | null;
   created_at: string;

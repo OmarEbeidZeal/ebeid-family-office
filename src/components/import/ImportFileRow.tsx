@@ -2,7 +2,13 @@ import { Loader2, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { BankMark } from "@/components/BankMark";
 import { Button } from "@/components/ui/button";
-import { useCancelStatement, useRetryStatement, type ImportStatementRow } from "@/hooks/useImports";
+import {
+  useCancelStatement,
+  useRetryStatement,
+  type ImportStatementRow,
+  type StatementSummary,
+} from "@/hooks/useImports";
+import { PROVIDER_LABELS, type AiProviderId } from "@/lib/ai/catalog";
 import type { AccountRow } from "@/hooks/useFinancials";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -20,6 +26,32 @@ const STATUS: Record<string, { label: string; tone: string; spin?: boolean }> = 
   cancelled: { label: "Not imported", tone: "text-muted-foreground" },
   uploaded: { label: "Waiting", tone: "text-muted-foreground" },
 };
+
+/**
+ * The reader's own notes about a file, as a sentence. Kept honest: it says
+ * which model read the file, and repeats anything the reader flagged.
+ */
+function summaryLine(summary: StatementSummary | null): string | null {
+  if (!summary) return null;
+  const parts: string[] = [];
+
+  const notes = [...(summary.notes ?? []), ...(summary.extraction_notes ?? [])].filter(
+    (note): note is string => typeof note === "string" && note.trim().length > 0,
+  );
+  parts.push(...notes);
+
+  if (summary.skipped_rows) {
+    parts.push(`${summary.skipped_rows} row${summary.skipped_rows === 1 ? "" : "s"} unreadable`);
+  }
+
+  const by = summary.categorised_by;
+  if (by?.provider) {
+    const provider = PROVIDER_LABELS[by.provider as AiProviderId] ?? by.provider;
+    parts.push(by.model ? `Categorised by ${provider} · ${by.model}` : `Categorised by ${provider}`);
+  }
+
+  return parts.length ? parts.join(" · ") : null;
+}
 
 /** One file in the queue, with whatever is known about it so far. */
 export function ImportFileRow({
@@ -54,6 +86,7 @@ export function ImportFileRow({
     statement.duplicate_count ? `${statement.duplicate_count} already held` : null,
   ].filter(Boolean);
 
+  const summary = summaryLine(statement.summary);
   const retryable = ["failed", "cancelled"].includes(statement.status);
   const cancellable = ["queued", "extracting", "awaiting_account", "failed"].includes(
     statement.status,
@@ -78,8 +111,8 @@ export function ImportFileRow({
             {statement.error_message}
           </p>
         )}
-        {!statement.error_message && statement.summary && (
-          <p className="mt-0.5 truncate text-[0.7rem] text-muted-foreground">{statement.summary}</p>
+        {!statement.error_message && summary && (
+          <p className="mt-0.5 truncate text-[0.7rem] text-muted-foreground">{summary}</p>
         )}
       </div>
 
