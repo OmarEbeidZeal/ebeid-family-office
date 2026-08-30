@@ -8,7 +8,8 @@ import { FxCard } from "@/components/settings/FxCard";
 import { MarketDataCard } from "@/components/settings/MarketDataCard";
 import { AllowanceCard } from "@/components/settings/AllowanceCard";
 import { AccessCard } from "@/components/settings/AccessCard";
-
+import { NotificationsCard } from "@/components/settings/NotificationsCard";
+import { AutomationCard } from "@/components/settings/AutomationCard";
 import { AppearanceCard } from "@/components/settings/AppearanceCard";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -39,12 +40,14 @@ function SettingsPage() {
   return (
     <AppShell
       title="Settings"
-      description="Who is in the household, what currency it reports in, allowance capacity, market data and who may sign in."
+      description="Who is in the household, what currency it reports in, allowance capacity, market data, how the briefing reaches you and who may sign in."
     >
       <div className="space-y-5">
         <ProfileCard />
         <HouseholdCard />
         <AccessCard />
+        <NotificationsCard />
+        <AutomationCard />
         <AllowanceCard />
         <FxCard />
         <MarketDataCard />

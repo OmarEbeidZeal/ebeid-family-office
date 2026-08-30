@@ -5,6 +5,7 @@ import { formatMoney, formatReadableMoney } from "@/lib/format";
 import { ScopeToggle } from "@/components/ScopeToggle";
 import { FxIndicator } from "@/components/FxIndicator";
 import { ProfileMenu } from "./ProfileMenu";
+import { LastUpdated } from "./LastUpdated";
 import { Wordmark } from "@/components/Wordmark";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -15,23 +16,27 @@ export function TopBar() {
     <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
       <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
         {/* The figure stays visible on every screen; on a phone it shortens
-            rather than truncating into an unreadable stub. */}
-        <div className="flex min-w-0 items-center gap-2.5">
-          <Wordmark size="sm" compact className="hidden sm:inline-flex lg:hidden" />
-          <span className="eyebrow hidden lg:inline">Household</span>
-          <span aria-hidden className="hidden h-3.5 w-px bg-border sm:block lg:hidden" />
-          {loading ? (
-            <Skeleton className="h-4 w-20" />
-          ) : (
-            <span className="num whitespace-nowrap text-sm font-light text-foreground">
-              <span className="lg:hidden">
-                {hasData ? formatReadableMoney(netWorth, base) : "—"}
+            rather than truncating into an unreadable stub. Under it, quietly,
+            how current that figure actually is. */}
+        <div className="flex min-w-0 flex-col justify-center gap-1">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <Wordmark size="sm" compact className="hidden sm:inline-flex lg:hidden" />
+            <span className="eyebrow hidden lg:inline">Household</span>
+            <span aria-hidden className="hidden h-3.5 w-px bg-border sm:block lg:hidden" />
+            {loading ? (
+              <Skeleton className="h-4 w-20" />
+            ) : (
+              <span className="num whitespace-nowrap text-sm font-light leading-none text-foreground">
+                <span className="lg:hidden">
+                  {hasData ? formatReadableMoney(netWorth, base) : "—"}
+                </span>
+                <span className="hidden lg:inline">
+                  {hasData ? formatMoney(netWorth, base, { decimals: 0 }) : "—"}
+                </span>
               </span>
-              <span className="hidden lg:inline">
-                {hasData ? formatMoney(netWorth, base, { decimals: 0 }) : "—"}
-              </span>
-            </span>
-          )}
+            )}
+          </div>
+          {hasData && <LastUpdated />}
         </div>
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-3">

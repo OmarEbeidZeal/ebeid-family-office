@@ -21,6 +21,7 @@ import type {
 } from "@/hooks/useFinancials";
 import type { TransactionRow } from "@/hooks/useTransactions";
 import { buildHouseholdContext, type CtxSpending } from "@/lib/household-context";
+import { makeConverter } from "@/lib/fx-rates";
 import { buildPositions, type Position } from "@/lib/portfolio";
 import {
   baselineFrom,
@@ -44,7 +45,7 @@ const SPENDING_MONTHS = 24;
 export type AdvisorContextResult = {
   householdId: string;
   householdName: string | null;
-  profileId: string;
+  profileId: string | null;
   base: string;
   context: ReturnType<typeof buildHouseholdContext>["context"];
   findings: ReturnType<typeof buildHouseholdContext>["findings"];
@@ -64,24 +65,6 @@ async function rows<T>(client: Client, table: string, householdId: string): Prom
   const { data, error } = await generic.from(table).select("*").eq("household_id", householdId);
   if (error) throw new Error(`Could not read ${table}: ${error.message}`);
   return (data ?? []) as T[];
-}
-
-function buildToBase(
-  fx: { base_ccy: string; quote_ccy: string; rate: number }[],
-  base: string,
-): ToBase {
-  const map: Record<string, number> = { GBP: 1 };
-  for (const row of fx) {
-    if (row.base_ccy !== "GBP") continue;
-    if (map[row.quote_ccy] === undefined) map[row.quote_ccy] = Number(row.rate);
-  }
-  return (amount: number, currency: string) => {
-    if (currency === base) return amount;
-    const from = map[currency];
-    const to = map[base];
-    if (!from || !to) return amount;
-    return (amount / from) * to;
-  };
 }
 
 /** Observed spending, computed exactly as the spending screens compute it. */
@@ -124,21 +107,34 @@ function observedSpending(
   };
 }
 
+/** Entry point for a signed-in person: resolve their household, then load it. */
 export async function loadAdvisorContext(
   client: Client,
   userId: string,
 ): Promise<AdvisorContextResult> {
   const { data: profile, error: profileError } = await client
     .from("profiles")
-    .select("id, household_id, display_name, full_name, role")
+    .select("id, household_id")
     .eq("id", userId)
     .maybeSingle();
   if (profileError) throw new Error(`Could not read the profile: ${profileError.message}`);
   if (!profile?.household_id) {
     throw new NoHouseholdError("This account is not attached to a household yet.");
   }
-  const householdId = profile.household_id;
+  return loadAdvisorContextForHousehold(client, profile.household_id, profile.id);
+}
 
+/**
+ * Entry point for the scheduler, which has a household but nobody signed in.
+ * Everything below this line is identical for both callers by design — a
+ * briefing written at 07:00 on Sunday reasons from exactly the position the
+ * household would see if they opened the app at that moment.
+ */
+export async function loadAdvisorContextForHousehold(
+  client: Client,
+  householdId: string,
+  profileId: string | null = null,
+): Promise<AdvisorContextResult> {
   const { data: household } = await client
     .from("households")
     .select("id, name, base_currency")
@@ -204,7 +200,7 @@ export async function loadAdvisorContext(
       .then(({ data }) => data ?? []),
   ]);
 
-  const toBase = buildToBase(fxRows, base);
+  const toBase = makeConverter(fxRows, base);
   const transactions = expandSplits(transactionRows, splitRows);
 
   const tickers = [
@@ -273,7 +269,7 @@ export async function loadAdvisorContext(
   return {
     householdId,
     householdName: household?.name ?? null,
-    profileId: profile.id,
+    profileId,
     base,
     context: built.context,
     findings: built.findings,

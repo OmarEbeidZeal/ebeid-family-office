@@ -11,6 +11,11 @@ export type Profile = {
   email: string;
   role: string;
   avatar_url: string | null;
+  /** Delivery preferences for the standing briefing; each person owns their own. */
+  weekly_briefing_enabled: boolean;
+  /** 0 = Sunday. */
+  briefing_day: number;
+  briefing_email_enabled: boolean;
 };
 
 export type Household = {

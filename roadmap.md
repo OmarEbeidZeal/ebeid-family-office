@@ -72,8 +72,8 @@ Advisor
       only when something is genuinely worth saying, deduplicated over 21 days
 - [x] Dashboard advisor panel with unread count badge
 - [x] Tax-year allowance tracking (`tax_allowances`) — Settings editor, read by chat and briefing
-- [ ] Weekly briefing schedule — deferred: `pg_cron` / `pg_net` are not available on this project,
-      so briefings are generated on demand from `/advisor`
+- [x] Weekly briefing schedule — now running: `pg_cron` and `pg_net` are enabled and the briefing
+      is generated on a schedule (see the automation section below). On-demand still works.
 
 ## Phase 4 — goals, forecast, scenarios and the polish pass (this build)
 
@@ -162,23 +162,58 @@ Craft
       the only horizontal scroll is inside the timeline and the forecast table by design
 - [x] Review fixtures removed — the database holds the real household, the allowlist and FX only
 
+## Automation and delivery (this build)
+
+The system now works whether or not anyone opens the app.
+
+Scheduled jobs
+- [x] `pg_cron` and `pg_net` enabled; four schedules call the app's own endpoints under
+      `/api/public/hooks/*`, authorised by a secret minted inside Postgres and read from a private
+      config table at call time — it appears in no job definition, log line or file here
+- [x] Daily net worth snapshot, 23:30 UTC — one row per household from balances, asset values,
+      liabilities and live holdings; idempotent on `(household_id, as_of)`
+- [x] FX refresh, 06:00 and 18:00 UTC
+- [x] Market close, weekdays 21:15 UTC — every held and watchlisted ticker, cache bypassed so the
+      stored price is a genuine close rather than whatever a visit happened to cache
+- [x] Briefing, 07:00 UTC daily, run for each household on the weekday its members chose
+- [x] Every run recorded in `automation_runs`; the on-load refreshes stay as a staleness fallback
+
+Delivery
+- [x] Unread advisor notes badge on the sidebar Advisor item, on the mobile More tab and on the
+      dashboard panel — a new briefing is visible on whichever device is opened first
+- [x] Optional email digest through Resend in the app's own visual language, with severity, the
+      notes themselves, a link back to `/advisor` and the standing disclaimer; skipped silently
+      when no key is present, and a failed send never blocks the briefing
+- [x] Settings → Notifications — briefing on/off, chosen day, email per person (each person sets
+      their own), and whether email delivery is available at all
+- [x] Settings → Automatic updates — what each job does, its cadence and how its last run went
+
+Also fixed here
+- [x] Valuation cadence by asset type — 90 days generally, 180 for a private shareholding that
+      only reprices at a round or a 409A, so the Zeal stake is not nagged about every quarter
+- [x] "Updated …" line in the top bar, with a breakdown of what was refreshed and when
+
 Still open (needs Omar, or the platform)
 
 - [x] `FINNHUB_API_KEY` — added and verified with a live quote; the portfolio prices from Finnhub
       with an "as of" timestamp and a 60-second cache.
-
-- [ ] Weekly briefing schedule — `pg_cron` / `pg_net` are unavailable on this project, so
-      briefings are generated on demand from `/advisor`.
+- [ ] Publish once so the scheduled endpoints go live on the production URL the scheduler calls.
+      Until then the four jobs fire on time and get a 404, and Settings → Automatic updates will
+      keep saying "not run yet".
+- [ ] `RESEND_API_KEY` — optional. Add it in Project Settings → Secrets to switch the emailed
+      briefing on; everything else works without it.
 - [ ] Haya's invitation — add her address under Settings → Access so she gets her own sign-in.
 
 
 ## Backlog / ideas captured while building
 
 - [ ] CGT-aware disposal view against the £3,000 annual exempt amount
-- [ ] Snapshot backfill job so the trend chart survives days the app is not opened
 - [ ] Per-account balance history so account rows show their own trend
 - [ ] Dividend and interest income recorded against holdings
 - [ ] Scanned-PDF statements: OCR path so image-only bank PDFs can be imported
 - [ ] Mortgage offer / remortgage modelling inside a property goal
+- [ ] Backfill past net-worth snapshots from statement history, so the trend reaches back before
+      the nightly job started
+
 
 
