@@ -58,9 +58,10 @@ export function SleevePanel({
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-foreground/90">{row.label}</span>
-                    {row.status !== "ok" && row.status !== "not_applicable" && (
+                    {measurable && row.status !== "ok" && row.status !== "not_applicable" && (
                       <PolicyPill status={row.status} size="xs" />
                     )}
+
                   </div>
                   <span className="num text-xs text-muted-foreground">
                     <span className="text-foreground">
