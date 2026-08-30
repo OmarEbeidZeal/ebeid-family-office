@@ -47,7 +47,9 @@ function summaryLine(summary: StatementSummary | null): string | null {
   const by = summary.categorised_by;
   if (by?.provider) {
     const provider = PROVIDER_LABELS[by.provider as AiProviderId] ?? by.provider;
-    parts.push(by.model ? `Categorised by ${provider} · ${by.model}` : `Categorised by ${provider}`);
+    parts.push(
+      by.model ? `Categorised by ${provider} · ${by.model}` : `Categorised by ${provider}`,
+    );
   }
 
   return parts.length ? parts.join(" · ") : null;
