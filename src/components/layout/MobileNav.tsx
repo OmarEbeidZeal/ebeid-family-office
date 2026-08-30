@@ -3,6 +3,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useUnreadNotes } from "@/hooks/useFinancials";
 import { MOBILE_PRIMARY, NAV_GROUPS, SETTINGS_ITEM, isActivePath } from "./nav-items";
 
 const isPrimary = (to: string) => (MOBILE_PRIMARY as readonly string[]).includes(to);
@@ -10,6 +11,9 @@ const isPrimary = (to: string) => (MOBILE_PRIMARY as readonly string[]).includes
 export function MobileNav() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [moreOpen, setMoreOpen] = useState(false);
+  // Advisor lives behind More on a phone, so a new briefing has to announce
+  // itself on the tab bar or it may as well not exist.
+  const unread = useUnreadNotes();
 
   const primary = NAV_GROUPS.flatMap((group) => group.items).filter((item) => isPrimary(item.to));
   const moreGroups = NAV_GROUPS.map((group) => ({
@@ -50,13 +54,23 @@ export function MobileNav() {
           <button
             type="button"
             onClick={() => setMoreOpen(true)}
-            aria-label="More destinations"
+            aria-label={
+              unread > 0 ? `More destinations, ${unread} unread advisor notes` : "More destinations"
+            }
             className={cn(
               "flex min-h-[3.25rem] flex-col items-center justify-center gap-1 px-1 py-2 text-[0.62rem] tracking-wide transition-colors",
               moreActive ? "text-gold" : "text-muted-foreground",
             )}
           >
-            <MoreHorizontal className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.6} />
+            <span className="relative">
+              <MoreHorizontal className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.6} />
+              {unread > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute -right-1.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-gold ring-2 ring-surface"
+                />
+              )}
+            </span>
             More
           </button>
         </div>
@@ -85,6 +99,7 @@ export function MobileNav() {
                       label={item.label}
                       icon={item.icon}
                       active={isActivePath(pathname, item.to)}
+                      badge={item.to === "/advisor" ? unread : 0}
                       onNavigate={() => setMoreOpen(false)}
                     />
                   ))}
@@ -112,12 +127,14 @@ function MoreLink({
   label,
   icon: Icon,
   active,
+  badge = 0,
   onNavigate,
 }: {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   active: boolean;
+  badge?: number;
   onNavigate: () => void;
 }) {
   return (
@@ -135,6 +152,14 @@ function MoreLink({
         strokeWidth={1.6}
       />
       <span className="flex-1">{label}</span>
+      {badge > 0 && (
+        <span
+          aria-label={`${badge} unread`}
+          className="num min-w-[1.25rem] rounded-full bg-gold px-1.5 py-px text-center text-[0.6rem] leading-4 text-background"
+        >
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
     </Link>
   );
 }

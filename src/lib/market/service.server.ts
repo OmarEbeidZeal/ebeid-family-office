@@ -142,7 +142,15 @@ export type LoadQuotesResult = QuotesResponse & { profiles: SecurityProfileRow[]
 
 export async function loadQuotes(
   tickers: string[],
-  options?: { includeProfiles?: boolean },
+  options?: {
+    includeProfiles?: boolean;
+    /**
+     * How old a stored snapshot may be before the provider is asked again.
+     * Defaults to the 60-second screen cache; the market-close job passes 0
+     * because its whole purpose is to record a genuine closing print.
+     */
+    maxAgeSeconds?: number;
+  },
 ): Promise<LoadQuotesResult> {
   const wanted = normaliseTickers(tickers);
   const fetchedAt = new Date().toISOString();
@@ -161,13 +169,14 @@ export async function loadQuotes(
   }
 
   const now = Date.now();
+  const maxAge = options?.maxAgeSeconds ?? QUOTE_CACHE_SECONDS;
   const snapshots = await latestSnapshots(wanted);
   const quotes: QuoteResult[] = [];
   const needsFetch: string[] = [];
 
   for (const ticker of wanted) {
     const snapshot = snapshots.get(ticker);
-    if (snapshot && ageSeconds(snapshot.created_at, now) < QUOTE_CACHE_SECONDS) {
+    if (snapshot && ageSeconds(snapshot.created_at, now) < maxAge) {
       quotes.push(snapshotToQuote(snapshot, "cache", null));
     } else {
       needsFetch.push(ticker);

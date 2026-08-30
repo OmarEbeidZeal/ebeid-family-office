@@ -4,10 +4,18 @@
  * Two halves, deliberately separated: deterministic detection decides what is
  * true, the model only decides what is worth saying and how to say it. Notes
  * are fingerprinted so the same situation is not written up week after week.
+ *
+ * Two entry points, one body: a person pressing "generate" on `/advisor`, and
+ * the Sunday-morning scheduler running for a household nobody is signed in to.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { loadAdvisorContext, NoHouseholdError } from "@/lib/advisor/context.server";
+import {
+  loadAdvisorContext,
+  loadAdvisorContextForHousehold,
+  NoHouseholdError,
+  type AdvisorContextResult,
+} from "@/lib/advisor/context.server";
 import { detectSignals, formatSignals, rankSignals } from "@/lib/advisor/signals";
 import {
   ADVISOR_MODEL,
@@ -24,13 +32,13 @@ const DEDUPE_DAYS = 21;
 const KINDS = new Set(["briefing", "recommendation", "alert", "risk"]);
 const SEVERITIES = new Set(["info", "action", "urgent"]);
 
-export async function runBriefing(
-  client: SupabaseClient<Database>,
-  userId: string,
-): Promise<BriefingResult> {
+type Client = SupabaseClient<Database>;
+
+/** On-demand: the signed-in person's own household. */
+export async function runBriefing(client: Client, userId: string): Promise<BriefingResult> {
   const generatedAt = new Date().toISOString();
 
-  let loaded;
+  let loaded: AdvisorContextResult;
   try {
     loaded = await loadAdvisorContext(client, userId);
   } catch (error) {
@@ -46,6 +54,24 @@ export async function runBriefing(
     throw error;
   }
 
+  return writeBriefing(client, loaded, generatedAt);
+}
+
+/** Scheduled: a named household, with nobody signed in. */
+export async function runBriefingForHousehold(
+  client: Client,
+  householdId: string,
+  generatedAt = new Date().toISOString(),
+): Promise<BriefingResult> {
+  const loaded = await loadAdvisorContextForHousehold(client, householdId);
+  return writeBriefing(client, loaded, generatedAt);
+}
+
+async function writeBriefing(
+  client: Client,
+  loaded: AdvisorContextResult,
+  generatedAt: string,
+): Promise<BriefingResult> {
   const signals = rankSignals(
     detectSignals({ context: loaded.context, findings: loaded.findings, base: loaded.base }),
   );
@@ -61,15 +87,27 @@ export async function runBriefing(
     };
   }
 
-  // Anything already said recently is dropped before the model is asked.
+  // Anything already said recently — or still sitting unread at any age — is
+  // dropped before the model is asked.
   const since = new Date(Date.now() - DEDUPE_DAYS * 86_400_000).toISOString();
-  const { data: recent } = await client
-    .from("advisor_notes")
-    .select("fingerprint")
-    .eq("household_id", loaded.householdId)
-    .gte("generated_at", since);
+  const [{ data: recent }, { data: open }] = await Promise.all([
+    client
+      .from("advisor_notes")
+      .select("fingerprint")
+      .eq("household_id", loaded.householdId)
+      .gte("generated_at", since),
+    client
+      .from("advisor_notes")
+      .select("fingerprint")
+      .eq("household_id", loaded.householdId)
+      .eq("is_read", false),
+  ]);
 
-  const seen = new Set((recent ?? []).map((row) => row.fingerprint).filter(Boolean) as string[]);
+  const seen = new Set(
+    [...(recent ?? []), ...(open ?? [])]
+      .map((row) => row.fingerprint)
+      .filter((value): value is string => !!value),
+  );
   const fresh = signals.filter((signal) => !seen.has(signal.fingerprint));
   const skipped = signals.length - fresh.length;
 

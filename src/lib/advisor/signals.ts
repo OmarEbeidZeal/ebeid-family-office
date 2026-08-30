@@ -246,7 +246,7 @@ function fromWatchlist(context: HouseholdContext): Signal[] {
 
 function fromStaleRecords(context: HouseholdContext): Signal[] {
   const signals: Signal[] = [];
-  const assets = context.stale_records.assets_over_180_days;
+  const assets = context.stale_records.assets_past_valuation_cadence;
   const accounts = context.stale_records.accounts_over_60_days;
 
   if (assets.length) {
@@ -254,11 +254,23 @@ function fromStaleRecords(context: HouseholdContext): Signal[] {
       id: "stale-assets",
       kind: "briefing",
       severity: "info",
-      summary: `${assets.length} asset valuation${assets.length === 1 ? " is" : "s are"} over 180 days old: ${assets
+      summary: `${assets.length} asset valuation${assets.length === 1 ? " is" : "s are"} past its review cadence (90 days, or 180 for a private shareholding that only reprices at a round or 409A): ${assets
         .slice(0, 4)
-        .map((asset) => `${asset.name} (last valued ${asset.last_valued_at ?? "never"})`)
-        .join(", ")}. Net worth and every percentage limit rest on these figures.`,
-      fingerprint: `stale:assets:${assets.length}`,
+        .map(
+          (asset) =>
+            `${asset.name} — ${asset.asset_class}, last valued ${asset.last_valued_at ?? "never"}${
+              asset.days_since_valued === null
+                ? ""
+                : ` (${asset.days_since_valued} days, cadence ${asset.threshold_days})`
+            }`,
+        )
+        .join("; ")}. Net worth and every percentage limit rest on these figures.`,
+      // Keyed on which assets are stale, so a newly stale one is a new note
+      // while the same set stays quiet.
+      fingerprint: `stale:assets:${assets
+        .map((asset) => asset.name)
+        .sort()
+        .join("|")}`,
     });
   }
 

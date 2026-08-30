@@ -449,20 +449,30 @@ export function buildHouseholdContext(input: ContextInput) {
   const allocation = allocationRows(sleeveValues, investableTotal);
 
   // ---- Stale records worth flagging ---------------------------------------
+  // Cadence follows how the value actually moves. A flat or a portfolio should
+  // be marked to something current each quarter; a private shareholding only
+  // reprices at a funding round or a 409A, so nagging about it every quarter is
+  // noise dressed up as diligence.
   const staleAssets = input.assets
-    .filter((asset) => {
-      if (!asset.last_valued_at) return true;
-      const days = (now.getTime() - new Date(asset.last_valued_at).getTime()) / 86_400_000;
-      return days > 180;
+    .map((asset) => {
+      const thresholdDays = asset.asset_class === "private_equity" ? 180 : 90;
+      const days = asset.last_valued_at
+        ? Math.floor((now.getTime() - new Date(asset.last_valued_at).getTime()) / 86_400_000)
+        : null;
+      return {
+        name: asset.name,
+        asset_class: assetClassLabel(asset.asset_class),
+        value_base: round(
+          toBase(Number(asset.current_value) * (Number(asset.ownership_pct) / 100), asset.currency),
+        ),
+        last_valued_at: asset.last_valued_at,
+        days_since_valued: days,
+        threshold_days: thresholdDays,
+      };
     })
-    .map((asset) => ({
-      name: asset.name,
-      asset_class: assetClassLabel(asset.asset_class),
-      value_base: round(
-        toBase(Number(asset.current_value) * (Number(asset.ownership_pct) / 100), asset.currency),
-      ),
-      last_valued_at: asset.last_valued_at,
-    }));
+    .filter(
+      (asset) => asset.days_since_valued === null || asset.days_since_valued > asset.threshold_days,
+    );
 
   const staleAccounts = activeAccounts
     .filter((account) => {
@@ -654,7 +664,8 @@ export function buildHouseholdContext(input: ContextInput) {
       })),
     },
     stale_records: {
-      assets_over_180_days: staleAssets,
+      /** Valuations past their own cadence: 90 days, 180 for private holdings. */
+      assets_past_valuation_cadence: staleAssets,
       accounts_over_60_days: staleAccounts,
     },
     policy: findings.map((finding) => ({

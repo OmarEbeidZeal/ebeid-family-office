@@ -316,6 +316,42 @@ export type Database = {
           },
         ]
       }
+      automation_runs: {
+        Row: {
+          created_at: string
+          detail: Json | null
+          duration_ms: number | null
+          households: number
+          id: string
+          job: string
+          message: string | null
+          ran_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json | null
+          duration_ms?: number | null
+          households?: number
+          id?: string
+          job: string
+          message?: string | null
+          ran_at?: string
+          status: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json | null
+          duration_ms?: number | null
+          households?: number
+          id?: string
+          job?: string
+          message?: string | null
+          ran_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           category_group: string
@@ -1057,6 +1093,8 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          briefing_day: number
+          briefing_email_enabled: boolean
           created_at: string
           display_name: string | null
           email: string
@@ -1065,9 +1103,12 @@ export type Database = {
           id: string
           role: string
           updated_at: string
+          weekly_briefing_enabled: boolean
         }
         Insert: {
           avatar_url?: string | null
+          briefing_day?: number
+          briefing_email_enabled?: boolean
           created_at?: string
           display_name?: string | null
           email: string
@@ -1076,9 +1117,12 @@ export type Database = {
           id: string
           role?: string
           updated_at?: string
+          weekly_briefing_enabled?: boolean
         }
         Update: {
           avatar_url?: string | null
+          briefing_day?: number
+          briefing_email_enabled?: boolean
           created_at?: string
           display_name?: string | null
           email?: string
@@ -1087,6 +1131,7 @@ export type Database = {
           id?: string
           role?: string
           updated_at?: string
+          weekly_briefing_enabled?: boolean
         }
         Relationships: [
           {
@@ -1653,7 +1698,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      verify_job_secret: { Args: { token: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

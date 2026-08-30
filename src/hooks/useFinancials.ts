@@ -285,6 +285,15 @@ export const useTaxAllowances = () => useTable<TaxAllowanceRow>("tax_allowances"
 export const useSnapshots = () =>
   useTable<SnapshotRow>("net_worth_snapshots", "net_worth_snapshots", "as_of");
 
+/**
+ * How many briefing notes are waiting. Drives the Advisor badge in the sidebar,
+ * the mobile More indicator and the dashboard panel from one source.
+ */
+export function useUnreadNotes() {
+  const { data } = useAdvisorNotes();
+  return (data ?? []).filter((note) => !note.is_read).length;
+}
+
 export function useRecentTransactions(monthsBack = 2) {
   const { household } = useAuth();
   return useQuery({

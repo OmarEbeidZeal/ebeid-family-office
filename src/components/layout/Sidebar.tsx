@@ -3,10 +3,14 @@ import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/Wordmark";
 import { NAV_GROUPS, SETTINGS_ITEM, isActivePath } from "./nav-items";
 import { useAuth } from "@/hooks/useAuth";
+import { useUnreadNotes } from "@/hooks/useFinancials";
 
 export function Sidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { household } = useAuth();
+  // A briefing written at 07:00 on Sunday has to be visible the moment the app
+  // is opened, on whichever device that happens to be.
+  const unread = useUnreadNotes();
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-surface lg:flex">
@@ -31,6 +35,7 @@ export function Sidebar() {
                   label={item.label}
                   icon={item.icon}
                   active={isActivePath(pathname, item.to)}
+                  badge={item.to === "/advisor" ? unread : 0}
                 />
               ))}
             </div>
@@ -58,11 +63,13 @@ function NavLink({
   label,
   icon: Icon,
   active,
+  badge = 0,
 }: {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   active: boolean;
+  badge?: number;
 }) {
   return (
     <Link
@@ -77,6 +84,14 @@ function NavLink({
     >
       <Icon className="h-4 w-4 shrink-0" strokeWidth={1.6} />
       <span className="flex-1 truncate">{label}</span>
+      {badge > 0 && (
+        <span
+          aria-label={`${badge} unread`}
+          className="num min-w-[1.25rem] rounded-full bg-gold px-1.5 py-px text-center text-[0.6rem] leading-4 text-background"
+        >
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
     </Link>
   );
 }

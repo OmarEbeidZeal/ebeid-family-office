@@ -23,6 +23,10 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SpendingRouteImport } from './routes/spending'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as ApiAdvisorChatRouteImport } from './routes/api/advisor/chat'
+import { Route as ApiPublicHooksFxRefreshRouteImport } from './routes/api/public/hooks/fx-refresh'
+import { Route as ApiPublicHooksMarketCloseRouteImport } from './routes/api/public/hooks/market-close'
+import { Route as ApiPublicHooksNetWorthSnapshotRouteImport } from './routes/api/public/hooks/net-worth-snapshot'
+import { Route as ApiPublicHooksWeeklyBriefingRouteImport } from './routes/api/public/hooks/weekly-briefing'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -94,6 +98,29 @@ const ApiAdvisorChatRoute = ApiAdvisorChatRouteImport.update({
   path: '/api/advisor/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksFxRefreshRoute = ApiPublicHooksFxRefreshRouteImport.update({
+  id: '/api/public/hooks/fx-refresh',
+  path: '/api/public/hooks/fx-refresh',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHooksMarketCloseRoute =
+  ApiPublicHooksMarketCloseRouteImport.update({
+    id: '/api/public/hooks/market-close',
+    path: '/api/public/hooks/market-close',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksNetWorthSnapshotRoute =
+  ApiPublicHooksNetWorthSnapshotRouteImport.update({
+    id: '/api/public/hooks/net-worth-snapshot',
+    path: '/api/public/hooks/net-worth-snapshot',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksWeeklyBriefingRoute =
+  ApiPublicHooksWeeklyBriefingRouteImport.update({
+    id: '/api/public/hooks/weekly-briefing',
+    path: '/api/public/hooks/weekly-briefing',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -110,6 +137,10 @@ export interface FileRoutesByFullPath {
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
+  '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
+  '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
+  '/api/public/hooks/net-worth-snapshot': typeof ApiPublicHooksNetWorthSnapshotRoute
+  '/api/public/hooks/weekly-briefing': typeof ApiPublicHooksWeeklyBriefingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,6 +157,10 @@ export interface FileRoutesByTo {
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
+  '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
+  '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
+  '/api/public/hooks/net-worth-snapshot': typeof ApiPublicHooksNetWorthSnapshotRoute
+  '/api/public/hooks/weekly-briefing': typeof ApiPublicHooksWeeklyBriefingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,6 +178,10 @@ export interface FileRoutesById {
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
+  '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
+  '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
+  '/api/public/hooks/net-worth-snapshot': typeof ApiPublicHooksNetWorthSnapshotRoute
+  '/api/public/hooks/weekly-briefing': typeof ApiPublicHooksWeeklyBriefingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,6 +200,10 @@ export interface FileRouteTypes {
     | '/spending'
     | '/transactions'
     | '/api/advisor/chat'
+    | '/api/public/hooks/fx-refresh'
+    | '/api/public/hooks/market-close'
+    | '/api/public/hooks/net-worth-snapshot'
+    | '/api/public/hooks/weekly-briefing'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,6 +220,10 @@ export interface FileRouteTypes {
     | '/spending'
     | '/transactions'
     | '/api/advisor/chat'
+    | '/api/public/hooks/fx-refresh'
+    | '/api/public/hooks/market-close'
+    | '/api/public/hooks/net-worth-snapshot'
+    | '/api/public/hooks/weekly-briefing'
   id:
     | '__root__'
     | '/'
@@ -193,6 +240,10 @@ export interface FileRouteTypes {
     | '/spending'
     | '/transactions'
     | '/api/advisor/chat'
+    | '/api/public/hooks/fx-refresh'
+    | '/api/public/hooks/market-close'
+    | '/api/public/hooks/net-worth-snapshot'
+    | '/api/public/hooks/weekly-briefing'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -210,6 +261,10 @@ export interface RootRouteChildren {
   SpendingRoute: typeof SpendingRoute
   TransactionsRoute: typeof TransactionsRoute
   ApiAdvisorChatRoute: typeof ApiAdvisorChatRoute
+  ApiPublicHooksFxRefreshRoute: typeof ApiPublicHooksFxRefreshRoute
+  ApiPublicHooksMarketCloseRoute: typeof ApiPublicHooksMarketCloseRoute
+  ApiPublicHooksNetWorthSnapshotRoute: typeof ApiPublicHooksNetWorthSnapshotRoute
+  ApiPublicHooksWeeklyBriefingRoute: typeof ApiPublicHooksWeeklyBriefingRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -312,6 +367,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdvisorChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/fx-refresh': {
+      id: '/api/public/hooks/fx-refresh'
+      path: '/api/public/hooks/fx-refresh'
+      fullPath: '/api/public/hooks/fx-refresh'
+      preLoaderRoute: typeof ApiPublicHooksFxRefreshRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/market-close': {
+      id: '/api/public/hooks/market-close'
+      path: '/api/public/hooks/market-close'
+      fullPath: '/api/public/hooks/market-close'
+      preLoaderRoute: typeof ApiPublicHooksMarketCloseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/net-worth-snapshot': {
+      id: '/api/public/hooks/net-worth-snapshot'
+      path: '/api/public/hooks/net-worth-snapshot'
+      fullPath: '/api/public/hooks/net-worth-snapshot'
+      preLoaderRoute: typeof ApiPublicHooksNetWorthSnapshotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/weekly-briefing': {
+      id: '/api/public/hooks/weekly-briefing'
+      path: '/api/public/hooks/weekly-briefing'
+      fullPath: '/api/public/hooks/weekly-briefing'
+      preLoaderRoute: typeof ApiPublicHooksWeeklyBriefingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -330,6 +413,10 @@ const rootRouteChildren: RootRouteChildren = {
   SpendingRoute: SpendingRoute,
   TransactionsRoute: TransactionsRoute,
   ApiAdvisorChatRoute: ApiAdvisorChatRoute,
+  ApiPublicHooksFxRefreshRoute: ApiPublicHooksFxRefreshRoute,
+  ApiPublicHooksMarketCloseRoute: ApiPublicHooksMarketCloseRoute,
+  ApiPublicHooksNetWorthSnapshotRoute: ApiPublicHooksNetWorthSnapshotRoute,
+  ApiPublicHooksWeeklyBriefingRoute: ApiPublicHooksWeeklyBriefingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
