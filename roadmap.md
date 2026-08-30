@@ -19,6 +19,8 @@
 - [x] Onboarding — six steps, progress rail, resumes on any device, private shareholding step
 - [x] Settings — profile, household, invite partner, FX status, theme, sign out
 - [x] Placeholders for Transactions / Portfolio / Forecast / Advisor
+- [x] First-run dashboard panel — routes into setup instead of drawing an example household
+
 
 ## Phase 2 (next)
 
