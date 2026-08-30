@@ -17,7 +17,14 @@ import {
   type CategoryRef,
   type CategoryRule,
 } from "./categorise.server";
-import { applyMapping, extractFromPdfText, inferColumnMapping } from "./statement-extract.server";
+import { createJsonRunner, type JsonRunner } from "./ai/runner.server";
+import {
+  applyMapping,
+  extractFromPdfText,
+  inferColumnMapping,
+  type ExtractionResult,
+} from "./statement-extract.server";
+
 import {
   SCANNED_PDF_MESSAGE,
   decodeText,
