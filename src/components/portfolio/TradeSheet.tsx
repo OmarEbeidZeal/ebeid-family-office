@@ -35,18 +35,22 @@ export function TradeSheet({
   open,
   onOpenChange,
   holdings,
+  trades,
   trade,
   defaultHoldingId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   holdings: HoldingRow[];
+  /** Every recorded trade — used to spot a holding that has none yet. */
+  trades: TradeRow[];
   trade?: TradeRow | null;
   defaultHoldingId?: string | undefined;
 }) {
   const { household } = useAuth();
   const { data: accounts = [] } = useAccounts();
   const queryClient = useQueryClient();
+
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
