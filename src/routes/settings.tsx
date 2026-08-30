@@ -104,7 +104,12 @@ function Settings() {
         .select("id, email, role, claimed_at")
         .order("created_at", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as { id: string; email: string; role: string; claimed_at: string | null }[];
+      return (data ?? []) as {
+        id: string;
+        email: string;
+        role: string;
+        claimed_at: string | null;
+      }[];
     },
   });
 
@@ -151,8 +156,8 @@ function Settings() {
         <div className="sm:col-span-2">
           <h3 className="text-sm font-medium">Household</h3>
           <p className="text-xs text-muted-foreground">
-            {members.length} member{members.length === 1 ? "" : "s"} · all figures are reported in the
-            base currency.
+            {members.length} member{members.length === 1 ? "" : "s"} · all figures are reported in
+            the base currency.
           </p>
         </div>
         <Field label="Household name">

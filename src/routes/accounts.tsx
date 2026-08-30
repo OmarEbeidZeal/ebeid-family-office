@@ -58,9 +58,13 @@ function Accounts() {
 
   const groups = useMemo(() => {
     const banking = rows.filter(
-      (row) => !DEBT_ACCOUNT_TYPES.includes(row.account_type) && !["pension", "gia", "isa", "brokerage"].includes(row.account_type),
+      (row) =>
+        !DEBT_ACCOUNT_TYPES.includes(row.account_type) &&
+        !["pension", "gia", "isa", "brokerage"].includes(row.account_type),
     );
-    const investing = rows.filter((row) => ["pension", "gia", "isa", "brokerage"].includes(row.account_type));
+    const investing = rows.filter((row) =>
+      ["pension", "gia", "isa", "brokerage"].includes(row.account_type),
+    );
     const debt = rows.filter((row) => DEBT_ACCOUNT_TYPES.includes(row.account_type));
     return [
       { title: "Banking & cash", rows: banking },
@@ -88,12 +92,18 @@ function Accounts() {
         </div>
       ),
     },
-    { key: "owner", header: "Owner", render: (row) => ownerLabel(row.owner_profile_id, row.is_joint) },
+    {
+      key: "owner",
+      header: "Owner",
+      render: (row) => ownerLabel(row.owner_profile_id, row.is_joint),
+    },
     {
       key: "updated",
       header: "Updated",
       render: (row) => (
-        <span className="text-xs text-muted-foreground">{monthsAgoLabel(row.last_balance_update)}</span>
+        <span className="text-xs text-muted-foreground">
+          {monthsAgoLabel(row.last_balance_update)}
+        </span>
       ),
     },
     {

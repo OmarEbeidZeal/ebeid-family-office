@@ -159,7 +159,9 @@ function BalanceSheet() {
       header: "Monthly",
       render: (row) =>
         row.monthly_payment ? (
-          <span className="num text-sm">{formatMoney(Number(row.monthly_payment), row.currency)}</span>
+          <span className="num text-sm">
+            {formatMoney(Number(row.monthly_payment), row.currency)}
+          </span>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         ),

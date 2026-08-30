@@ -8,8 +8,7 @@ const signUpSchema = z.object({
   fullName: z.string().min(1),
 });
 
-export const PRIVATE_ACCESS_MESSAGE =
-  "This is a private system. Access is by invitation only.";
+export const PRIVATE_ACCESS_MESSAGE = "This is a private system. Access is by invitation only.";
 
 /**
  * Allowlisted signup. Rejects any email that is not present in allowed_emails,
@@ -55,9 +54,11 @@ export const registerAllowedUser = createServerFn({ method: "POST" })
         if (householdError) throw new Error(householdError.message);
         householdId = household.id;
 
-        const { error: catError } = await (supabaseAdmin as any).from("categories").insert(
-          DEFAULT_CATEGORIES.map((c) => ({ ...c, household_id: householdId, is_system: true })),
-        );
+        const { error: catError } = await (supabaseAdmin as any)
+          .from("categories")
+          .insert(
+            DEFAULT_CATEGORIES.map((c) => ({ ...c, household_id: householdId, is_system: true })),
+          );
         if (catError) throw new Error(catError.message);
       }
 

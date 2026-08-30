@@ -63,7 +63,8 @@ export function AccountDialog({
       account_type: account?.account_type ?? "current",
       currency: account?.currency ?? "GBP",
       current_balance: Number(account?.current_balance ?? 0),
-      owner_profile_id: account?.owner_profile_id ?? (account?.is_joint ? "joint" : profile?.id ?? ""),
+      owner_profile_id:
+        account?.owner_profile_id ?? (account?.is_joint ? "joint" : (profile?.id ?? "")),
     });
   }, [open, account, profile?.id, form]);
 

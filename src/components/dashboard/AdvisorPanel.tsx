@@ -3,7 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type Note = { id: string; title: string; body: string | null; severity: string; generated_at: string };
+type Note = {
+  id: string;
+  title: string;
+  body: string | null;
+  severity: string;
+  generated_at: string;
+};
 
 export function AdvisorPanel() {
   const { household } = useAuth();

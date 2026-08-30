@@ -27,7 +27,10 @@ export function DataTable<T extends { id: string }>({
     return (
       <div className="hairline overflow-hidden rounded-lg bg-surface">
         {Array.from({ length: rowCount }).map((_, index) => (
-          <div key={index} className="flex items-center justify-between border-b px-4 py-4 last:border-b-0">
+          <div
+            key={index}
+            className="flex items-center justify-between border-b px-4 py-4 last:border-b-0"
+          >
             <Skeleton className="h-4 w-40" />
             <Skeleton className="h-4 w-24" />
           </div>

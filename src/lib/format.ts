@@ -25,7 +25,11 @@ export function formatAmount(value: number, opts?: { decimals?: number | undefin
   }).format(value);
 }
 
-export function formatMoney(value: number, currency: string, opts?: { decimals?: number | undefined }) {
+export function formatMoney(
+  value: number,
+  currency: string,
+  opts?: { decimals?: number | undefined },
+) {
   const sign = value < 0 ? "-" : "";
   return `${sign}${currencySymbol(currency)}${formatAmount(Math.abs(value), opts)}`;
 }

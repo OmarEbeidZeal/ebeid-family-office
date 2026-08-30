@@ -28,7 +28,10 @@ export function SpendingPanel() {
       const key = monthKey(new Date(tx.booked_date));
       if (key !== thisMonth && key !== lastMonth) continue;
       const label = names.get(tx.category_id ?? "") ?? "Uncategorised";
-      const value = tx.amount_base != null ? Number(tx.amount_base) : convert(Number(tx.amount), tx.currency, base);
+      const value =
+        tx.amount_base != null
+          ? Number(tx.amount_base)
+          : convert(Number(tx.amount), tx.currency, base);
       const entry = totals.get(label) ?? { current: 0, previous: 0 };
       if (key === thisMonth) entry.current += value;
       else entry.previous += value;

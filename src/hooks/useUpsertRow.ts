@@ -16,9 +16,7 @@ export function useSaveRow(table: string, queryKey: string, label: string) {
         if (error) throw error;
         return;
       }
-      const { error } = await db
-        .from(table)
-        .insert({ ...values, household_id: household!.id });
+      const { error } = await db.from(table).insert({ ...values, household_id: household!.id });
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {

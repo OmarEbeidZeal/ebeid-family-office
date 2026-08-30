@@ -148,7 +148,10 @@ export function LiabilityDialog({
               )}
             />
           </Field>
-          <Field label="Outstanding balance" error={form.formState.errors.outstanding_balance?.message}>
+          <Field
+            label="Outstanding balance"
+            error={form.formState.errors.outstanding_balance?.message}
+          >
             <Input type="number" step="0.01" {...form.register("outstanding_balance")} />
           </Field>
           <Field label="Original amount">

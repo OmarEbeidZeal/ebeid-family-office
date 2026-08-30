@@ -47,7 +47,8 @@ export function GoalsStrip() {
               <div className="h-1 rounded-full bg-gold" style={{ width: `${pct}%` }} />
             </div>
             <p className="num mt-2 text-xs text-muted-foreground">
-              {formatMoney(funded, base, { decimals: 0 })} of {formatMoney(target, base, { decimals: 0 })}
+              {formatMoney(funded, base, { decimals: 0 })} of{" "}
+              {formatMoney(target, base, { decimals: 0 })}
             </p>
           </div>
         );

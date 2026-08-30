@@ -54,9 +54,21 @@ function OnboardingRoute() {
 }
 
 const STEPS = [
-  { key: "household", title: "Household", blurb: "Name the office and choose the reporting currency." },
-  { key: "accounts", title: "Accounts", blurb: "Banking, savings, brokerage and cards across every country." },
-  { key: "assets", title: "Assets", blurb: "Property, private equity, pensions and anything else owned." },
+  {
+    key: "household",
+    title: "Household",
+    blurb: "Name the office and choose the reporting currency.",
+  },
+  {
+    key: "accounts",
+    title: "Accounts",
+    blurb: "Banking, savings, brokerage and cards across every country.",
+  },
+  {
+    key: "assets",
+    title: "Assets",
+    blurb: "Property, private equity, pensions and anything else owned.",
+  },
   { key: "liabilities", title: "Liabilities", blurb: "Mortgages, loans and balances carried." },
   { key: "cashflow", title: "Cash flow", blurb: "Income streams and committed monthly outgoings." },
   { key: "goals", title: "Goals", blurb: "What the money is actually for." },
@@ -100,7 +112,11 @@ function Onboarding() {
       </div>
 
       <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={() => setStep((value) => Math.max(0, value - 1))} disabled={step === 0}>
+        <Button
+          variant="ghost"
+          onClick={() => setStep((value) => Math.max(0, value - 1))}
+          disabled={step === 0}
+        >
           Back
         </Button>
         <div className="flex gap-2">
@@ -130,7 +146,10 @@ function HouseholdStep() {
   const save = useMutation({
     mutationFn: async () => {
       const [{ error: householdError }, { error: profileError }] = await Promise.all([
-        supabase.from("households").update({ name, base_currency: currency }).eq("id", household!.id),
+        supabase
+          .from("households")
+          .update({ name, base_currency: currency })
+          .eq("id", household!.id),
         supabase.from("profiles").update({ display_name: displayName }).eq("id", profile!.id),
       ]);
       if (householdError) throw householdError;
@@ -189,7 +208,12 @@ function StepList({
           </div>
           <div className="flex items-center gap-2">
             <Money amount={item.amount} currency={item.currency} />
-            <Button variant="ghost" size="icon" aria-label="Remove" onClick={() => onDelete(item.id)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Remove"
+              onClick={() => onDelete(item.id)}
+            >
               <Trash2 className="size-4" />
             </Button>
           </div>
@@ -209,7 +233,9 @@ function AccountsStep() {
         items={(data ?? []).map((row) => ({
           id: row.id,
           primary: row.nickname,
-          secondary: [row.institution, titleise(row.account_type), row.country].filter(Boolean).join(" · "),
+          secondary: [row.institution, titleise(row.account_type), row.country]
+            .filter(Boolean)
+            .join(" · "),
           amount: Number(row.current_balance),
           currency: row.currency,
         }))}
@@ -463,7 +489,10 @@ function GoalsStep() {
       />
       <div className="mt-3 grid gap-3 sm:grid-cols-5">
         <Field label="Goal">
-          <Input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
+          <Input
+            value={form.title}
+            onChange={(event) => setForm({ ...form, title: event.target.value })}
+          />
         </Field>
         <Field label="Target">
           <Input
@@ -520,7 +549,13 @@ function GoalsStep() {
               status: "saving",
             },
           });
-          setForm({ title: "", target_amount: "", currency: "GBP", goal_category: "other", target_date: "" });
+          setForm({
+            title: "",
+            target_amount: "",
+            currency: "GBP",
+            goal_category: "other",
+            target_date: "",
+          });
         }}
       >
         <Plus className="size-4" /> Add goal

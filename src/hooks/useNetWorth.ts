@@ -53,7 +53,8 @@ export function useNetWorth() {
       0,
     );
     const assetTotal = assets.reduce(
-      (sum, a) => sum + toBase(Number(a.current_value) * (Number(a.ownership_pct) / 100), a.currency),
+      (sum, a) =>
+        sum + toBase(Number(a.current_value) * (Number(a.ownership_pct) / 100), a.currency),
       0,
     );
     const liabilityTotal = liabilities.reduce(
@@ -71,7 +72,8 @@ export function useNetWorth() {
     const liquidAssets = assets
       .filter((a) => a.is_liquid)
       .reduce(
-        (sum, a) => sum + toBase(Number(a.current_value) * (Number(a.ownership_pct) / 100), a.currency),
+        (sum, a) =>
+          sum + toBase(Number(a.current_value) * (Number(a.ownership_pct) / 100), a.currency),
         0,
       );
     const liquidNetWorth = liquidCash + liquidAssets - accountDebtTotal;
@@ -80,17 +82,22 @@ export function useNetWorth() {
     const monthlyIncome = income.reduce(
       (sum, row) =>
         sum +
-        monthlyEquivalent(toBase(Number(row.net_amount ?? row.gross_amount), row.currency), row.frequency),
+        monthlyEquivalent(
+          toBase(Number(row.net_amount ?? row.gross_amount), row.currency),
+          row.frequency,
+        ),
       0,
     );
     const monthlyExpenses = expenses.reduce(
-      (sum, row) => sum + monthlyEquivalent(toBase(Number(row.amount), row.currency), row.frequency),
+      (sum, row) =>
+        sum + monthlyEquivalent(toBase(Number(row.amount), row.currency), row.frequency),
       0,
     );
     const essentialMonthly = expenses
       .filter((row) => row.confidence === "committed")
       .reduce(
-        (sum, row) => sum + monthlyEquivalent(toBase(Number(row.amount), row.currency), row.frequency),
+        (sum, row) =>
+          sum + monthlyEquivalent(toBase(Number(row.amount), row.currency), row.frequency),
         0,
       );
     const liabilityPayments = liabilities.reduce(
@@ -105,7 +112,10 @@ export function useNetWorth() {
     const byClass = new Map<string, number>();
     for (const account of cashAccounts) {
       const key = account.account_type === "crypto" ? "Crypto" : "Cash & deposits";
-      byClass.set(key, (byClass.get(key) ?? 0) + toBase(Number(account.current_balance), account.currency));
+      byClass.set(
+        key,
+        (byClass.get(key) ?? 0) + toBase(Number(account.current_balance), account.currency),
+      );
     }
     for (const asset of assets) {
       const key = titleise(asset.asset_class);
@@ -120,7 +130,8 @@ export function useNetWorth() {
     for (const account of cashAccounts) {
       byCurrency.set(
         account.currency,
-        (byCurrency.get(account.currency) ?? 0) + toBase(Number(account.current_balance), account.currency),
+        (byCurrency.get(account.currency) ?? 0) +
+          toBase(Number(account.current_balance), account.currency),
       );
     }
     for (const asset of assets) {

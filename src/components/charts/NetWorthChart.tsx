@@ -1,4 +1,12 @@
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { formatCompact, formatMoney } from "@/lib/format";
 
 export type NetWorthPoint = { as_of: string; net_worth: number };
@@ -42,7 +50,10 @@ export function NetWorthChart({ data, currency }: { data: NetWorthPoint[]; curre
             labelFormatter={(value: string) =>
               new Date(value).toLocaleDateString("en-GB", { dateStyle: "medium" })
             }
-            formatter={(value: number) => [formatMoney(value, currency, { decimals: 0 }), "Net worth"]}
+            formatter={(value: number) => [
+              formatMoney(value, currency, { decimals: 0 }),
+              "Net worth",
+            ]}
           />
           <Area
             type="monotone"

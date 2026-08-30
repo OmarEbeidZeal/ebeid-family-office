@@ -131,9 +131,7 @@ function Dashboard() {
             {metrics.loading ? "—" : formatMoney(metrics.netWorth, metrics.base, { decimals: 0 })}
           </h1>
           {change && (
-            <span
-              className={`num text-sm ${change.abs >= 0 ? "text-gain" : "text-loss"}`}
-            >
+            <span className={`num text-sm ${change.abs >= 0 ? "text-gain" : "text-loss"}`}>
               {formatMoney(change.abs, metrics.base, { decimals: 0 })} ({formatPercent(change.pct)})
               <span className="ml-1 text-muted-foreground">since first snapshot</span>
             </span>
@@ -227,7 +225,10 @@ function Dashboard() {
           </div>
         </div>
         <div>
-          <SectionHeader title="Advisor" description="Automated review of the household position." />
+          <SectionHeader
+            title="Advisor"
+            description="Automated review of the household position."
+          />
           <AdvisorPanel />
         </div>
       </section>
