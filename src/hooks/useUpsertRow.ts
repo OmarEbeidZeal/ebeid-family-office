@@ -10,7 +10,7 @@ export function useSaveRow(table: string, queryKey: string, label: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, values }: { id?: string; values: Payload }) => {
+    mutationFn: async ({ id, values }: { id?: string | undefined; values: Payload }) => {
       if (id) {
         const { error } = await supabase.from(table).update(values).eq("id", id);
         if (error) throw error;

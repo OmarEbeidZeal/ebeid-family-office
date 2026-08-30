@@ -5,12 +5,12 @@ import { useCurrency } from "@/hooks/useCurrency";
 type MoneyProps = {
   amount: number;
   currency: string;
-  className?: string;
-  decimals?: number;
+  className?: string | undefined;
+  decimals?: number | undefined;
   /** colour by sign */
-  signed?: boolean;
-  hideConverted?: boolean;
-  convertedClassName?: string;
+  signed?: boolean | undefined;
+  hideConverted?: boolean | undefined;
+  convertedClassName?: string | undefined;
 };
 
 export function Money({
