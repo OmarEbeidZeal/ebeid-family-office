@@ -89,6 +89,7 @@ Rules:
 const BATCH_SIZE = 40;
 
 export async function categoriseBatch(
+  runner: JsonRunner,
   transactions: CategorisableTransaction[],
   categories: CategoryRef[],
 ): Promise<Array<{ category_id: string | null; confidence: number; merchant: string | null }>> {
@@ -113,16 +114,16 @@ export async function categoriseBatch(
       currency: transaction.currency,
     }));
 
-    const response = await aiJson<{
+    const response = await runner.json<{
       items: Array<{ index: number; category: string; merchant: string; confidence: number }>;
     }>({
-      model: AI_MODELS.cheap,
       system: CATEGORISE_SYSTEM,
       user: `Allowed categories:\n${allowed.join("\n")}\n\nTransactions:\n${JSON.stringify(payload)}`,
       schemaName: "categorisation",
       schema: CATEGORISE_SCHEMA,
       maxTokens: 4000,
     });
+
 
     for (const item of response.items ?? []) {
       const target = start + item.index;
