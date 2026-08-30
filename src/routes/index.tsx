@@ -16,7 +16,6 @@ import { useSnapshotSync } from "@/hooks/useSnapshotSync";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDate } from "@/lib/format";
 
-
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -97,7 +96,6 @@ function Dashboard() {
   if (!summary.loading && !householdSummary.hasData) {
     return <FirstRunPanel />;
   }
-
 
   return (
     <div className="space-y-4">
