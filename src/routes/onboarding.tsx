@@ -65,7 +65,7 @@ const STEPS = [
 function Onboarding() {
   const [step, setStep] = useState(0);
   const navigate = useNavigate();
-  const current = STEPS[step];
+  const current = STEPS[step] ?? STEPS[0];
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">

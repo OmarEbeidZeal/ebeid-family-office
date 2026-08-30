@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -54,13 +55,13 @@ export const registerAllowedUser = createServerFn({ method: "POST" })
         if (householdError) throw new Error(householdError.message);
         householdId = household.id;
 
-        const { error: catError } = await supabaseAdmin.from("categories").insert(
+        const { error: catError } = await (supabaseAdmin as any).from("categories").insert(
           DEFAULT_CATEGORIES.map((c) => ({ ...c, household_id: householdId, is_system: true })),
         );
         if (catError) throw new Error(catError.message);
       }
 
-      const { error: profileError } = await supabaseAdmin.from("profiles").insert({
+      const { error: profileError } = await (supabaseAdmin as any).from("profiles").insert({
         id: userId,
         household_id: householdId,
         email,

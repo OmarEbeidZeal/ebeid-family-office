@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
@@ -41,12 +42,12 @@ export const refreshFxRates = createServerFn({ method: "POST" })
         .maybeSingle();
 
       if (existing) {
-        await supabaseAdmin
+        await (supabaseAdmin as any)
           .from("fx_rates")
           .update({ rate: row.rate, as_of: row.as_of })
           .eq("id", existing.id);
       } else {
-        await supabaseAdmin.from("fx_rates").insert(row);
+        await (supabaseAdmin as any).from("fx_rates").insert(row);
       }
     }
 

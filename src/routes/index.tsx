@@ -92,7 +92,7 @@ function Dashboard() {
       .sort((a, b) => a.as_of.localeCompare(b.as_of))
       .map((row) => ({ as_of: row.as_of, net_worth: Number(row.net_worth) }));
     const today = new Date().toISOString().slice(0, 10);
-    if (!rows.length || rows[rows.length - 1].as_of !== today) {
+    if (!rows.length || rows[rows.length - 1]!.as_of !== today) {
       if (metrics.hasData) rows.push({ as_of: today, net_worth: metrics.netWorth });
     }
     return rows;
@@ -100,8 +100,8 @@ function Dashboard() {
 
   const change = useMemo(() => {
     if (series.length < 2) return null;
-    const first = series[0].net_worth;
-    const last = series[series.length - 1].net_worth;
+    const first = series[0]!.net_worth;
+    const last = series[series.length - 1]!.net_worth;
     if (!first) return null;
     return { abs: last - first, pct: ((last - first) / Math.abs(first)) * 100 };
   }, [series]);
