@@ -334,10 +334,9 @@ function readStatement(
     const narrativeField = block[position + 1]?.tag === "86" ? block[position + 1]!.value : null;
     const narrative = readNarrative(narrativeField);
 
-    const description = [
-      narrative.description || supplementary || customerRef?.trim() || txCode || "Transaction",
-      isReversal ? "(reversal)" : null,
-    ]
+    const body =
+      narrative.description || supplementary || customerRef?.trim() || txCode || "Transaction";
+    const description = [body, isReversal ? "(reversal)" : null]
       .filter(Boolean)
       .join(" ")
       .slice(0, 300);
@@ -350,7 +349,10 @@ function readStatement(
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 500),
-      merchant: narrative.merchant?.slice(0, 120) ?? guessMerchant(description),
+      // The reversal marker is ours, not the bank's — a merchant is only ever
+      // read from what the file actually said.
+      merchant: narrative.merchant?.slice(0, 120) ?? guessMerchant(body),
+
       amount: Math.abs(amount),
       direction: CREDIT_MARKS.has(mark) ? "credit" : "debit",
       balance_after: null,
