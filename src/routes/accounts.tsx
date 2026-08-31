@@ -284,12 +284,13 @@ function AccountRowItem({
         </div>
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {account.institution ?? "Institution not recorded"}
-          {account.identifier_mask ? (
+          {showMask ? (
             <>
               <span className="mx-1.5 text-border">·</span>
               <span className="num">••{account.identifier_mask}</span>
             </>
           ) : null}
+
           <span className="mx-1.5 text-border">·</span>
           <span className={cn(tone === "warn" && "text-warn")}>
             {relativeAge(account.last_balance_update)}
