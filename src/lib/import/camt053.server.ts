@@ -8,12 +8,22 @@
  * One file may carry several `Stmt` elements — banks routinely export several
  * accounts, or several periods, in one document — so this returns a list, and
  * each becomes its own statement record matched to its own account.
+ *
+ * Version-agnostic by construction. Banks offer anything from
+ * `camt.053.001.02` to `camt.053.001.10`, sometimes in the same download, and
+ * the household should never have to care which. Elements are matched by local
+ * name with the namespace stripped, nothing is validated against an XSD, and
+ * every field is read tolerantly — a code that is plain text in .02 and a
+ * composite from .08 onward reads the same either way. The namespace is read
+ * for one purpose only: to record which version a file was, so an oddity can
+ * be traced back to its source later.
  */
 import { XMLParser } from "fast-xml-parser";
 import { bankFromBic } from "../ai/banks";
 import type { ExtractionResult, StatementIdentity } from "../statement-extract.server";
 import type { RawTransaction } from "../statement-parse.server";
 import { StatementFailure } from "./failure";
+
 
 /* -------------------------------------------------------------- primitives */
 
