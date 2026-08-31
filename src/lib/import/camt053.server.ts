@@ -24,7 +24,6 @@ import type { ExtractionResult, StatementIdentity } from "../statement-extract.s
 import type { RawTransaction } from "../statement-parse.server";
 import { StatementFailure } from "./failure";
 
-
 /* -------------------------------------------------------------- primitives */
 
 type Unknown = unknown;
@@ -173,7 +172,6 @@ function direction(node: Unknown, fallback: Direction = "debit"): Direction {
   return fallback;
 }
 
-
 function flip(value: Direction): Direction {
   return value === "credit" ? "debit" : "credit";
 }
@@ -286,7 +284,6 @@ function readBalances(
         ? -Math.abs(amount.value)
         : Math.abs(amount.value);
 
-
     // The first of a repeated code wins: banks list the statement's own pair
     // before any supplementary readings.
     if (!byCode.has(code)) byCode.set(code, { value: signed, date: isoDate(at(balance, "Dt")) });
@@ -341,7 +338,6 @@ function remittanceOf(txDetail: Unknown): string | null {
         text(at(entry, "CdtrRefInf", "Ref")),
         text(at(entry, "RfrdDocInf", "Nb")),
         text(at(entry, "AddtlRmtInf")),
-
       ].filter((line): line is string => Boolean(line)),
     )
     .filter((line, index, all) => all.indexOf(line) === index);
@@ -352,7 +348,6 @@ function remittanceOf(txDetail: Unknown): string | null {
     .filter((line): line is string => Boolean(line));
   return unstructured.length ? unstructured.join(" ").replace(/\s+/g, " ").trim() : null;
 }
-
 
 /** The other side of the transaction: who was paid, or who paid. */
 function counterparty(txDetail: Unknown, flow: Direction): string | null {
@@ -405,7 +400,6 @@ function readDetail(txDetail: Unknown, entryFlow: Direction): Detail {
   };
 }
 
-
 function describe(merchant: string | null, detail: string | null, fallback: string | null): string {
   const parts = [merchant, detail]
     .map((part) => (part ?? "").replace(/\s+/g, " ").trim())
@@ -454,9 +448,7 @@ export function parseCamt053(xml: string): ExtractionResult[] {
 
   const version = camtVersion(xml);
 
-  return statements.map((stmt, index) =>
-    readStatement(stmt, index, statements.length, version),
-  );
+  return statements.map((stmt, index) => readStatement(stmt, index, statements.length, version));
 }
 
 function readStatement(
@@ -620,7 +612,6 @@ function readStatement(
     accountDetectable: Boolean(identity.account_identifier),
     statementReference,
     meta: {
-
       period_start: periodStart,
       period_end: periodEnd,
       opening_balance: opening?.value ?? null,

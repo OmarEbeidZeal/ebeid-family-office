@@ -33,9 +33,7 @@ function buildStatement(version: Version): string {
   const prefixed = version === "10";
   const p = prefixed ? "ns:" : "";
   const ns = `urn:iso:std:iso:20022:tech:xsd:camt.053.001.${version}`;
-  const root = prefixed
-    ? `<ns:Document xmlns:ns="${ns}">`
-    : `<Document xmlns="${ns}">`;
+  const root = prefixed ? `<ns:Document xmlns:ns="${ns}">` : `<Document xmlns="${ns}">`;
   const rootClose = prefixed ? `</ns:Document>` : `</Document>`;
 
   const status = (code: string) =>
