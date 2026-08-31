@@ -130,20 +130,6 @@ function AdvisorPage() {
                 </div>
               ) : null}
 
-              {chat.notice ? (
-                <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  <span className="flex-1 leading-relaxed">{chat.notice}</span>
-                  <button
-                    type="button"
-                    onClick={chat.dismissNotice}
-                    aria-label="Dismiss notice"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : null}
-
               {chat.messages.length > 0 && !chat.thinking && suggestions.length > 0 ? (
                 <SuggestedPrompts
                   suggestions={suggestions.slice(0, 3)}

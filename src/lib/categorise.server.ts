@@ -6,7 +6,7 @@
  * batches, and every AI answer carries a confidence that drives the review
  * queue.
  */
-import type { JsonRunner } from "./ai/runner.server";
+import { completeJson } from "./ai/gateway.server";
 import { normaliseDescription, similarity } from "./text";
 
 export type CategoryRef = {
@@ -89,7 +89,6 @@ Rules:
 const BATCH_SIZE = 40;
 
 export async function categoriseBatch(
-  runner: JsonRunner,
   transactions: CategorisableTransaction[],
   categories: CategoryRef[],
 ): Promise<Array<{ category_id: string | null; confidence: number; merchant: string | null }>> {
@@ -114,14 +113,14 @@ export async function categoriseBatch(
       currency: transaction.currency,
     }));
 
-    const response = await runner.json<{
+    const response = await completeJson<{
       items: Array<{ index: number; category: string; merchant: string; confidence: number }>;
-    }>({
+    }>("categorisation", {
       system: CATEGORISE_SYSTEM,
       user: `Allowed categories:\n${allowed.join("\n")}\n\nTransactions:\n${JSON.stringify(payload)}`,
       schemaName: "categorisation",
       schema: CATEGORISE_SCHEMA,
-      maxTokens: 4000,
+      maxTokens: 8000,
     });
 
     for (const item of response.items ?? []) {

@@ -6,7 +6,6 @@
  * statement whose account is confirmed tomorrow is not read again at cost, and
  * only import into an account the household has actually confirmed.
  */
-import { createJsonRunner } from "../ai/runner.server";
 import { bankDomain, findBank } from "../ai/banks";
 import {
   EMPTY_IDENTITY,
@@ -256,13 +255,12 @@ export async function processStatement(
     let extraction = await readCachedExtraction(supabase, statement.file_path);
     if (!extraction) {
       file = file ?? (await downloadStatementFile(supabase, statement));
-      const runner = await createJsonRunner(supabase, statement.household_id, "extraction");
-      extraction = await extractStatementContent(runner, file);
+      extraction = await extractStatementContent(file);
       await writeCachedExtraction(supabase, statement.file_path, extraction);
-      if (runner.notes.length) {
+      if (extraction.notes.length) {
         await supabase
           .from("statements")
-          .update({ summary: { extraction_notes: runner.notes } })
+          .update({ summary: { extraction_notes: extraction.notes } })
           .eq("id", statement.id);
       }
     }

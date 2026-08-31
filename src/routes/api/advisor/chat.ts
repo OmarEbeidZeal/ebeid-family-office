@@ -11,12 +11,9 @@ import { z } from "zod";
 import { authenticateRequest, UnauthorizedError } from "@/lib/api-auth.server";
 import { loadAdvisorContext, NoHouseholdError } from "@/lib/advisor/context.server";
 import { advisorSystemPrompt } from "@/lib/advisor/prompt";
-import {
-  AdvisorGatewayError,
-  resolveAdvisorModel,
-  streamAdvisor,
-  type AdvisorInputItem,
-} from "@/lib/advisor/gateway.server";
+import { AiGatewayError } from "@/lib/ai/errors";
+import { streamAdvisor, type AdvisorInputItem } from "@/lib/ai/gateway.server";
+import { ADVISORY_MODEL } from "@/lib/ai/models";
 
 const bodySchema = z.object({
   message: z.string().trim().min(1).max(4000),
@@ -28,8 +25,6 @@ const HISTORY_LIMIT = 24;
 type Event =
   | { type: "reasoning"; delta: string }
   | { type: "text"; delta: string }
-  /** Who is answering — the household's choice, or whoever stood in for it. */
-  | { type: "model"; provider: string; model: string; note: string | null }
   | { type: "done"; messageId: string | null; model: string }
   | { type: "error"; message: string };
 
@@ -107,36 +102,19 @@ async function handlePost({ request }: { request: Request }) {
     today: new Date().toISOString().slice(0, 10),
   });
 
-  const choice = await resolveAdvisorModel(supabase, loaded.householdId);
-
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let answer = "";
       let reasoning = "";
-      let usedModel = choice.model;
 
       try {
         for await (const event of streamAdvisor({
-          provider: choice.provider,
-          model: choice.model,
-          note: choice.note,
           instructions,
           input: [...priorTurns, { role: "user", text: parsed.message }],
-          reasoningEffort: "low",
-          maxOutputTokens: 4000,
+          maxOutputTokens: 12000,
           ...(request.signal ? { signal: request.signal } : {}),
         })) {
-          if (event.type === "model") {
-            usedModel = event.model;
-            controller.enqueue(
-              line({
-                type: "model",
-                provider: event.provider,
-                model: event.model,
-                note: event.note,
-              }),
-            );
-          } else if (event.type === "reasoning") {
+          if (event.type === "reasoning") {
             reasoning += event.delta;
             controller.enqueue(line({ type: "reasoning", delta: event.delta }));
           } else if (event.type === "text") {
@@ -148,7 +126,7 @@ async function handlePost({ request }: { request: Request }) {
         const aborted = error instanceof Error && error.name === "AbortError";
         if (!aborted) {
           const message =
-            error instanceof AdvisorGatewayError
+            error instanceof AiGatewayError
               ? error.message
               : error instanceof Error
                 ? error.message
@@ -168,7 +146,7 @@ async function handlePost({ request }: { request: Request }) {
             role: "assistant",
             content: answer,
             reasoning: reasoning.trim() || null,
-            model: usedModel,
+            model: ADVISORY_MODEL,
             context_snapshot: JSON.parse(JSON.stringify(loaded.context)),
           })
           .select("id")
@@ -176,7 +154,7 @@ async function handlePost({ request }: { request: Request }) {
         messageId = data?.id ?? null;
       }
 
-      controller.enqueue(line({ type: "done", messageId, model: usedModel }));
+      controller.enqueue(line({ type: "done", messageId, model: ADVISORY_MODEL }));
       controller.close();
     },
   });

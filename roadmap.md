@@ -26,10 +26,11 @@
 
 - [x] Private `statements` storage bucket, owner-scoped policies, 20MB PDF / CSV / XLS / XLSX
 - [x] Multi-file import dialog — per-file account picker, inline account creation, live status
-- [x] Server-side parsing: CSV (Papa), XLSX (`@e965/xlsx`), text-layer PDF (`unpdf`), Arabic
-      headers and Arabic-Indic digits, honest failure on scanned PDFs with no text layer
-- [x] AI mapping and categorisation through Lovable AI (`gemini-3.1-flash-lite`, PDF extraction
-      on `gemini-3.7-flash`), confidence recorded per transaction
+- [x] Server-side parsing: CSV (Papa), XLSX (`@e965/xlsx`), text-layer PDF (`unpdf`),
+      English-language UK / Egypt / Jordan formats, honest failure on scanned PDFs with no
+      text layer
+- [x] AI mapping and categorisation through the Lovable AI gateway, one named model per job
+      (`src/lib/ai/models.ts`), confidence recorded per transaction
 - [x] Dated FX conversion into `amount_base`, nearest-rate note when the exact day is missing
 - [x] Deduplication by fingerprint — re-importing the same file reports "already imported"
 - [x] Opening / closing balance validation, discrepancy surfaced, statement marked `needs_review`
@@ -244,13 +245,15 @@ Bank identity
       server-side and cached, with a deterministic monogram whenever no logo can be had
 - [x] Institution and its logo shown on accounts, statements and the import review
 
-Pluggable AI providers
-- [x] One provider abstraction behind three jobs — statement extraction, categorisation and the
-      advisor — with Lovable AI as the default and Anthropic or OpenAI selectable per job
-- [x] Settings → AI models: provider and model per job, live model lists from the provider when a
-      key is present, a real test call, and plain reporting when a key is missing
-- [x] A provider failure falls back to Lovable AI and says so rather than failing the work
-- [x] The advisor's constraints, disclaimer and grounding rules are unchanged by the provider
+One gateway, three models
+- [x] Every AI call goes through the Lovable AI gateway — no provider abstraction, no direct
+      Anthropic or OpenAI adapters, no keys to manage and no Settings panel to configure
+- [x] Three named jobs with their model constants in one file (`src/lib/ai/models.ts`): statement
+      extraction and the advisor on a strong reasoning model, bulk categorisation on the cheapest
+      capable one
+- [x] Statements are treated as English-language only — no Arabic headers, RTL handling,
+      bilingual column matching or Arabic-Indic numeral conversion anywhere in the parser
+- [x] The advisor's constraints, disclaimer and grounding rules are unchanged
 
 Verified end to end on a real file: a genuine statement is read, proposes its account, imports its
 rows once confirmed and is refused a second time as the same file; a file with nothing readable in

@@ -18,8 +18,8 @@ import {
 } from "@/lib/advisor/context.server";
 import { detectSignals, formatSignals, rankSignals } from "@/lib/advisor/signals";
 import { BRIEFING_SCHEMA, briefingSystemPrompt, type BriefingPayload } from "@/lib/advisor/prompt";
-import { AiProviderError } from "@/lib/ai/errors";
-import { createJsonRunner } from "@/lib/ai/runner.server";
+import { AiGatewayError } from "@/lib/ai/errors";
+import { completeJson } from "@/lib/ai/gateway.server";
 import type { BriefingResult } from "@/lib/advisor.functions";
 
 /** A situation already written up inside this window is not written up again. */
@@ -119,13 +119,9 @@ async function writeBriefing(
     };
   }
 
-  // Whichever provider the household chose for advisory work writes this; if
-  // it cannot, the runner falls back to Lovable AI and says so in its notes.
-  const runner = await createJsonRunner(client, loaded.householdId, "advisory");
-
   let payload: BriefingPayload;
   try {
-    payload = await runner.json<BriefingPayload>({
+    payload = await completeJson<BriefingPayload>("advisory", {
       system: briefingSystemPrompt({
         contextJson: JSON.stringify(loaded.context),
         householdName: loaded.householdName,
@@ -135,10 +131,10 @@ async function writeBriefing(
       user: "Write this week's briefing from the detected signals. Return json matching the schema.",
       schemaName: "briefing",
       schema: BRIEFING_SCHEMA as Record<string, unknown>,
-      maxTokens: 4000,
+      maxTokens: 12000,
     });
   } catch (error) {
-    if (error instanceof AiProviderError) {
+    if (error instanceof AiGatewayError) {
       return {
         status: "unavailable",
         created: 0,
