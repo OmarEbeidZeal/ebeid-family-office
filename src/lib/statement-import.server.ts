@@ -637,6 +637,7 @@ export async function importExtracted(
       .update({
         status: needsReview ? "needs_review" : "parsed",
         source_format: format,
+        format_version: extraction.formatVersion ?? null,
         transaction_count: heldCount ?? insertedIds.length,
         duplicate_count: duplicates,
         period_start: extraction.meta.period_start ?? firstDate,
