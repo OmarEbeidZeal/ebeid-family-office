@@ -221,7 +221,9 @@ async function fanOutStatements(
   supabase: Client,
   statement: Record<string, any>,
   results: ExtractionResult[],
+  fileHash: string,
 ): Promise<void> {
+
   const count = results.length;
   if (count < 2) {
     if ((statement["statement_count"] ?? 1) !== 1) {
