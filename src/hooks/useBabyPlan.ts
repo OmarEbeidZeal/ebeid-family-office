@@ -49,15 +49,24 @@ export type PersonIncome = {
   cliff: CliffAssessment | null;
 };
 
-/** Turns a stored childcare row into the shape the maths works on. */
-export function toChildcarePlan(row: ChildcarePlanRow | null | undefined): ChildcarePlan | null {
+/**
+ * Turns a stored childcare row into the shape the maths works on.
+ *
+ * `toBase` converts the nursery's own currency into the reporting currency, so
+ * the cost sits alongside the rest of the projection. The statutory help is
+ * defined in sterling, which is the assumption the whole plan rests on.
+ */
+export function toChildcarePlan(
+  row: ChildcarePlanRow | null | undefined,
+  toBase: (amount: number, currency: string) => number = (amount) => amount,
+): ChildcarePlan | null {
   if (!row) return null;
   return {
     startDate: row.starts_on ?? "",
     hoursPerWeek: Number(row.hours_per_week),
-    hourlyRate: Number(row.hourly_rate),
+    hourlyRate: toBase(Number(row.hourly_rate), row.currency),
     weeksPerYear: Number(row.weeks_per_year),
-    monthlyExtras: Number(row.monthly_extras ?? 0),
+    monthlyExtras: toBase(Number(row.monthly_extras ?? 0), row.currency),
     usesTaxFreeChildcare: row.tax_free_childcare,
   };
 }
@@ -170,7 +179,10 @@ export function useBabyPlan(eventId?: string) {
     () => (childcareQuery.data ?? []).find((row) => row.life_event_id === event?.id) ?? null,
     [childcareQuery.data, event?.id],
   );
-  const childcarePlan = useMemo(() => toChildcarePlan(childcareRow), [childcareRow]);
+  const childcarePlan = useMemo(
+    () => toChildcarePlan(childcareRow, (amount, currency) => convert(amount, currency, base)),
+    [childcareRow, convert, base],
+  );
 
   // What the £100,000 ceiling would take away, priced from the actual plan.
   const supportValue = useMemo(
