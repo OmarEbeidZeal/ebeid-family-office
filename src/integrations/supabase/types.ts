@@ -1521,6 +1521,7 @@ export type Database = {
           file_name: string | null
           file_path: string
           file_size: number | null
+          format_version: string | null
           household_id: string
           id: string
           import_batch_id: string | null
@@ -1562,6 +1563,7 @@ export type Database = {
           file_name?: string | null
           file_path: string
           file_size?: number | null
+          format_version?: string | null
           household_id: string
           id?: string
           import_batch_id?: string | null
@@ -1603,6 +1605,7 @@ export type Database = {
           file_name?: string | null
           file_path?: string
           file_size?: number | null
+          format_version?: string | null
           household_id?: string
           id?: string
           import_batch_id?: string | null

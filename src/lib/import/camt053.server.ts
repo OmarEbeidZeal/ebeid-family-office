@@ -8,6 +8,15 @@
  * One file may carry several `Stmt` elements — banks routinely export several
  * accounts, or several periods, in one document — so this returns a list, and
  * each becomes its own statement record matched to its own account.
+ *
+ * Version-agnostic by construction. Banks offer anything from
+ * `camt.053.001.02` to `camt.053.001.10`, sometimes in the same download, and
+ * the household should never have to care which. Elements are matched by local
+ * name with the namespace stripped, nothing is validated against an XSD, and
+ * every field is read tolerantly — a code that is plain text in .02 and a
+ * composite from .08 onward reads the same either way. The namespace is read
+ * for one purpose only: to record which version a file was, so an oddity can
+ * be traced back to its source later.
  */
 import { XMLParser } from "fast-xml-parser";
 import { bankFromBic } from "../ai/banks";
@@ -92,14 +101,32 @@ function isoDate(node: Unknown): string | null {
   return match ? match[0]! : null;
 }
 
+/**
+ * A code that may be plain text or a composite, read the same way either way.
+ *
+ * This single tolerance is what makes the reader version-agnostic. `Sts` is
+ * `<Sts>BOOK</Sts>` in .02 and `<Sts><Cd>BOOK</Cd></Sts>` from .08; balance
+ * types, account types and transaction codes moved the same way at various
+ * points. Take the element's own text when it has one, otherwise its `Cd`, and
+ * fall back to a proprietary code — never branch on the schema version.
+ */
 function codeOf(node: Unknown): string | null {
   return (
     text(node) ??
     text(at(node, "Cd")) ??
     text(at(node, "Prtry")) ??
     text(at(node, "Prtry", "Cd")) ??
+    text(at(node, "CdOrPrtry", "Cd")) ??
+    text(at(node, "CdOrPrtry", "Prtry")) ??
+    text(at(node, "CdOrPrtry")) ??
     null
   );
+}
+
+/** A flag that may be `true`, `1` or `Y`, and may be wrapped like a code. */
+function flag(node: Unknown): boolean {
+  const raw = (codeOf(node) ?? "").trim().toLowerCase();
+  return raw === "true" || raw === "1" || raw === "y" || raw === "yes";
 }
 
 const minor = (value: number) => Math.round(value * 100);
@@ -110,6 +137,18 @@ export function looksLikeCamt(sample: string): boolean {
   return /BkToCstmrStmt/.test(sample);
 }
 
+/**
+ * Which CAMT.053 version the file declares, e.g. `camt.053.001.08`.
+ *
+ * Recorded, never acted on. The reader behaves identically whatever this says;
+ * it exists so that if one file ever reads oddly, the version it came from is
+ * on the statement record rather than lost with the upload.
+ */
+export function camtVersion(xml: string): string | null {
+  const match = xml.match(/camt\.053\.001\.(\d{2})/i);
+  return match ? `camt.053.001.${match[1]}` : null;
+}
+
 /* ------------------------------------------------------------------ parser */
 
 const parser = new XMLParser({
@@ -118,6 +157,8 @@ const parser = new XMLParser({
   parseTagValue: false,
   parseAttributeValue: false,
   trimValues: true,
+  // Local names only: `<Ntry>`, `<ns:Ntry>` and `<camt:Ntry>` are one element,
+  // and the namespace version never reaches the reading code.
   removeNSPrefix: true,
   processEntities: true,
 });
@@ -125,7 +166,7 @@ const parser = new XMLParser({
 type Direction = "debit" | "credit";
 
 function direction(node: Unknown, fallback: Direction = "debit"): Direction {
-  const indicator = (text(at(node, "CdtDbtInd")) ?? "").toUpperCase();
+  const indicator = (codeOf(at(node, "CdtDbtInd")) ?? "").toUpperCase();
   if (indicator === "CRDT") return "credit";
   if (indicator === "DBIT") return "debit";
   return fallback;
@@ -223,8 +264,15 @@ function readBalances(
   const notes: string[] = [];
 
   for (const balance of list(stmt, "Bal")) {
-    const code = (codeOf(at(balance, "Tp", "CdOrPrtry")) ?? "").toUpperCase();
+    // `Tp/CdOrPrtry/Cd` in most versions, a plain `Tp/Cd` or bare `Tp` in some
+    // dialects — read whichever the file happens to use.
+    const code = (
+      codeOf(at(balance, "Tp", "CdOrPrtry")) ??
+      codeOf(at(balance, "Tp")) ??
+      ""
+    ).toUpperCase();
     if (!code) continue;
+
     const amount = money(at(balance, "Amt"));
     if (!amount) continue;
     // A currency other than the account's belongs to a different leg of a
@@ -232,7 +280,7 @@ function readBalances(
     if (currency && amount.currency && amount.currency !== currency) continue;
 
     const signed =
-      (text(at(balance, "CdtDbtInd")) ?? "").toUpperCase() === "DBIT"
+      (codeOf(at(balance, "CdtDbtInd")) ?? "").toUpperCase() === "DBIT"
         ? -Math.abs(amount.value)
         : Math.abs(amount.value);
 
@@ -271,22 +319,34 @@ type Detail = {
   fxRate: number | null;
 };
 
+/**
+ * What the payment says about itself.
+ *
+ * Structured remittance wins wherever both are present — a creditor reference
+ * or an invoice number is the bank's own identifier for the payment, while the
+ * unstructured line is free text a person typed. Newer versions populate the
+ * structured block far more often, and taking it is most of the gain from
+ * them; the free-text line remains the fallback for .02 files and for banks
+ * that never fill the structured block in.
+ */
 function remittanceOf(txDetail: Unknown): string | null {
   const info = at(txDetail, "RmtInf");
+
+  const structured = list(info, "Strd")
+    .flatMap((entry) =>
+      [
+        text(at(entry, "CdtrRefInf", "Ref")),
+        text(at(entry, "RfrdDocInf", "Nb")),
+        text(at(entry, "AddtlRmtInf")),
+      ].filter((line): line is string => Boolean(line)),
+    )
+    .filter((line, index, all) => all.indexOf(line) === index);
+  if (structured.length) return structured.join(" ").replace(/\s+/g, " ").trim();
+
   const unstructured = list(info, "Ustrd")
     .map((line) => text(line))
     .filter((line): line is string => Boolean(line));
-  if (unstructured.length) return unstructured.join(" ").replace(/\s+/g, " ").trim();
-
-  const structured = list(info, "Strd")
-    .map(
-      (entry) =>
-        text(at(entry, "CdtrRefInf", "Ref")) ??
-        text(at(entry, "AddtlRmtInf")) ??
-        text(at(entry, "RfrdDocInf", "Nb")),
-    )
-    .filter((line): line is string => Boolean(line));
-  return structured.length ? structured.join(" ").trim() : null;
+  return unstructured.length ? unstructured.join(" ").replace(/\s+/g, " ").trim() : null;
 }
 
 /** The other side of the transaction: who was paid, or who paid. */
@@ -321,10 +381,15 @@ function readDetail(txDetail: Unknown, entryFlow: Direction): Detail {
   const flow = direction(txDetail, entryFlow);
   const { original, rate } = foreignAmount(txDetail);
   return {
+    // Absent in plenty of files, and that is fine: no counterparty means no
+    // merchant, and categorisation works from the reference and the narrative.
     merchant: counterparty(txDetail, flow),
     reference:
       text(at(txDetail, "Refs", "EndToEndId")) ??
       text(at(txDetail, "Refs", "TxId")) ??
+      // UETR only exists from .08 onward; read it if it is there, never expect it.
+      text(at(txDetail, "Refs", "UETR")) ??
+      text(at(txDetail, "Refs", "InstrId")) ??
       text(at(txDetail, "Refs", "MsgId")),
     remittance: remittanceOf(txDetail) ?? text(at(txDetail, "AddtlTxInf")),
     bankReference: text(at(txDetail, "Refs", "AcctSvcrRef")),
@@ -381,10 +446,17 @@ export function parseCamt053(xml: string): ExtractionResult[] {
     );
   }
 
-  return statements.map((stmt, index) => readStatement(stmt, index, statements.length));
+  const version = camtVersion(xml);
+
+  return statements.map((stmt, index) => readStatement(stmt, index, statements.length, version));
 }
 
-function readStatement(stmt: Unknown, index: number, total: number): ExtractionResult {
+function readStatement(
+  stmt: Unknown,
+  index: number,
+  total: number,
+  version: string | null,
+): ExtractionResult {
   const { identity, currency } = readIdentity(stmt);
   const notes: string[] = [];
   if (total > 1) notes.push(`Statement ${index + 1} of ${total} in this file.`);
@@ -404,6 +476,8 @@ function readStatement(stmt: Unknown, index: number, total: number): ExtractionR
   let splitEntries = 0;
 
   for (const entry of list(stmt, "Ntry")) {
+    // Plain text in .02, a composite from .08 — `codeOf` reads both, and an
+    // entry that states no status at all is taken as booked, as the spec says.
     const status = (codeOf(at(entry, "Sts")) ?? "BOOK").toUpperCase();
     if (status !== "BOOK") {
       // A pending entry books later; importing it now would double-count it.
@@ -418,9 +492,12 @@ function readStatement(stmt: Unknown, index: number, total: number): ExtractionR
       continue;
     }
 
-    const reversed = (text(at(entry, "RvslInd")) ?? "").toLowerCase() === "true";
+    const reversed = flag(at(entry, "RvslInd"));
     const entryFlow = reversed ? flip(direction(entry)) : direction(entry);
-    const valueDate = isoDate(at(entry, "ValDt"));
+    // A file that omits the value date is not a broken file: the money moved
+    // on the day it was booked unless the bank says otherwise.
+    const valueDate = isoDate(at(entry, "ValDt")) ?? bookedDate;
+
     const entryReference = usableReference(
       text(at(entry, "AcctSvcrRef")) ?? text(at(entry, "NtryRef")),
     );
@@ -529,6 +606,8 @@ function readStatement(stmt: Unknown, index: number, total: number): ExtractionR
     skippedRows,
     notes,
     format: "camt053",
+    // Recorded for traceability only — the reading above never consults it.
+    formatVersion: version,
     exactBalances: opening !== null && closing !== null,
     accountDetectable: Boolean(identity.account_identifier),
     statementReference,

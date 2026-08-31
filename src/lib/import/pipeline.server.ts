@@ -263,6 +263,7 @@ async function fanOutStatements(
     file_hash: fileHash || (statement["file_hash"] ?? null),
 
     source_format: result.format ?? null,
+    format_version: result.formatVersion ?? null,
     statement_index: offset + 1,
     statement_count: count,
     currency: result.meta.currency ?? null,
@@ -422,6 +423,7 @@ export async function processStatement(
       .from("statements")
       .update({
         source_format: extraction.format ?? null,
+        format_version: extraction.formatVersion ?? null,
         detected_institution: identity.institution,
         detected_institution_domain: bankDomain(identity.institution),
         detected_holder: identity.statement_holder,

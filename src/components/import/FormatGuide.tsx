@@ -64,6 +64,10 @@ export function FormatGuide({ className }: { className?: string }) {
               </span>
             </li>
           ))}
+          <li className="px-4 py-2.5 text-[0.7rem] leading-relaxed text-muted-foreground">
+            Any CAMT.053 version from .02 to .10 is accepted — pick whichever your bank offers, and
+            a mixed set of files is fine.
+          </li>
         </ol>
       )}
     </section>
