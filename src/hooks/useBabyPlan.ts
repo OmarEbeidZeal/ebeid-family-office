@@ -26,7 +26,7 @@ import {
   unfundedWindow,
   type ChildcarePlan,
 } from "@/lib/planning/childcare";
-import { daysUntil, todayIso } from "@/lib/planning/dates";
+import { daysUntil, toIso } from "@/lib/planning/dates";
 import {
   leaveSchedule,
   summariseLeave,
@@ -256,7 +256,7 @@ export function useBabyPlan(eventId?: string) {
     return assessChildBenefit(event.child_count ?? 1, income.highestAni);
   }, [event, income.highestAni]);
 
-  const daysToDue = event ? daysUntil(event.expected_date, todayIso()) : null;
+  const daysToDue = event ? daysUntil(event.expected_date, toIso(new Date())) : null;
 
   return {
     loading:
@@ -280,7 +280,7 @@ export function useBabyPlan(eventId?: string) {
 
 /** Tasks worth surfacing outside the planner: due soon, or already late. */
 export function upcomingTasks(tasks: LifeEventTaskRow[], withinDays = 45) {
-  const today = todayIso();
+
   return tasks
     .filter((task) => task.status !== "done" && task.due_date)
     .map((task) => ({ task, days: daysUntil(task.due_date!, today) }))
