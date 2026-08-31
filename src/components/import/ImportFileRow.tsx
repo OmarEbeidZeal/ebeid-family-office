@@ -127,7 +127,6 @@ export function ImportFileRow({
         {!statement.error_message && summary && (
           <p className="mt-0.5 truncate text-[0.7rem] text-muted-foreground">{summary}</p>
         )}
-
       </div>
 
       <span className={cn("flex shrink-0 items-center gap-1.5 text-[0.7rem]", status.tone)}>

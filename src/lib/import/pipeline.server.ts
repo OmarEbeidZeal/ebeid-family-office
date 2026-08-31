@@ -275,19 +275,17 @@ export async function processStatement(
     // proposing an account nobody holds.
     const understoodSomething = Boolean(
       identity.institution ||
-        identity.account_identifier ||
-        extraction.meta.period_start ||
-        extraction.meta.period_end ||
-        extraction.meta.opening_balance !== null ||
-        extraction.meta.closing_balance !== null,
+      identity.account_identifier ||
+      extraction.meta.period_start ||
+      extraction.meta.period_end ||
+      extraction.meta.opening_balance !== null ||
+      extraction.meta.closing_balance !== null,
     );
     if (!extraction.transactions.length && !understoodSomething) {
       throw new StatementFailure(
         "Nothing in this file reads as a bank statement — no transactions, no account and no statement period. Check you exported the transaction list from your bank.",
       );
     }
-
-
 
     /* -------------------------------------------------------- identity */
     let identifier: NormalisedIdentifier | null = null;

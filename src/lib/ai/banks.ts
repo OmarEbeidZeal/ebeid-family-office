@@ -411,4 +411,3 @@ export function monogram(value: string | null | undefined): string {
   if (words.length === 1) return first.slice(0, 2).toUpperCase();
   return `${first[0]}${words[1]![0]}`.toUpperCase();
 }
-

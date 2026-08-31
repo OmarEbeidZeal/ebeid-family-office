@@ -256,7 +256,6 @@ function AccountRowItem({
   const maskDigits = account.identifier_mask?.replace(/\D/g, "") ?? "";
   const showMask = Boolean(account.identifier_mask) && !account.nickname.includes(maskDigits);
 
-
   return (
     <div className="flex items-center gap-3 border-t border-border px-4 py-3.5 first:border-t-0 sm:gap-4">
       <BankMark
