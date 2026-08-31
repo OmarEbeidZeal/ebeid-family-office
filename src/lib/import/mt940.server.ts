@@ -326,19 +326,23 @@ function readStatement(
 
     const bookedDate = entryDate(valueIso, match[2]);
     const txCode = match[6] ?? null;
-    const tail = `${match[7] ?? ""} ${rest.join(" ")}`.trim();
-    const [customerRef, bankRefRaw] = tail.split("//");
+    // References live on the `:61:` line itself, before and after the `//`.
+    // A continuation line is supplementary detail, not part of the reference —
+    // folding it in would corrupt the very key used to spot duplicates.
+    const [customerRef, bankRefRaw] = (match[7] ?? "").trim().split("//");
+    const supplementary = rest.join(" ").replace(/\s+/g, " ").trim();
 
     const narrativeField = block[position + 1]?.tag === "86" ? block[position + 1]!.value : null;
     const narrative = readNarrative(narrativeField);
 
     const description = [
-      narrative.description || customerRef?.trim() || txCode || "Transaction",
+      narrative.description || supplementary || customerRef?.trim() || txCode || "Transaction",
       isReversal ? "(reversal)" : null,
     ]
       .filter(Boolean)
       .join(" ")
       .slice(0, 300);
+
 
     transactions.push({
       booked_date: bookedDate,
