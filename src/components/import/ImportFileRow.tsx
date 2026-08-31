@@ -109,13 +109,25 @@ export function ImportFileRow({
           {facts.length ? facts.join(" · ") : "Not read yet"}
         </p>
         {statement.error_message && (
-          <p className="mt-0.5 text-[0.7rem] leading-relaxed text-loss">
+          <p
+            className={cn(
+              "mt-0.5 text-[0.7rem] leading-relaxed",
+              // Only a real failure reads as a failure. "Already on file" and a
+              // stopped file are ordinary outcomes, not red ones.
+              statement.status === "failed"
+                ? "text-loss"
+                : statement.status === "needs_review"
+                  ? "text-warn"
+                  : "text-muted-foreground",
+            )}
+          >
             {statement.error_message}
           </p>
         )}
         {!statement.error_message && summary && (
           <p className="mt-0.5 truncate text-[0.7rem] text-muted-foreground">{summary}</p>
         )}
+
       </div>
 
       <span className={cn("flex shrink-0 items-center gap-1.5 text-[0.7rem]", status.tone)}>
