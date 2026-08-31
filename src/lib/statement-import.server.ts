@@ -17,7 +17,7 @@ import {
   type CategoryRef,
   type CategoryRule,
 } from "./categorise.server";
-import { createJsonRunner, type JsonRunner } from "./ai/runner.server";
+import { CATEGORISATION_MODEL } from "./ai/models";
 import {
   applyMapping,
   extractFromPdfText,
@@ -193,13 +193,12 @@ export async function downloadStatementFile(
 
 /** File bytes → rows plus everything the statement says about itself. */
 export async function extractStatementContent(
-  runner: JsonRunner,
   file: LoadedStatementFile,
 ): Promise<ExtractionResult> {
   if (file.kind === "pdf") {
     const pdf = await extractPdfText(file.bytes);
     if (looksScanned(pdf)) throw new StatementFailure(SCANNED_PDF_MESSAGE);
-    return extractFromPdfText(runner, pdf.text);
+    return extractFromPdfText(pdf.text);
   }
 
   const rawRows =
@@ -212,7 +211,7 @@ export async function extractStatementContent(
       "This file has no readable rows. Check you exported the transaction list rather than a summary.",
     );
   }
-  const mapping = await inferColumnMapping(runner, rows);
+  const mapping = await inferColumnMapping(rows);
   return applyMapping(rows, mapping);
 }
 
@@ -248,8 +247,7 @@ export async function importStatement(
 
   try {
     const file = await downloadStatementFile(supabase, statement);
-    const extractionRunner = await createJsonRunner(supabase, statement.household_id, "extraction");
-    const extraction = await extractStatementContent(extractionRunner, file);
+    const extraction = await extractStatementContent(file);
     return await importExtracted(supabase, statement, extraction);
   } catch (error) {
     const message =
@@ -394,12 +392,10 @@ export async function importExtracted(
       .filter((entry) => !assignments[entry.index]);
 
     let aiNote: string | null = null;
-    let categoriser: JsonRunner | null = null;
+    let categorisedByModel: string | null = null;
     if (needsAi.length) {
       try {
-        categoriser = await createJsonRunner(supabase, statement.household_id, "categorisation");
         const results = await categoriseBatch(
-          categoriser,
           needsAi.map((entry) => ({
             description: entry.row.description,
             merchant: entry.row.merchant,
@@ -409,6 +405,7 @@ export async function importExtracted(
           })),
           categories,
         );
+        categorisedByModel = CATEGORISATION_MODEL;
 
         results.forEach((result, position) => {
           const entry = needsAi[position]!;
@@ -420,7 +417,6 @@ export async function importExtracted(
           };
           if (result.merchant) entry.row.merchant = result.merchant;
         });
-        for (const note of categoriser.notes) if (!notes.includes(note)) notes.push(note);
       } catch (error) {
         // Import the money even when categorisation is unavailable; the review
         // queue then holds everything uncategorised.
@@ -552,9 +548,7 @@ export async function importExtracted(
           duplicates,
           skipped_rows: extraction.skippedRows,
           notes,
-          categorised_by: categoriser
-            ? { provider: categoriser.provider, model: categoriser.model }
-            : null,
+          categorised_by: categorisedByModel ? { model: categorisedByModel } : null,
         },
       })
       .eq("id", statementId);

@@ -6,7 +6,6 @@ import { ProfileCard } from "@/components/settings/ProfileCard";
 import { HouseholdCard } from "@/components/settings/HouseholdCard";
 import { FxCard } from "@/components/settings/FxCard";
 import { MarketDataCard } from "@/components/settings/MarketDataCard";
-import { AiModelsCard } from "@/components/settings/AiModelsCard";
 import { BankMarksCard } from "@/components/settings/BankMarksCard";
 import { AllowanceCard } from "@/components/settings/AllowanceCard";
 import { AccessCard } from "@/components/settings/AccessCard";
@@ -42,7 +41,7 @@ function SettingsPage() {
   return (
     <AppShell
       title="Settings"
-      description="Who is in the household, what currency it reports in, allowance capacity, market data, which AI models do the work, how the briefing reaches you and who may sign in."
+      description="Who is in the household, what currency it reports in, allowance capacity, market data, how the briefing reaches you and who may sign in."
     >
       <div className="space-y-5">
         <ProfileCard />
@@ -53,7 +52,6 @@ function SettingsPage() {
         <AllowanceCard />
         <FxCard />
         <MarketDataCard />
-        <AiModelsCard />
         <BankMarksCard />
 
         <AppearanceCard />

@@ -372,54 +372,6 @@ export type Database = {
           },
         ]
       }
-      ai_settings: {
-        Row: {
-          created_at: string
-          household_id: string
-          id: string
-          job: string
-          model: string | null
-          provider: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          household_id: string
-          id?: string
-          job: string
-          model?: string | null
-          provider?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          household_id?: string
-          id?: string
-          job?: string
-          model?: string | null
-          provider?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ai_settings_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ai_settings_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       allowed_emails: {
         Row: {
           claimed_at: string | null

@@ -8,7 +8,6 @@ import {
   type ImportStatementRow,
   type StatementSummary,
 } from "@/hooks/useImports";
-import { PROVIDER_LABELS, type AiProviderId } from "@/lib/ai/catalog";
 import type { AccountRow } from "@/hooks/useFinancials";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -45,12 +44,7 @@ function summaryLine(summary: StatementSummary | null): string | null {
   }
 
   const by = summary.categorised_by;
-  if (by?.provider) {
-    const provider = PROVIDER_LABELS[by.provider as AiProviderId] ?? by.provider;
-    parts.push(
-      by.model ? `Categorised by ${provider} · ${by.model}` : `Categorised by ${provider}`,
-    );
-  }
+  if (by?.model) parts.push(`Categorised by ${by.model}`);
 
   return parts.length ? parts.join(" · ") : null;
 }

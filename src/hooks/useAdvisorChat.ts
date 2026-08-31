@@ -15,8 +15,6 @@ export type StreamingTurn = {
   question: string;
   reasoning: string;
   answer: string;
-  /** Which model is answering — announced before the first token. */
-  model: string | null;
 };
 
 export function useAdvisorChat() {
@@ -26,8 +24,6 @@ export function useAdvisorChat() {
 
   const [turn, setTurn] = useState<StreamingTurn | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** Said out loud when a chosen provider could not run and another stood in. */
-  const [notice, setNotice] = useState<string | null>(null);
   const [thinking, setThinking] = useState(false);
 
   const history = useQuery({
@@ -55,8 +51,7 @@ export function useAdvisorChat() {
       if (!question || thinking) return;
 
       setError(null);
-      setNotice(null);
-      setTurn({ question, reasoning: "", answer: "", model: null });
+      setTurn({ question, reasoning: "", answer: "" });
       setThinking(true);
 
       const controller = new AbortController();
@@ -98,24 +93,14 @@ export function useAdvisorChat() {
             newline = buffer.indexOf("\n");
             if (!raw) continue;
 
-            let event: {
-              type: string;
-              delta?: string;
-              message?: string;
-              model?: string;
-              note?: string | null;
-            };
+            let event: { type: string; delta?: string; message?: string };
             try {
               event = JSON.parse(raw);
             } catch {
               continue;
             }
 
-            if (event.type === "model") {
-              const model = event.model ?? null;
-              setTurn((current) => (current ? { ...current, model } : current));
-              if (event.note) setNotice(event.note);
-            } else if (event.type === "reasoning") {
+            if (event.type === "reasoning") {
               setTurn((current) =>
                 current
                   ? { ...current, reasoning: current.reasoning + (event.delta ?? "") }
@@ -156,7 +141,6 @@ export function useAdvisorChat() {
   }, []);
 
   const dismissError = useCallback(() => setError(null), []);
-  const dismissNotice = useCallback(() => setNotice(null), []);
 
   return {
     messages: history.data ?? [],
@@ -164,10 +148,8 @@ export function useAdvisorChat() {
     turn,
     thinking,
     error,
-    notice,
     send,
     stop,
     dismissError,
-    dismissNotice,
   };
 }

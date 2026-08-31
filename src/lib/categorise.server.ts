@@ -6,7 +6,7 @@
  * batches, and every AI answer carries a confidence that drives the review
  * queue.
  */
-import type { JsonRunner } from "./ai/runner.server";
+import { completeJson } from "./ai/gateway.server";
 import { normaliseDescription, similarity } from "./text";
 
 export type CategoryRef = {
@@ -77,19 +77,32 @@ const CATEGORISE_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const CATEGORISE_SYSTEM = `You file bank transactions for a London household with accounts in the UK, Egypt, Jordan and the US.
+const CATEGORISE_SYSTEM = `You file bank transactions for a London household with accounts in the UK, Egypt, Jordan and the US. Every statement is in English.
 
 Rules:
-- category must be copied exactly from the allowed list. If nothing fits, return "Other".
+- category must be one of the allowed names, copied exactly and on its own — the name only, never the group it belongs to and never a name you invent. If nothing fits, return "Other".
 - merchant is a short, clean trading name taken from the description (for example "TESCO STORES 3428 LONDON" becomes "Tesco"). Return "" when the description names no merchant.
 - confidence is 0 to 1. Use below 0.7 whenever the description is ambiguous, cryptic or a bare reference number — a flagged row is far better than a confidently wrong one.
-- Money arriving is usually Salary, Dividends or Rent Received; a transfer between the household's own accounts should be "Savings Transfer".
-- Never invent a category that is not on the list.`;
+- Money arriving is usually Salary, Dividends or Rent Received; a transfer between the household's own accounts should be "Savings Transfer".`;
 
 const BATCH_SIZE = 40;
 
+/**
+ * Match what the model returned back to a real category. Exact name first, then
+ * the same name with the group it was shown alongside ("Groceries (Essential)")
+ * — a model that helpfully echoes the group should not cost the household a
+ * filed transaction.
+ */
+function resolveCategoryId(answer: string, byName: Map<string, string>): string | null {
+  const cleaned = (answer ?? "").trim().toLowerCase();
+  if (!cleaned) return null;
+  const direct = byName.get(cleaned);
+  if (direct) return direct;
+  const withoutGroup = cleaned.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  return withoutGroup ? (byName.get(withoutGroup) ?? null) : null;
+}
+
 export async function categoriseBatch(
-  runner: JsonRunner,
   transactions: CategorisableTransaction[],
   categories: CategoryRef[],
 ): Promise<Array<{ category_id: string | null; confidence: number; merchant: string | null }>> {
@@ -102,7 +115,10 @@ export async function categoriseBatch(
   if (!transactions.length || !categories.length) return results;
 
   const byName = new Map(categories.map((category) => [category.name.toLowerCase(), category.id]));
-  const allowed = categories.map((category) => `${category.name} (${category.category_group})`);
+  const allowed = categories.map((category) => ({
+    name: category.name,
+    group: category.category_group,
+  }));
 
   for (let start = 0; start < transactions.length; start += BATCH_SIZE) {
     const batch = transactions.slice(start, start + BATCH_SIZE);
@@ -114,20 +130,20 @@ export async function categoriseBatch(
       currency: transaction.currency,
     }));
 
-    const response = await runner.json<{
+    const response = await completeJson<{
       items: Array<{ index: number; category: string; merchant: string; confidence: number }>;
-    }>({
+    }>("categorisation", {
       system: CATEGORISE_SYSTEM,
-      user: `Allowed categories:\n${allowed.join("\n")}\n\nTransactions:\n${JSON.stringify(payload)}`,
+      user: `Allowed categories (return the "name" value exactly):\n${JSON.stringify(allowed)}\n\nTransactions:\n${JSON.stringify(payload)}`,
       schemaName: "categorisation",
       schema: CATEGORISE_SCHEMA,
-      maxTokens: 4000,
+      maxTokens: 8000,
     });
 
     for (const item of response.items ?? []) {
       const target = start + item.index;
       if (target < 0 || target >= results.length) continue;
-      const categoryId = byName.get((item.category ?? "").trim().toLowerCase()) ?? null;
+      const categoryId = resolveCategoryId(item.category ?? "", byName);
       const confidence = Number.isFinite(item.confidence)
         ? Math.max(0, Math.min(1, item.confidence))
         : 0;

@@ -2,13 +2,13 @@
  * File decoding and value-parsing primitives for statement import.
  *
  * Everything here is pure and deterministic: no AI, no network, no database.
- * Bank exports from the UK, Egypt and Jordan differ in delimiter, digit set,
- * decimal separator and date order, so each of those is handled explicitly
- * rather than hoped away.
+ * Statements are English-language throughout, but UK, Egyptian and Jordanian
+ * exports still differ in delimiter, decimal separator and date order, so each
+ * of those is handled explicitly rather than hoped away.
  */
-import { guessMerchant, normaliseDescription, normaliseDigits, similarity } from "./text";
+import { guessMerchant, normaliseDescription, similarity } from "./text";
 
-export { guessMerchant, normaliseDescription, normaliseDigits, similarity };
+export { guessMerchant, normaliseDescription, similarity };
 
 export type FileKind = "pdf" | "csv" | "xlsx";
 
@@ -44,8 +44,8 @@ export function detectFileKind(fileName: string, mimeType?: string | null): File
 
 /* ------------------------------------------------------------------ amounts */
 
-const DEBIT_MARKERS = ["dr", "d/r", "debit", "\u0645\u062F\u064A\u0646", "withdrawal", "out"];
-const CREDIT_MARKERS = ["cr", "c/r", "credit", "\u062F\u0627\u0626\u0646", "deposit", "in"];
+const DEBIT_MARKERS = ["dr", "d/r", "debit", "withdrawal", "out"];
+const CREDIT_MARKERS = ["cr", "c/r", "credit", "deposit", "in"];
 
 export type ParsedAmount = { value: number; explicitSign: "debit" | "credit" | null };
 
@@ -60,7 +60,7 @@ export function parseAmountCell(raw: unknown): ParsedAmount | null {
     return { value: raw, explicitSign: null };
   }
 
-  let text = normaliseDigits(String(raw)).trim();
+  let text = String(raw).trim();
   if (!text) return null;
 
   const lower = text.toLowerCase();
@@ -140,19 +140,6 @@ const MONTH_NAMES: Record<string, number> = {
   november: 11,
   dec: 12,
   december: 12,
-  // Arabic month names as they appear in Egyptian and Jordanian exports
-  "\u064A\u0646\u0627\u064A\u0631": 1,
-  "\u0641\u0628\u0631\u0627\u064A\u0631": 2,
-  "\u0645\u0627\u0631\u0633": 3,
-  "\u0623\u0628\u0631\u064A\u0644": 4,
-  "\u0645\u0627\u064A\u0648": 5,
-  "\u064A\u0648\u0646\u064A\u0648": 6,
-  "\u064A\u0648\u0644\u064A\u0648": 7,
-  "\u0623\u063A\u0633\u0637\u0633": 8,
-  "\u0633\u0628\u062A\u0645\u0628\u0631": 9,
-  "\u0623\u0643\u062A\u0648\u0628\u0631": 10,
-  "\u0646\u0648\u0641\u0645\u0628\u0631": 11,
-  "\u062F\u064A\u0633\u0645\u0628\u0631": 12,
 };
 
 function iso(year: number, month: number, day: number): string | null {
@@ -181,7 +168,7 @@ export function parseDateCell(raw: unknown, format: DateFormat = "auto"): string
   }
   if (typeof raw === "number") return fromExcelSerial(raw);
 
-  const text = normaliseDigits(String(raw)).trim();
+  const text = String(raw).trim();
   if (!text) return null;
 
   if (/^\d{5}(\.\d+)?$/.test(text)) {
@@ -194,15 +181,11 @@ export function parseDateCell(raw: unknown, format: DateFormat = "auto"): string
   if (isoMatch) return iso(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
 
   // 12 Feb 2025 / Feb 12, 2025 / 12-FEB-25
-  const nameMatch = text
-    .toLowerCase()
-    .match(/(\d{1,2})[\s\-/.]*([a-z\u0600-\u06FF]{3,12})[\s\-/.,]*(\d{2,4})/);
+  const nameMatch = text.toLowerCase().match(/(\d{1,2})[\s\-/.]*([a-z]{3,12})[\s\-/.,]*(\d{2,4})/);
   if (nameMatch && MONTH_NAMES[nameMatch[2]!]) {
     return iso(Number(nameMatch[3]), MONTH_NAMES[nameMatch[2]!]!, Number(nameMatch[1]));
   }
-  const nameFirst = text
-    .toLowerCase()
-    .match(/([a-z\u0600-\u06FF]{3,12})[\s\-/.]*(\d{1,2})[\s\-/.,]*(\d{2,4})/);
+  const nameFirst = text.toLowerCase().match(/([a-z]{3,12})[\s\-/.]*(\d{1,2})[\s\-/.,]*(\d{2,4})/);
   if (nameFirst && MONTH_NAMES[nameFirst[1]!]) {
     return iso(Number(nameFirst[3]), MONTH_NAMES[nameFirst[1]!]!, Number(nameFirst[2]));
   }
@@ -233,7 +216,7 @@ export function inferDateOrder(samples: string[]): DateFormat | null {
   let dayFirst = 0;
   let monthFirst = 0;
   for (const sample of samples) {
-    const match = normaliseDigits(sample).match(/(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})/);
+    const match = sample.match(/(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})/);
     if (!match) continue;
     const a = Number(match[1]);
     const b = Number(match[2]);

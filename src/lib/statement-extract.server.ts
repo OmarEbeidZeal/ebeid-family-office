@@ -5,13 +5,15 @@
  * column mapping; the mapping is then applied to the whole file in code. Never
  * send thousands of rows to a model — it is slow, expensive and gets truncated.
  *
- * PDFs: the text layer is chunked and read by the configured extraction model.
+ * PDFs: the text layer is chunked and read by the extraction model.
  *
  * Both paths also read whose account this is: the bank's name, the holder, the
  * masked account number printed on the page. That is what lets a statement
  * arrive without anyone first telling the app which account it belongs to.
+ *
+ * Statements are English-language UK, Egyptian, Jordanian and US formats.
  */
-import type { JsonRunner } from "./ai/runner.server";
+import { completeJson } from "./ai/gateway.server";
 import {
   inferDateOrder,
   guessMerchant,
@@ -88,7 +90,7 @@ const IDENTITY_KEYS = [
 ] as const;
 
 const IDENTITY_RULES = `Also read who the statement belongs to:
-- institution: the bank or broker's name exactly as printed ("HSBC UK Bank plc", "Commercial International Bank", "البنك العربي"). Empty when the page never names it.
+- institution: the bank or broker's name exactly as printed ("HSBC UK Bank plc", "Commercial International Bank", "Arab Bank"). Empty when the page never names it.
 - statement_holder: the account holder's name as printed. Empty if absent.
 - account_identifier: the account number, IBAN or card number as printed, including any masking the bank applied (for example "****4821" or "GB29 NWBK 6016 1331 9268 19"). Prefer an IBAN when both appear. Empty if none is printed.
 - identifier_kind: which of those it is. Empty when there is no identifier.
@@ -178,7 +180,7 @@ const MAPPING_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const MAPPING_SYSTEM = `You map bank statement exports to a fixed schema. Statements come from UK, Egyptian, Jordanian and US banks; headers may be in English or Arabic, and preamble rows above the header are common.
+const MAPPING_SYSTEM = `You map bank statement exports to a fixed schema. Statements are English-language exports from UK, Egyptian, Jordanian and US banks, and preamble rows above the header are common.
 
 Rules:
 - Column indexes are zero-based positions in the row arrays you are shown.
@@ -197,22 +199,19 @@ Export files often carry the bank name, holder and account number in the preambl
 /** Header row plus the first fifteen data rows — never the whole file. */
 export const PREVIEW_ROWS = 16;
 
-export async function inferColumnMapping(
-  runner: JsonRunner,
-  previewRows: string[][],
-): Promise<ColumnMapping> {
+export async function inferColumnMapping(previewRows: string[][]): Promise<ColumnMapping> {
   const preview = previewRows
     .filter((row) => row.some((cell) => (cell ?? "").trim().length > 0))
     .slice(0, PREVIEW_ROWS)
     .map((row, index) => `${index}: ${JSON.stringify(row)}`)
     .join("\n");
 
-  return runner.json<ColumnMapping>({
+  return completeJson<ColumnMapping>("extraction", {
     system: MAPPING_SYSTEM,
     user: `Here are the first rows of a bank statement export. Map its columns and read whose account it is.\n\n${preview}`,
     schemaName: "column_mapping",
     schema: MAPPING_SCHEMA,
-    maxTokens: 1500,
+    maxTokens: 4000,
   });
 }
 
@@ -232,12 +231,12 @@ function joinCells(row: string[], indexes: number[]): string {
  * the transactions, so it would never catch a row the parser missed.
  */
 const OPENING_MARKERS =
-  /(opening|brought\s*forward|balance\s*b\/?f|b\/?fwd|start(ing)?\s+balance|previous\s+balance|رصيد\s*(افتتاحي|سابق)|الرصيد\s*الافتتاحي)/i;
+  /(opening|brought\s*forward|balance\s*b\/?f|b\/?fwd|start(ing)?\s+balance|previous\s+balance)/i;
 const CLOSING_MARKERS =
-  /(closing|carried\s*forward|balance\s*c\/?f|c\/?fwd|end(ing)?\s+balance|final\s+balance|رصيد\s*(ختامي|نهائي)|الرصيد\s*(الختامي|النهائي))/i;
+  /(closing|carried\s*forward|balance\s*c\/?f|c\/?fwd|end(ing)?\s+balance|final\s+balance)/i;
 
 function balanceAnchor(text: string): "opening" | "closing" | null {
-  if (!/balance|forward|b\/f|c\/f|رصيد/i.test(text)) return null;
+  if (!/balance|forward|b\/f|c\/f/i.test(text)) return null;
   if (CLOSING_MARKERS.test(text)) return "closing";
   if (OPENING_MARKERS.test(text)) return "opening";
   return null;
@@ -454,7 +453,7 @@ const PDF_SCHEMA = {
   additionalProperties: false,
 } as const;
 
-const PDF_SYSTEM = `You read the text layer of a bank statement and return its transactions exactly as printed.
+const PDF_SYSTEM = `You read the text layer of an English-language bank statement and return its transactions exactly as printed.
 
 Absolute rules:
 - Never invent, estimate or complete a transaction. If a line is unreadable, leave it out.
@@ -482,10 +481,7 @@ function chunkText(text: string): string[] {
   return chunks;
 }
 
-export async function extractFromPdfText(
-  runner: JsonRunner,
-  text: string,
-): Promise<ExtractionResult> {
+export async function extractFromPdfText(text: string): Promise<ExtractionResult> {
   const chunks = chunkText(text);
   const notes: string[] = [];
   if (chunks.length > MAX_CHUNKS) {
@@ -494,25 +490,23 @@ export async function extractFromPdfText(
     );
   }
 
-  const metaPromise = runner
-    .json<
-      {
-        period_start: string;
-        period_end: string;
-        opening_balance: string;
-        closing_balance: string;
-        currency: string;
-      } & RawIdentity
-    >({
-      system: `You read bank statement headers. Return the statement period, opening and closing balances and the ISO currency code exactly as printed. Use an empty string for anything the text does not state. Dates must be ISO yyyy-mm-dd.
+  const metaPromise = completeJson<
+    {
+      period_start: string;
+      period_end: string;
+      opening_balance: string;
+      closing_balance: string;
+      currency: string;
+    } & RawIdentity
+  >("extraction", {
+    system: `You read bank statement headers. Return the statement period, opening and closing balances and the ISO currency code exactly as printed. Use an empty string for anything the text does not state. Dates must be ISO yyyy-mm-dd.
 
 ${IDENTITY_RULES}`,
-      user: `Statement text (start):\n\n${text.slice(0, 4000)}\n\nStatement text (end):\n\n${text.slice(-2500)}`,
-      schemaName: "statement_meta",
-      schema: META_SCHEMA,
-      maxTokens: 900,
-    })
-    .catch(() => null);
+    user: `Statement text (start):\n\n${text.slice(0, 4000)}\n\nStatement text (end):\n\n${text.slice(-2500)}`,
+    schemaName: "statement_meta",
+    schema: META_SCHEMA,
+    maxTokens: 3000,
+  }).catch(() => null);
 
   const results: RawTransaction[] = [];
   const CONCURRENCY = 3;
@@ -521,7 +515,7 @@ ${IDENTITY_RULES}`,
     const batch = chunks.slice(start, start + CONCURRENCY);
     const parsed = await Promise.all(
       batch.map((chunk) =>
-        runner.json<{
+        completeJson<{
           transactions: Array<{
             date: string;
             description: string;
@@ -529,12 +523,12 @@ ${IDENTITY_RULES}`,
             direction: "debit" | "credit";
             balance_after: string;
           }>;
-        }>({
+        }>("extraction", {
           system: PDF_SYSTEM,
           user: `Statement text section ${start + batch.indexOf(chunk) + 1} of ${chunks.length}:\n\n${chunk}`,
           schemaName: "pdf_transactions",
           schema: PDF_SCHEMA,
-          maxTokens: 12000,
+          maxTokens: 16000,
         }),
       ),
     );

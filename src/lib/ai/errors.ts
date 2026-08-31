@@ -1,96 +1,65 @@
 /**
- * One error type for every provider, so callers branch on meaning rather than
- * on whose API said no.
+ * One error type for everything the Lovable AI gateway can say no to, so
+ * callers branch on meaning rather than on a status code.
  *
- * `terminal` means re-sending the same request will fail the same way: a
- * missing key, exhausted credits, a blocked workspace, a rejected request. A
- * terminal failure never retries and never silently falls back into spending
- * somewhere else without saying so.
+ * `retryable` means the same request may work in a moment (rate limits, an
+ * upstream wobble). Anything else is terminal: re-sending it produces the same
+ * answer, so the work stops and the household is told why.
  */
-export class AiProviderError extends Error {
-  readonly provider: string;
+export class AiGatewayError extends Error {
   readonly status: number;
   readonly retryable: boolean;
-  readonly terminal: boolean;
 
-  constructor(input: {
-    message: string;
-    provider: string;
-    status: number;
-    retryable?: boolean;
-    terminal?: boolean;
-  }) {
+  constructor(input: { message: string; status: number; retryable?: boolean }) {
     super(input.message);
-    this.name = "AiProviderError";
-    this.provider = input.provider;
+    this.name = "AiGatewayError";
     this.status = input.status;
     this.retryable = input.retryable ?? false;
-    this.terminal = input.terminal ?? !(input.retryable ?? false);
   }
 }
 
-/** Kept for callers that only care that AI could not be had. */
-export class AiUnavailableError extends AiProviderError {
-  constructor(message: string, provider = "lovable", status = 0) {
-    super({ message, provider, status, retryable: false, terminal: true });
-    this.name = "AiUnavailableError";
-  }
-}
-
-/** Plain English per status, naming the provider that answered. */
-export function describeAiFailure(input: {
-  provider: string;
-  label: string;
-  status: number;
-  body?: string;
-}): AiProviderError {
-  const { provider, label, status } = input;
+/** Plain English per status, written for the person reading the screen. */
+export function describeGatewayFailure(input: { status: number; body?: string }): AiGatewayError {
+  const { status } = input;
   const snippet = (input.body ?? "").replace(/\s+/g, " ").slice(0, 220);
 
-  if (status === 401 || status === 403) {
-    return new AiProviderError({
-      provider,
+  if (status === 401) {
+    return new AiGatewayError({
       status,
-      retryable: false,
-      terminal: true,
       message:
-        status === 401
-          ? `${label} refused the key. Check the key in Project Settings → Secrets, or switch the job back to Lovable AI.`
-          : `${label} has blocked this request — an account setting or spending limit is in the way.`,
+        "The Lovable AI key was refused. Nothing was charged — the key needs re-provisioning before AI work can run.",
     });
   }
   if (status === 402) {
-    return new AiProviderError({
-      provider,
+    return new AiGatewayError({
       status,
-      retryable: false,
-      terminal: true,
-      message: `${label} has no credit left for this request. Top up the account, or switch the job to another provider.`,
+      message:
+        "Lovable AI credits have run out. Add credits in Lovable under Plans & credits, and this will run again.",
+    });
+  }
+  if (status === 403) {
+    return new AiGatewayError({
+      status,
+      message:
+        "Lovable AI is blocked for this workspace — an admin setting or a credit limit is in the way.",
     });
   }
   if (status === 429) {
-    return new AiProviderError({
-      provider,
+    return new AiGatewayError({
       status,
       retryable: true,
-      terminal: false,
-      message: `${label} is rate limited right now. Nothing was lost — this retries on its own in a moment.`,
+      message: "Lovable AI is rate limited right now. Nothing was lost — this retries on its own.",
     });
   }
   if (status >= 500) {
-    return new AiProviderError({
-      provider,
+    return new AiGatewayError({
       status,
       retryable: true,
-      terminal: false,
-      message: `${label} had a temporary problem (${status}). This retries on its own.`,
+      message: `Lovable AI had a temporary problem (${status}). This retries on its own.`,
     });
   }
-  return new AiProviderError({
-    provider,
+  return new AiGatewayError({
     status,
-    retryable: false,
-    terminal: true,
-    message: `${label} rejected the request (${status}).${snippet ? ` ${snippet}` : ""}`,
+    message: `Lovable AI rejected the request (${status}).${snippet ? ` ${snippet}` : ""}`,
   });
 }

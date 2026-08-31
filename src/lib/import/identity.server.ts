@@ -28,16 +28,6 @@ export type NormalisedIdentifier = {
   mask: string;
 };
 
-const ARABIC_DIGITS = /[\u0660-\u0669\u06F0-\u06F9]/g;
-
-function westernDigits(value: string): string {
-  return value.replace(ARABIC_DIGITS, (digit) => {
-    const code = digit.charCodeAt(0);
-    const base = code >= 0x06f0 ? 0x06f0 : 0x0660;
-    return String(code - base);
-  });
-}
-
 function salt(): string {
   const value = process.env["ACCOUNT_IDENTIFIER_SALT"];
   if (!value) {
@@ -64,9 +54,7 @@ export function normaliseIdentifier(
 ): NormalisedIdentifier | null {
   if (!raw) return null;
 
-  const cleaned = westernDigits(raw)
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
+  const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (cleaned.length < 4) return null;
 
   const digits = cleaned.replace(/[^0-9]/g, "");

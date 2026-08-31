@@ -1,36 +1,13 @@
 /**
  * Pure text helpers shared by the import pipeline (server) and the review UI
  * (browser). No I/O, no environment assumptions.
+ *
+ * Statements are English-language throughout, so these are plain Latin-script
+ * helpers with no transliteration or numeral conversion.
  */
 
-const EASTERN_ARABIC = "\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669";
-const PERSIAN = "\u06F0\u06F1\u06F2\u06F3\u06F4\u06F5\u06F6\u06F7\u06F8\u06F9";
-
-/** Egyptian and Jordanian exports often carry Eastern-Arabic numerals. */
-export function normaliseDigits(input: string): string {
-  let out = "";
-  for (const char of input) {
-    const eastern = EASTERN_ARABIC.indexOf(char);
-    if (eastern >= 0) {
-      out += String(eastern);
-      continue;
-    }
-    const persian = PERSIAN.indexOf(char);
-    if (persian >= 0) {
-      out += String(persian);
-      continue;
-    }
-    if (char === "\u066C")
-      out += ","; // Arabic thousands separator
-    else if (char === "\u066B")
-      out += "."; // Arabic decimal separator
-    else out += char;
-  }
-  return out;
-}
-
 export function normaliseDescription(value: string): string {
-  return normaliseDigits(value)
+  return value
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")

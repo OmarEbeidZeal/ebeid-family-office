@@ -4,8 +4,9 @@
  * The list covers the banks and brokers this household actually deals with —
  * UK high street and challengers, Egypt, Jordan, the Gulf and the US brokers —
  * plus a normaliser that copes with how a statement prints a name ("HSBC UK
- * Bank plc", "البنك التجاري الدولي"). Anything unrecognised gets a monogram
- * rather than a wrong logo.
+ * Bank plc", "Commercial International Bank (Egypt) S.A.E."). Statements are
+ * English-language, so matching is Latin-script only; anything unrecognised
+ * gets a monogram rather than a wrong logo.
  */
 
 export type BankEntry = {
@@ -128,44 +129,44 @@ export const BANKS: BankEntry[] = [
     domain: "cibeg.com",
     name: "Commercial International Bank",
     country: "EG",
-    aliases: ["commercial international bank", "cib", "البنك التجاري الدولي"],
+    aliases: ["commercial international bank", "cib"],
   },
   {
     domain: "nbe.com.eg",
     name: "National Bank of Egypt",
     country: "EG",
-    aliases: ["national bank of egypt", "nbe", "البنك الاهلي المصري", "البنك الأهلي المصري"],
+    aliases: ["national bank of egypt", "nbe"],
   },
   {
     domain: "banquemisr.com",
     name: "Banque Misr",
     country: "EG",
-    aliases: ["banque misr", "بنك مصر"],
+    aliases: ["banque misr"],
   },
   {
     domain: "qnbalahli.com",
     name: "QNB Alahli",
     country: "EG",
-    aliases: ["qnb alahli", "qnb al ahli", "بنك قطر الوطني الاهلي"],
+    aliases: ["qnb alahli", "qnb al ahli"],
   },
   {
     domain: "aaib.com",
     name: "Arab African International Bank",
     country: "EG",
-    aliases: ["arab african", "aaib", "المصرف العربي الدولي"],
+    aliases: ["arab african", "aaib"],
   },
   {
     domain: "banqueducaire.com",
     name: "Banque du Caire",
     country: "EG",
-    aliases: ["banque du caire", "بنك القاهرة"],
+    aliases: ["banque du caire"],
   },
   { domain: "hsbc.com.eg", name: "HSBC Egypt", country: "EG", aliases: ["hsbc egypt"] },
   {
     domain: "alexbank.com",
     name: "Bank of Alexandria",
     country: "EG",
-    aliases: ["bank of alexandria", "alexbank", "بنك الاسكندرية"],
+    aliases: ["bank of alexandria", "alexbank"],
   },
   {
     domain: "adib.eg",
@@ -183,13 +184,13 @@ export const BANKS: BankEntry[] = [
     domain: "eg.faisalbank.com",
     name: "Faisal Islamic Bank",
     country: "EG",
-    aliases: ["faisal islamic", "بنك فيصل"],
+    aliases: ["faisal islamic"],
   },
   {
     domain: "hdb-egy.com",
     name: "Housing and Development Bank",
     country: "EG",
-    aliases: ["housing and development bank", "بنك التعمير والاسكان"],
+    aliases: ["housing and development bank"],
   },
   {
     domain: "attijariwafabank.com.eg",
@@ -223,25 +224,25 @@ export const BANKS: BankEntry[] = [
     domain: "arabbank.com",
     name: "Arab Bank",
     country: "JO",
-    aliases: ["arab bank", "البنك العربي"],
+    aliases: ["arab bank"],
   },
   {
     domain: "hbtf.com",
     name: "Housing Bank for Trade and Finance",
     country: "JO",
-    aliases: ["housing bank", "بنك الاسكان"],
+    aliases: ["housing bank"],
   },
   {
     domain: "bankofjordan.com",
     name: "Bank of Jordan",
     country: "JO",
-    aliases: ["bank of jordan", "بنك الاردن"],
+    aliases: ["bank of jordan"],
   },
   {
     domain: "jordanislamicbank.com",
     name: "Jordan Islamic Bank",
     country: "JO",
-    aliases: ["jordan islamic", "البنك الاسلامي الاردني"],
+    aliases: ["jordan islamic"],
   },
   {
     domain: "jkb.com",
@@ -253,7 +254,7 @@ export const BANKS: BankEntry[] = [
     domain: "cab.jo",
     name: "Cairo Amman Bank",
     country: "JO",
-    aliases: ["cairo amman", "بنك القاهرة عمان"],
+    aliases: ["cairo amman"],
   },
   {
     domain: "capitalbank.jo",
@@ -265,13 +266,13 @@ export const BANKS: BankEntry[] = [
     domain: "bankaletihad.com",
     name: "Bank al Etihad",
     country: "JO",
-    aliases: ["bank al etihad", "etihad bank", "بنك الاتحاد"],
+    aliases: ["bank al etihad", "etihad bank"],
   },
   {
     domain: "ahli.com",
     name: "Jordan Ahli Bank",
     country: "JO",
-    aliases: ["jordan ahli", "ahli bank", "البنك الاهلي الاردني"],
+    aliases: ["jordan ahli", "ahli bank"],
   },
   {
     domain: "sgbj.com.jo",
@@ -355,14 +356,9 @@ export const BANKS: BankEntry[] = [
   { domain: "paypal.com", name: "PayPal", country: "US", aliases: ["paypal"] },
 ];
 
-const ARABIC_DIACRITICS = /[\u064B-\u0652\u0670]/g;
-
 function normalise(value: string): string {
   return value
     .toLowerCase()
-    .replace(ARABIC_DIACRITICS, "")
-    .replace(/[أإآ]/g, "ا")
-    .replace(/ة/g, "ه")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }

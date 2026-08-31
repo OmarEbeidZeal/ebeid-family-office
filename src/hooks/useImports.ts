@@ -26,7 +26,7 @@ export type StatementSummary = {
   skipped_rows?: number | null;
   notes?: string[] | null;
   extraction_notes?: string[] | null;
-  categorised_by?: { provider?: string | null; model?: string | null } | null;
+  categorised_by?: { model?: string | null } | null;
 };
 
 export type ImportStatementRow = {
