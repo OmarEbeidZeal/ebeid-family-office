@@ -262,7 +262,59 @@ fixture was deleted afterwards — the household holds no imported data.
 
 
 
+## Structured banking formats (this build)
+
+Three years of history is about to arrive, so the formats that state their own structure are now
+first-class — and preferred. CAMT.053, MT940 and QIF are parsed by code alone: no model sees them,
+nothing is inferred, and the figures are the bank's own.
+
+CAMT.053 (ISO 20022 XML)
+- [x] Deterministic parser over `BkToCstmrStmt/Stmt` — every `Stmt` in the file becomes its own
+      statement, with its own account, currency, period and balances
+- [x] Exact opening (OPBD/PRCD) and closing (CLBD/CLAV) balances taken from the file, so
+      reconciliation is to the penny with no tolerance
+- [x] Entry-level `CdtDbtInd`, `RvslInd` (a reversal is recorded in the opposite direction), booking
+      and value dates, `BkTxCd` and both `EndToEndId` and `AcctSvcrRef` as the deduplication key
+- [x] Batched entries split into their `TxDtls` components rather than imported as one lump; a
+      `BOOK`-only entry keeps its own amount
+- [x] Instructed amount and exchange rate kept when the bank settled in another currency
+- [x] Pending (`BOOK`-unbooked / `PDNG`) entries left out, and said so in the file's notes
+- [x] Account identified from `Acct/Id/IBAN` or `Othr/Id`, holder from `Ownr/Nm`, institution from
+      `Svcr` — matched through the same salted-hash ladder as every other format
+
+MT940
+- [x] Tag parser for `:20:`, `:25:`, `:28C:`, `:60F/:60M`, `:61:`, `:86:`, `:62F/:62M`, `:64:`,
+      handling multi-statement files and continuation lines
+- [x] Both decimal conventions, `C`/`D`/`RC`/`RD` marks with reversals flipped, value and entry
+      dates, transaction type codes, and the bank reference kept clear of narrative text
+- [x] `:86:` read for structured subfields (`?20`–`?29`, `?32`) and SEPA tags (`EREF+`, `NAME+`,
+      `SVWZ+`) so a merchant survives the import
+- [x] Exact balances, so these files must reconcile to the penny too
+
+QIF
+- [x] `D`/`T`/`P`/`M`/`N`/`C`/`L` records with `!Type` headers; investment blocks are declined with a
+      plain reason rather than imported as cash
+- [x] Date order inferred across the whole file rather than guessed per row
+- [x] Splits imported at the record's full amount and flagged, since the file's own splits are
+      categories rather than separate transactions
+- [x] No account and no balances: the file says so, asks for the account once, and its statement is
+      marked as unreconcilable rather than falsely passing
+
+Everything else
+- [x] Format detected from the file's content, not its extension — a CAMT file saved as `.txt` and
+      an MT940 saved as `.csv` are both read correctly
+- [x] One file, several statements: the uploaded row keeps the first and the rest are created as
+      siblings that the queue picks up, each matched to its own account, sharing one extraction
+- [x] Same deduplication, dated FX and account matching as before; the bank's own reference is used
+      as the duplicate key when the file carries one
+- [x] Reconciliation is exact for CAMT.053 and MT940 — a penny out is `needs_review`, not rounded
+      away; the small tolerance remains only where the figures were inferred
+- [x] Import screen ranks the exports plainly (CAMT.053 best → PDF last resort) behind one
+      expansion, and every file row says which format it was and how it was read
+
 ## Backlog / ideas captured while building
+
+
 
 
 - [ ] CGT-aware disposal view against the £3,000 annual exempt amount
