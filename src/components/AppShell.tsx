@@ -97,10 +97,15 @@ export function AppShell({
                 </div>
               )}
               {description && (
-                <p className="w-full max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  {description}
-                </p>
+                // Own full-width flex line (no max-width on the wrapper, or it
+                // would sit beside the title again on a wide screen).
+                <div className="w-full">
+                  <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                    {description}
+                  </p>
+                </div>
               )}
+
             </div>
 
             {children}
