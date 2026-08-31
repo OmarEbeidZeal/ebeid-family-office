@@ -127,9 +127,7 @@ function PlanningPage() {
             <StatTile
               label="Childcare, first full year"
               value={
-                childcare
-                  ? formatMoney(childcare.annual.netAnnual, base, { decimals: 0 })
-                  : "Not modelled"
+                childcare ? formatMoney(childcare.annual.net, base, { decimals: 0 }) : "Not modelled"
               }
               definition="Nursery fees for twelve months after funded hours begin, less funded hours and Tax-Free Childcare top-up, where the household still qualifies."
               sub={
