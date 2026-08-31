@@ -37,7 +37,6 @@ export type RawTransaction = {
 
 export type DateFormat = "DMY" | "MDY" | "YMD" | "auto";
 
-
 const PDF_EXTENSIONS = [".pdf"];
 const CSV_EXTENSIONS = [".csv", ".txt", ".tsv"];
 const SHEET_EXTENSIONS = [".xls", ".xlsx", ".xlsm"];

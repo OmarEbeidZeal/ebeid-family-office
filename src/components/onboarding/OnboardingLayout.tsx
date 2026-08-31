@@ -37,7 +37,6 @@ export function OnboardingLayout({
       <div className="mx-auto grid max-w-5xl gap-8 px-5 pb-24 pt-4 sm:px-8 lg:grid-cols-[13rem_1fr] lg:gap-14">
         <nav aria-label="Setup progress" className="min-w-0 lg:pt-2">
           <ol className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:block lg:space-y-1 lg:overflow-visible lg:px-0 lg:pb-0">
-
             {ONBOARDING_STEPS.map((step, index) => {
               const done = index < furthestStep;
               const active = index === stepIndex;
@@ -70,7 +69,6 @@ export function OnboardingLayout({
                       {done ? <Check className="h-3 w-3" /> : index + 1}
                     </span>
                     <span className="whitespace-nowrap">{step.title}</span>
-
                   </button>
                 </li>
               );

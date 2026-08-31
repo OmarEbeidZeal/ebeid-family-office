@@ -428,7 +428,6 @@ export function bankFromBic(bic: string | null | undefined): string | null {
   return BIC_INSTITUTIONS[value] ?? BIC_INSTITUTIONS[value.slice(0, 4)] ?? null;
 }
 
-
 /** Two letters at most, from the words that carry meaning. */
 export function monogram(value: string | null | undefined): string {
   const words = (value ?? "")
