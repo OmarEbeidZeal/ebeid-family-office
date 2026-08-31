@@ -225,7 +225,7 @@ function readBalances(
   const byCode = new Map<string, BalanceReading>();
   const notes: string[] = [];
 
-  for (const balance of asArray(at(stmt, "Bal") as Unknown)) {
+  for (const balance of list(stmt, "Bal")) {
     const code = (codeOf(at(balance, "Tp", "CdOrPrtry")) ?? "").toUpperCase();
     if (!code) continue;
     const amount = money(at(balance, "Amt"));
@@ -276,12 +276,12 @@ type Detail = {
 
 function remittanceOf(txDetail: Unknown): string | null {
   const info = at(txDetail, "RmtInf");
-  const unstructured = asArray(at(info, "Ustrd") as Unknown)
+  const unstructured = list(info, "Ustrd")
     .map((line) => text(line))
     .filter((line): line is string => Boolean(line));
   if (unstructured.length) return unstructured.join(" ").replace(/\s+/g, " ").trim();
 
-  const structured = asArray(at(info, "Strd") as Unknown)
+  const structured = list(info, "Strd")
     .map(
       (entry) =>
         text(at(entry, "CdtrRefInf", "Ref")) ??
@@ -406,7 +406,7 @@ function readStatement(stmt: Unknown, index: number, total: number): ExtractionR
   let skippedRows = 0;
   let splitEntries = 0;
 
-  for (const entry of asArray(at(stmt, "Ntry") as Unknown)) {
+  for (const entry of list(stmt, "Ntry")) {
     const status = (codeOf(at(entry, "Sts")) ?? "BOOK").toUpperCase();
     if (status !== "BOOK") {
       // A pending entry books later; importing it now would double-count it.
@@ -433,8 +433,8 @@ function readStatement(stmt: Unknown, index: number, total: number): ExtractionR
       codeOf(at(entry, "BkTxCd", "Prtry"));
     const entryInfo = text(at(entry, "AddtlNtryInf"));
 
-    const details = asArray(at(entry, "NtryDtls") as Unknown)
-      .flatMap((block) => asArray((block as Record<string, unknown>)?.["TxDtls"] as Unknown))
+    const details = list(entry, "NtryDtls")
+      .flatMap((block) => list(block, "TxDtls"))
       .map((txDetail) => readDetail(txDetail, entryFlow));
 
     const push = (row: {
