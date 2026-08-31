@@ -266,8 +266,15 @@ function readBalances(
   const notes: string[] = [];
 
   for (const balance of list(stmt, "Bal")) {
-    const code = (codeOf(at(balance, "Tp", "CdOrPrtry")) ?? "").toUpperCase();
+    // `Tp/CdOrPrtry/Cd` in most versions, a plain `Tp/Cd` or bare `Tp` in some
+    // dialects — read whichever the file happens to use.
+    const code = (
+      codeOf(at(balance, "Tp", "CdOrPrtry")) ??
+      codeOf(at(balance, "Tp")) ??
+      ""
+    ).toUpperCase();
     if (!code) continue;
+
     const amount = money(at(balance, "Amt"));
     if (!amount) continue;
     // A currency other than the account's belongs to a different leg of a
