@@ -69,8 +69,8 @@ export function OnboardingLayout({
                     >
                       {done ? <Check className="h-3 w-3" /> : index + 1}
                     </span>
-                    <span className="hidden lg:inline">{step.title}</span>
-                    <span className="lg:hidden">{step.title}</span>
+                    <span className="whitespace-nowrap">{step.title}</span>
+
                   </button>
                 </li>
               );
