@@ -2,6 +2,7 @@ import {
   BarChart3,
   Building2,
   CalendarRange,
+  FileUp,
   GitCompare,
   LayoutDashboard,
   MessageSquareText,
@@ -38,6 +39,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Money",
     items: [
       { to: "/accounts", label: "Accounts", icon: Building2 },
+      { to: "/import", label: "Import", icon: FileUp },
       { to: "/transactions", label: "Transactions", icon: Receipt },
       { to: "/spending", label: "Spending", icon: PiggyBank },
     ],

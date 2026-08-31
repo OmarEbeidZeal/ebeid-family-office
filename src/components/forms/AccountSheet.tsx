@@ -12,6 +12,8 @@ import {
   CURRENCIES,
   DEBT_ACCOUNT_TYPES,
 } from "@/lib/format";
+import { bankDomain } from "@/lib/ai/banks";
+import { BankMark } from "@/components/BankMark";
 import { useAuth } from "@/hooks/useAuth";
 import { useSaveRow } from "@/hooks/useUpsertRow";
 import type { AccountRow } from "@/hooks/useFinancials";
@@ -76,6 +78,7 @@ export function AccountSheet({
 
   const accountType = form.watch("account_type");
   const isDebt = DEBT_ACCOUNT_TYPES.includes(accountType);
+  const institutionName = form.watch("institution");
 
   const onSubmit = form.handleSubmit(async (values) => {
     const savedId = await save.mutateAsync({
@@ -83,6 +86,9 @@ export function AccountSheet({
       values: {
         nickname: values.nickname,
         institution: values.institution?.trim() || null,
+        // Recognising the bank is what gives the account its mark; an unknown
+        // name simply keeps its monogram.
+        institution_domain: bankDomain(values.institution) ?? null,
         country: values.country,
         account_type: values.account_type,
         currency: values.currency,
@@ -102,7 +108,7 @@ export function AccountSheet({
       open={open}
       onOpenChange={onOpenChange}
       title={account ? "Edit account" : "Add account"}
-      description="Balances are entered by hand until statement import lands. Saving stamps today's date on the balance."
+      description="Balances entered here are yours to maintain; imported statements update the account's balance on their own. Saving stamps today's date."
       onSubmit={onSubmit}
       pending={save.isPending}
       submitLabel={account ? "Save changes" : "Add account"}
@@ -119,7 +125,15 @@ export function AccountSheet({
       </FullRow>
 
       <Field label="Institution">
-        <Input placeholder="HSBC UK" {...form.register("institution")} />
+        <div className="flex items-center gap-2">
+          <BankMark
+            institution={institutionName}
+            domain={bankDomain(institutionName)}
+            size={32}
+            className="shrink-0"
+          />
+          <Input placeholder="HSBC UK" {...form.register("institution")} />
+        </div>
       </Field>
 
       <Field label="Owner">

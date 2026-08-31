@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Landmark } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { BankMark } from "@/components/BankMark";
 import { EmptyState } from "@/components/EmptyState";
 import { Money } from "@/components/Money";
 import { RowActions } from "@/components/RowActions";
@@ -250,15 +251,30 @@ function AccountRowItem({
 }) {
   const isDebt = DEBT_ACCOUNT_TYPES.includes(account.account_type);
   const tone = balanceAgeTone(account.last_balance_update);
+  // An account discovered from a statement is usually named with its own last
+  // four, so the masked identifier is only worth repeating when the name omits it.
+  const maskDigits = account.identifier_mask?.replace(/\D/g, "") ?? "";
+  const showMask = Boolean(account.identifier_mask) && !account.nickname.includes(maskDigits);
 
   return (
-    <div className="flex items-center gap-4 border-t border-border px-4 py-3.5 first:border-t-0">
+    <div className="flex items-center gap-3 border-t border-border px-4 py-3.5 first:border-t-0 sm:gap-4">
+      <BankMark
+        institution={account.institution}
+        domain={account.institution_domain}
+        size={28}
+        className="hidden shrink-0 sm:flex"
+      />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate text-sm text-foreground">{account.nickname}</p>
           <Badge variant="outline" className="text-[0.65rem]">
             {accountTypeLabel(account.account_type)}
           </Badge>
+          {account.discovered_from === "statement" && (
+            <Badge variant="secondary" className="text-[0.65rem]">
+              From a statement
+            </Badge>
+          )}
           {!account.is_active && (
             <Badge variant="secondary" className="text-[0.65rem]">
               Closed
@@ -267,6 +283,13 @@ function AccountRowItem({
         </div>
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {account.institution ?? "Institution not recorded"}
+          {showMask ? (
+            <>
+              <span className="mx-1.5 text-border">·</span>
+              <span className="num">••{account.identifier_mask}</span>
+            </>
+          ) : null}
+
           <span className="mx-1.5 text-border">·</span>
           <span className={cn(tone === "warn" && "text-warn")}>
             {relativeAge(account.last_balance_update)}

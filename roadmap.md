@@ -210,7 +210,57 @@ Still open (needs Omar, or the platform)
 - [ ] Haya's invitation — add her address under Settings → Access so she gets her own sign-in.
 
 
+## Statement-led imports, bank identity and pluggable AI (this build)
+
+Importing now starts with the file, not with a form. The statement says which account it belongs
+to; the household only confirms.
+
+Account discovery from the statement
+- [x] Extraction reads the institution, the account holder, the printed account number / IBAN,
+      the currency and the statement period out of the file itself
+- [x] Full account numbers are never stored — the last four digits plus a salted HMAC held in
+      `account_identifiers`, so a returning statement matches without the number ever being kept
+- [x] Matching ladder: identifier hash (certain) → institution + last four + currency (likely) →
+      sole account at that institution in that currency (possible) → propose a new account
+- [x] Anything short of certain lands in a review queue: confirm as a new account, merge into an
+      existing one, or reject — nothing is created behind the household's back
+- [x] Confirming an account carries the statement's own institution, currency, country, holder and
+      closing balance across, and adopts the masked identifier for next time
+- [x] Coverage and gaps — per account, which months are covered by an imported statement and which
+      are missing, so a hole in the ledger is visible rather than assumed
+
+Durable, high-volume imports
+- [x] Upload many files at once with no account chosen; each file is hashed in the browser and a
+      file already imported is recognised before it is uploaded a second time
+- [x] Imports run as a batch through a durable queue — bounded concurrency, per-file leases,
+      attempts with backoff, and a scheduled sweep so a closed laptop does not strand a file
+- [x] Batch summary: files read, transactions written, duplicates skipped, rows unreadable,
+      accounts proposed, and every failure named in plain English
+- [x] A file that fails for a terminal reason (scanned PDF, nothing readable in the file, AI credits
+      exhausted) stops retrying and says why; transient failures retry
+
+Bank identity
+- [x] Logo.dev bank logos resolved from a UK / Egypt / Jordan / US institution lookup, proxied
+      server-side and cached, with a deterministic monogram whenever no logo can be had
+- [x] Institution and its logo shown on accounts, statements and the import review
+
+Pluggable AI providers
+- [x] One provider abstraction behind three jobs — statement extraction, categorisation and the
+      advisor — with Lovable AI as the default and Anthropic or OpenAI selectable per job
+- [x] Settings → AI models: provider and model per job, live model lists from the provider when a
+      key is present, a real test call, and plain reporting when a key is missing
+- [x] A provider failure falls back to Lovable AI and says so rather than failing the work
+- [x] The advisor's constraints, disclaimer and grounding rules are unchanged by the provider
+
+Verified end to end on a real file: a genuine statement is read, proposes its account, imports its
+rows once confirmed and is refused a second time as the same file; a file with nothing readable in
+it fails outright with a plain reason rather than proposing an account nobody holds. Every test
+fixture was deleted afterwards — the household holds no imported data.
+
+
+
 ## Backlog / ideas captured while building
+
 
 - [ ] CGT-aware disposal view against the £3,000 annual exempt amount
 - [ ] Per-account balance history so account rows show their own trend

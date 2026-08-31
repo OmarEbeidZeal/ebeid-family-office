@@ -1,13 +1,17 @@
 /**
- * Turning a raw file into candidate transactions.
+ * Turning a raw file into candidate transactions — and into an identity.
  *
  * Tabular files: the AI sees the header plus fifteen sample rows and returns a
  * column mapping; the mapping is then applied to the whole file in code. Never
  * send thousands of rows to a model — it is slow, expensive and gets truncated.
  *
- * PDFs: the text layer is chunked and read by the stronger model.
+ * PDFs: the text layer is chunked and read by the configured extraction model.
+ *
+ * Both paths also read whose account this is: the bank's name, the holder, the
+ * masked account number printed on the page. That is what lets a statement
+ * arrive without anyone first telling the app which account it belongs to.
  */
-import { AI_MODELS, aiJson } from "./ai.server";
+import type { JsonRunner } from "./ai/runner.server";
 import {
   inferDateOrder,
   guessMerchant,
@@ -17,12 +21,37 @@ import {
   type RawTransaction,
 } from "./statement-parse.server";
 
+/** What the statement says about itself. */
+export type StatementIdentity = {
+  institution: string | null;
+  statement_holder: string | null;
+  /**
+   * The account number, IBAN or card number as printed — often already masked
+   * by the bank. Held only long enough to derive a hash and the last four; it
+   * is never written to the database.
+   */
+  account_identifier: string | null;
+  identifier_kind: "account_number" | "iban" | "card" | null;
+  account_type: string | null;
+  country: string | null;
+};
+
 export type StatementMeta = {
   period_start: string | null;
   period_end: string | null;
   opening_balance: number | null;
   closing_balance: number | null;
   currency: string | null;
+  identity: StatementIdentity;
+};
+
+export const EMPTY_IDENTITY: StatementIdentity = {
+  institution: null,
+  statement_holder: null,
+  account_identifier: null,
+  identifier_kind: null,
+  account_type: null,
+  country: null,
 };
 
 export type ExtractionResult = {
@@ -34,6 +63,65 @@ export type ExtractionResult = {
 };
 
 export const MAX_TRANSACTIONS = 6000;
+
+/* --------------------------------------------------------- shared identity */
+
+const IDENTITY_PROPERTIES = {
+  institution: { type: "string" },
+  statement_holder: { type: "string" },
+  account_identifier: { type: "string" },
+  identifier_kind: { type: "string", enum: ["account_number", "iban", "card", ""] },
+  account_type: {
+    type: "string",
+    enum: ["current", "savings", "credit_card", "investment", "loan", "mortgage", "other", ""],
+  },
+  country: { type: "string" },
+} as const;
+
+const IDENTITY_KEYS = [
+  "institution",
+  "statement_holder",
+  "account_identifier",
+  "identifier_kind",
+  "account_type",
+  "country",
+] as const;
+
+const IDENTITY_RULES = `Also read who the statement belongs to:
+- institution: the bank or broker's name exactly as printed ("HSBC UK Bank plc", "Commercial International Bank", "البنك العربي"). Empty when the page never names it.
+- statement_holder: the account holder's name as printed. Empty if absent.
+- account_identifier: the account number, IBAN or card number as printed, including any masking the bank applied (for example "****4821" or "GB29 NWBK 6016 1331 9268 19"). Prefer an IBAN when both appear. Empty if none is printed.
+- identifier_kind: which of those it is. Empty when there is no identifier.
+- account_type: what kind of account the statement is for, from the list. Empty when unclear.
+- country: ISO 3166-1 alpha-2 for where the account is held (GB, EG, JO, US, AE), inferred from the bank, address, currency or sort code. Empty when genuinely unclear.
+Never guess an account number, a name or a bank you cannot see in the text.`;
+
+type RawIdentity = {
+  institution?: string;
+  statement_holder?: string;
+  account_identifier?: string;
+  identifier_kind?: string;
+  account_type?: string;
+  country?: string;
+};
+
+function cleanIdentity(raw: RawIdentity | null | undefined): StatementIdentity {
+  const text = (value: string | undefined, max = 120) => {
+    const trimmed = (value ?? "").trim();
+    return trimmed.length > 0 ? trimmed.slice(0, max) : null;
+  };
+  const kind = text(raw?.identifier_kind);
+  const country = text(raw?.country, 2);
+
+  return {
+    institution: text(raw?.institution),
+    statement_holder: text(raw?.statement_holder),
+    account_identifier: text(raw?.account_identifier, 64),
+    identifier_kind: kind === "iban" || kind === "card" || kind === "account_number" ? kind : null,
+    account_type: text(raw?.account_type, 24),
+    country: country && /^[A-Za-z]{2}$/.test(country) ? country.toUpperCase() : null,
+  };
+}
 
 /* ------------------------------------------------------------ tabular files */
 
@@ -50,7 +138,7 @@ type ColumnMapping = {
   amount_sign_convention: string;
   currency_code: string;
   notes: string;
-};
+} & RawIdentity;
 
 const MAPPING_SCHEMA = {
   type: "object",
@@ -70,6 +158,7 @@ const MAPPING_SCHEMA = {
     },
     currency_code: { type: "string" },
     notes: { type: "string" },
+    ...IDENTITY_PROPERTIES,
   },
   required: [
     "header_row_index",
@@ -84,6 +173,7 @@ const MAPPING_SCHEMA = {
     "amount_sign_convention",
     "currency_code",
     "notes",
+    ...IDENTITY_KEYS,
   ],
   additionalProperties: false,
 } as const;
@@ -99,25 +189,30 @@ Rules:
 - description_columns may list several columns that should be joined with a space.
 - date_format describes the order of the numbers in the date column. Only report YMD when the year genuinely comes first.
 - currency_code is the ISO code if the file states one, otherwise an empty string.
-- notes: one short sentence naming the bank or format if you recognise it, otherwise empty.`;
+- notes: one short sentence naming the bank or format if you recognise it, otherwise empty.
+
+${IDENTITY_RULES}
+Export files often carry the bank name, holder and account number in the preamble rows above the header — read them from there.`;
 
 /** Header row plus the first fifteen data rows — never the whole file. */
 export const PREVIEW_ROWS = 16;
 
-export async function inferColumnMapping(previewRows: string[][]): Promise<ColumnMapping> {
+export async function inferColumnMapping(
+  runner: JsonRunner,
+  previewRows: string[][],
+): Promise<ColumnMapping> {
   const preview = previewRows
     .filter((row) => row.some((cell) => (cell ?? "").trim().length > 0))
     .slice(0, PREVIEW_ROWS)
     .map((row, index) => `${index}: ${JSON.stringify(row)}`)
     .join("\n");
 
-  return aiJson<ColumnMapping>({
-    model: AI_MODELS.cheap,
+  return runner.json<ColumnMapping>({
     system: MAPPING_SYSTEM,
-    user: `Here are the first rows of a bank statement export. Map its columns.\n\n${preview}`,
+    user: `Here are the first rows of a bank statement export. Map its columns and read whose account it is.\n\n${preview}`,
     schemaName: "column_mapping",
     schema: MAPPING_SCHEMA,
-    maxTokens: 1200,
+    maxTokens: 1500,
   });
 }
 
@@ -293,6 +388,11 @@ export function applyMapping(rows: string[][], mapping: ColumnMapping): Extracti
     closing = last.balance_after;
   }
 
+  const identity = cleanIdentity(mapping);
+  const currency = /^[A-Z]{3}$/.test(mapping.currency_code?.toUpperCase() ?? "")
+    ? mapping.currency_code.toUpperCase()
+    : (transactions.find((t) => t.currency)?.currency ?? null);
+
   return {
     transactions,
     skippedRows,
@@ -302,9 +402,8 @@ export function applyMapping(rows: string[][], mapping: ColumnMapping): Extracti
       period_end: last?.booked_date ?? null,
       opening_balance: opening,
       closing_balance: closing,
-      currency: /^[A-Z]{3}$/.test(mapping.currency_code?.toUpperCase() ?? "")
-        ? mapping.currency_code.toUpperCase()
-        : (transactions.find((t) => t.currency)?.currency ?? null),
+      currency,
+      identity,
     },
   };
 }
@@ -319,8 +418,16 @@ const META_SCHEMA = {
     opening_balance: { type: "string" },
     closing_balance: { type: "string" },
     currency: { type: "string" },
+    ...IDENTITY_PROPERTIES,
   },
-  required: ["period_start", "period_end", "opening_balance", "closing_balance", "currency"],
+  required: [
+    "period_start",
+    "period_end",
+    "opening_balance",
+    "closing_balance",
+    "currency",
+    ...IDENTITY_KEYS,
+  ],
   additionalProperties: false,
 } as const;
 
@@ -375,7 +482,10 @@ function chunkText(text: string): string[] {
   return chunks;
 }
 
-export async function extractFromPdfText(text: string): Promise<ExtractionResult> {
+export async function extractFromPdfText(
+  runner: JsonRunner,
+  text: string,
+): Promise<ExtractionResult> {
   const chunks = chunkText(text);
   const notes: string[] = [];
   if (chunks.length > MAX_CHUNKS) {
@@ -384,21 +494,25 @@ export async function extractFromPdfText(text: string): Promise<ExtractionResult
     );
   }
 
-  const metaPromise = aiJson<{
-    period_start: string;
-    period_end: string;
-    opening_balance: string;
-    closing_balance: string;
-    currency: string;
-  }>({
-    model: AI_MODELS.cheap,
-    system:
-      "You read bank statement headers. Return the statement period, opening and closing balances and the ISO currency code exactly as printed. Use an empty string for anything the text does not state. Dates must be ISO yyyy-mm-dd.",
-    user: `Statement text (start):\n\n${text.slice(0, 4000)}\n\nStatement text (end):\n\n${text.slice(-2500)}`,
-    schemaName: "statement_meta",
-    schema: META_SCHEMA,
-    maxTokens: 600,
-  }).catch(() => null);
+  const metaPromise = runner
+    .json<
+      {
+        period_start: string;
+        period_end: string;
+        opening_balance: string;
+        closing_balance: string;
+        currency: string;
+      } & RawIdentity
+    >({
+      system: `You read bank statement headers. Return the statement period, opening and closing balances and the ISO currency code exactly as printed. Use an empty string for anything the text does not state. Dates must be ISO yyyy-mm-dd.
+
+${IDENTITY_RULES}`,
+      user: `Statement text (start):\n\n${text.slice(0, 4000)}\n\nStatement text (end):\n\n${text.slice(-2500)}`,
+      schemaName: "statement_meta",
+      schema: META_SCHEMA,
+      maxTokens: 900,
+    })
+    .catch(() => null);
 
   const results: RawTransaction[] = [];
   const CONCURRENCY = 3;
@@ -407,7 +521,7 @@ export async function extractFromPdfText(text: string): Promise<ExtractionResult
     const batch = chunks.slice(start, start + CONCURRENCY);
     const parsed = await Promise.all(
       batch.map((chunk) =>
-        aiJson<{
+        runner.json<{
           transactions: Array<{
             date: string;
             description: string;
@@ -416,7 +530,6 @@ export async function extractFromPdfText(text: string): Promise<ExtractionResult
             balance_after: string;
           }>;
         }>({
-          model: AI_MODELS.strong,
           system: PDF_SYSTEM,
           user: `Statement text section ${start + batch.indexOf(chunk) + 1} of ${chunks.length}:\n\n${chunk}`,
           schemaName: "pdf_transactions",
@@ -473,6 +586,7 @@ export async function extractFromPdfText(text: string): Promise<ExtractionResult
       currency: /^[A-Za-z]{3}$/.test(meta?.currency ?? "")
         ? (meta?.currency ?? "").toUpperCase()
         : null,
+      identity: cleanIdentity(meta),
     },
   };
 }

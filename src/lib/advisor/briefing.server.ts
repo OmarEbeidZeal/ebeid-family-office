@@ -17,13 +17,9 @@ import {
   type AdvisorContextResult,
 } from "@/lib/advisor/context.server";
 import { detectSignals, formatSignals, rankSignals } from "@/lib/advisor/signals";
-import {
-  ADVISOR_MODEL,
-  BRIEFING_SCHEMA,
-  briefingSystemPrompt,
-  type BriefingPayload,
-} from "@/lib/advisor/prompt";
-import { advisorJson, AdvisorGatewayError } from "@/lib/advisor/gateway.server";
+import { BRIEFING_SCHEMA, briefingSystemPrompt, type BriefingPayload } from "@/lib/advisor/prompt";
+import { AiProviderError } from "@/lib/ai/errors";
+import { createJsonRunner } from "@/lib/ai/runner.server";
 import type { BriefingResult } from "@/lib/advisor.functions";
 
 /** A situation already written up inside this window is not written up again. */
@@ -123,28 +119,26 @@ async function writeBriefing(
     };
   }
 
+  // Whichever provider the household chose for advisory work writes this; if
+  // it cannot, the runner falls back to Lovable AI and says so in its notes.
+  const runner = await createJsonRunner(client, loaded.householdId, "advisory");
+
   let payload: BriefingPayload;
   try {
-    payload = await advisorJson<BriefingPayload>({
-      model: ADVISOR_MODEL,
-      instructions: briefingSystemPrompt({
+    payload = await runner.json<BriefingPayload>({
+      system: briefingSystemPrompt({
         contextJson: JSON.stringify(loaded.context),
         householdName: loaded.householdName,
         today: generatedAt.slice(0, 10),
         signals: formatSignals(fresh),
       }),
-      input: [
-        {
-          role: "user",
-          text: "Write this week's briefing from the detected signals. Return json matching the schema.",
-        },
-      ],
-      reasoningEffort: "medium",
-      jsonSchema: { name: "briefing", schema: BRIEFING_SCHEMA },
-      maxOutputTokens: 4000,
+      user: "Write this week's briefing from the detected signals. Return json matching the schema.",
+      schemaName: "briefing",
+      schema: BRIEFING_SCHEMA as Record<string, unknown>,
+      maxTokens: 4000,
     });
   } catch (error) {
-    if (error instanceof AdvisorGatewayError) {
+    if (error instanceof AiProviderError) {
       return {
         status: "unavailable",
         created: 0,

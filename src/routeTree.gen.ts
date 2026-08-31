@@ -16,6 +16,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BalanceSheetRouteImport } from './routes/balance-sheet'
 import { Route as ForecastRouteImport } from './routes/forecast'
 import { Route as GoalsRouteImport } from './routes/goals'
+import { Route as ImportRouteImport } from './routes/import'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as ScenariosRouteImport } from './routes/scenarios'
@@ -23,7 +24,9 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SpendingRouteImport } from './routes/spending'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as ApiAdvisorChatRouteImport } from './routes/api/advisor/chat'
+import { Route as ApiPublicBankLogoRouteImport } from './routes/api/public/bank-logo'
 import { Route as ApiPublicHooksFxRefreshRouteImport } from './routes/api/public/hooks/fx-refresh'
+import { Route as ApiPublicHooksImportQueueRouteImport } from './routes/api/public/hooks/import-queue'
 import { Route as ApiPublicHooksMarketCloseRouteImport } from './routes/api/public/hooks/market-close'
 import { Route as ApiPublicHooksNetWorthSnapshotRouteImport } from './routes/api/public/hooks/net-worth-snapshot'
 import { Route as ApiPublicHooksWeeklyBriefingRouteImport } from './routes/api/public/hooks/weekly-briefing'
@@ -63,6 +66,11 @@ const GoalsRoute = GoalsRouteImport.update({
   path: '/goals',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ImportRoute = ImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
@@ -98,11 +106,22 @@ const ApiAdvisorChatRoute = ApiAdvisorChatRouteImport.update({
   path: '/api/advisor/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicBankLogoRoute = ApiPublicBankLogoRouteImport.update({
+  id: '/api/public/bank-logo',
+  path: '/api/public/bank-logo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksFxRefreshRoute = ApiPublicHooksFxRefreshRouteImport.update({
   id: '/api/public/hooks/fx-refresh',
   path: '/api/public/hooks/fx-refresh',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksImportQueueRoute =
+  ApiPublicHooksImportQueueRouteImport.update({
+    id: '/api/public/hooks/import-queue',
+    path: '/api/public/hooks/import-queue',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksMarketCloseRoute =
   ApiPublicHooksMarketCloseRouteImport.update({
     id: '/api/public/hooks/market-close',
@@ -130,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/balance-sheet': typeof BalanceSheetRoute
   '/forecast': typeof ForecastRoute
   '/goals': typeof GoalsRoute
+  '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
   '/portfolio': typeof PortfolioRoute
   '/scenarios': typeof ScenariosRoute
@@ -137,7 +157,9 @@ export interface FileRoutesByFullPath {
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
+  '/api/public/bank-logo': typeof ApiPublicBankLogoRoute
   '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
+  '/api/public/hooks/import-queue': typeof ApiPublicHooksImportQueueRoute
   '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
   '/api/public/hooks/net-worth-snapshot': typeof ApiPublicHooksNetWorthSnapshotRoute
   '/api/public/hooks/weekly-briefing': typeof ApiPublicHooksWeeklyBriefingRoute
@@ -150,6 +172,7 @@ export interface FileRoutesByTo {
   '/balance-sheet': typeof BalanceSheetRoute
   '/forecast': typeof ForecastRoute
   '/goals': typeof GoalsRoute
+  '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
   '/portfolio': typeof PortfolioRoute
   '/scenarios': typeof ScenariosRoute
@@ -157,7 +180,9 @@ export interface FileRoutesByTo {
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
+  '/api/public/bank-logo': typeof ApiPublicBankLogoRoute
   '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
+  '/api/public/hooks/import-queue': typeof ApiPublicHooksImportQueueRoute
   '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
   '/api/public/hooks/net-worth-snapshot': typeof ApiPublicHooksNetWorthSnapshotRoute
   '/api/public/hooks/weekly-briefing': typeof ApiPublicHooksWeeklyBriefingRoute
@@ -171,6 +196,7 @@ export interface FileRoutesById {
   '/balance-sheet': typeof BalanceSheetRoute
   '/forecast': typeof ForecastRoute
   '/goals': typeof GoalsRoute
+  '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
   '/portfolio': typeof PortfolioRoute
   '/scenarios': typeof ScenariosRoute
@@ -178,7 +204,9 @@ export interface FileRoutesById {
   '/spending': typeof SpendingRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
+  '/api/public/bank-logo': typeof ApiPublicBankLogoRoute
   '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
+  '/api/public/hooks/import-queue': typeof ApiPublicHooksImportQueueRoute
   '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
   '/api/public/hooks/net-worth-snapshot': typeof ApiPublicHooksNetWorthSnapshotRoute
   '/api/public/hooks/weekly-briefing': typeof ApiPublicHooksWeeklyBriefingRoute
@@ -193,6 +221,7 @@ export interface FileRouteTypes {
     | '/balance-sheet'
     | '/forecast'
     | '/goals'
+    | '/import'
     | '/onboarding'
     | '/portfolio'
     | '/scenarios'
@@ -200,7 +229,9 @@ export interface FileRouteTypes {
     | '/spending'
     | '/transactions'
     | '/api/advisor/chat'
+    | '/api/public/bank-logo'
     | '/api/public/hooks/fx-refresh'
+    | '/api/public/hooks/import-queue'
     | '/api/public/hooks/market-close'
     | '/api/public/hooks/net-worth-snapshot'
     | '/api/public/hooks/weekly-briefing'
@@ -213,6 +244,7 @@ export interface FileRouteTypes {
     | '/balance-sheet'
     | '/forecast'
     | '/goals'
+    | '/import'
     | '/onboarding'
     | '/portfolio'
     | '/scenarios'
@@ -220,7 +252,9 @@ export interface FileRouteTypes {
     | '/spending'
     | '/transactions'
     | '/api/advisor/chat'
+    | '/api/public/bank-logo'
     | '/api/public/hooks/fx-refresh'
+    | '/api/public/hooks/import-queue'
     | '/api/public/hooks/market-close'
     | '/api/public/hooks/net-worth-snapshot'
     | '/api/public/hooks/weekly-briefing'
@@ -233,6 +267,7 @@ export interface FileRouteTypes {
     | '/balance-sheet'
     | '/forecast'
     | '/goals'
+    | '/import'
     | '/onboarding'
     | '/portfolio'
     | '/scenarios'
@@ -240,7 +275,9 @@ export interface FileRouteTypes {
     | '/spending'
     | '/transactions'
     | '/api/advisor/chat'
+    | '/api/public/bank-logo'
     | '/api/public/hooks/fx-refresh'
+    | '/api/public/hooks/import-queue'
     | '/api/public/hooks/market-close'
     | '/api/public/hooks/net-worth-snapshot'
     | '/api/public/hooks/weekly-briefing'
@@ -254,6 +291,7 @@ export interface RootRouteChildren {
   BalanceSheetRoute: typeof BalanceSheetRoute
   ForecastRoute: typeof ForecastRoute
   GoalsRoute: typeof GoalsRoute
+  ImportRoute: typeof ImportRoute
   OnboardingRoute: typeof OnboardingRoute
   PortfolioRoute: typeof PortfolioRoute
   ScenariosRoute: typeof ScenariosRoute
@@ -261,7 +299,9 @@ export interface RootRouteChildren {
   SpendingRoute: typeof SpendingRoute
   TransactionsRoute: typeof TransactionsRoute
   ApiAdvisorChatRoute: typeof ApiAdvisorChatRoute
+  ApiPublicBankLogoRoute: typeof ApiPublicBankLogoRoute
   ApiPublicHooksFxRefreshRoute: typeof ApiPublicHooksFxRefreshRoute
+  ApiPublicHooksImportQueueRoute: typeof ApiPublicHooksImportQueueRoute
   ApiPublicHooksMarketCloseRoute: typeof ApiPublicHooksMarketCloseRoute
   ApiPublicHooksNetWorthSnapshotRoute: typeof ApiPublicHooksNetWorthSnapshotRoute
   ApiPublicHooksWeeklyBriefingRoute: typeof ApiPublicHooksWeeklyBriefingRoute
@@ -318,6 +358,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GoalsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/import': {
+      id: '/import'
+      path: '/import'
+      fullPath: '/import'
+      preLoaderRoute: typeof ImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/onboarding': {
       id: '/onboarding'
       path: '/onboarding'
@@ -367,11 +414,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdvisorChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/bank-logo': {
+      id: '/api/public/bank-logo'
+      path: '/api/public/bank-logo'
+      fullPath: '/api/public/bank-logo'
+      preLoaderRoute: typeof ApiPublicBankLogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/fx-refresh': {
       id: '/api/public/hooks/fx-refresh'
       path: '/api/public/hooks/fx-refresh'
       fullPath: '/api/public/hooks/fx-refresh'
       preLoaderRoute: typeof ApiPublicHooksFxRefreshRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/import-queue': {
+      id: '/api/public/hooks/import-queue'
+      path: '/api/public/hooks/import-queue'
+      fullPath: '/api/public/hooks/import-queue'
+      preLoaderRoute: typeof ApiPublicHooksImportQueueRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/market-close': {
@@ -406,6 +467,7 @@ const rootRouteChildren: RootRouteChildren = {
   BalanceSheetRoute: BalanceSheetRoute,
   ForecastRoute: ForecastRoute,
   GoalsRoute: GoalsRoute,
+  ImportRoute: ImportRoute,
   OnboardingRoute: OnboardingRoute,
   PortfolioRoute: PortfolioRoute,
   ScenariosRoute: ScenariosRoute,
@@ -413,7 +475,9 @@ const rootRouteChildren: RootRouteChildren = {
   SpendingRoute: SpendingRoute,
   TransactionsRoute: TransactionsRoute,
   ApiAdvisorChatRoute: ApiAdvisorChatRoute,
+  ApiPublicBankLogoRoute: ApiPublicBankLogoRoute,
   ApiPublicHooksFxRefreshRoute: ApiPublicHooksFxRefreshRoute,
+  ApiPublicHooksImportQueueRoute: ApiPublicHooksImportQueueRoute,
   ApiPublicHooksMarketCloseRoute: ApiPublicHooksMarketCloseRoute,
   ApiPublicHooksNetWorthSnapshotRoute: ApiPublicHooksNetWorthSnapshotRoute,
   ApiPublicHooksWeeklyBriefingRoute: ApiPublicHooksWeeklyBriefingRoute,

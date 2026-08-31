@@ -4,21 +4,28 @@ import { AlertTriangle, FileText, ListChecks, Loader2, RefreshCw, Trash2 } from 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BankMark } from "@/components/BankMark";
 import { EmptyState } from "@/components/EmptyState";
 import { Money } from "@/components/Money";
 import { supabase } from "@/integrations/supabase/client";
 import { db } from "@/lib/db";
-import { parseStatement } from "@/lib/statements.functions";
+import { usePumpQueue, useRetryStatement } from "@/hooks/useImports";
 import { useStatements, type StatementRow } from "@/hooks/useTransactions";
 import type { AccountRow } from "@/hooks/useFinancials";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const STATUS: Record<string, { label: string; tone: string }> = {
+  queued: { label: "Queued", tone: "text-muted-foreground border-border" },
   uploaded: { label: "Waiting", tone: "text-muted-foreground border-border" },
-  parsing: { label: "Reading", tone: "text-gold border-gold-line" },
+  extracting: { label: "Reading", tone: "text-gold border-gold-line" },
+  parsing: { label: "Importing", tone: "text-gold border-gold-line" },
+  awaiting_account: { label: "Which account?", tone: "text-warn border-warn/40" },
+  imported: { label: "Imported", tone: "text-gain border-gain/40" },
   parsed: { label: "Imported", tone: "text-gain border-gain/40" },
   needs_review: { label: "Needs review", tone: "text-warn border-warn/40" },
+  duplicate: { label: "Already on file", tone: "text-muted-foreground border-border" },
+  cancelled: { label: "Not imported", tone: "text-muted-foreground border-border" },
   failed: { label: "Failed", tone: "text-loss border-loss/40" },
 };
 
@@ -33,28 +40,32 @@ export function StatementsPanel({
 }) {
   const { data: statements = [], isLoading } = useStatements();
   const queryClient = useQueryClient();
+  const retryStatement = useRetryStatement();
+  const pump = usePumpQueue();
   const [busy, setBusy] = useState<string | null>(null);
 
   const accountName = (id: string | null) =>
-    accounts.find((account) => account.id === id)?.nickname ?? "Unlinked account";
+    accounts.find((account) => account.id === id)?.nickname ?? "Not linked to an account yet";
+
+  const accountFor = (id: string | null) => accounts.find((account) => account.id === id) ?? null;
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["statements"] });
+    void queryClient.invalidateQueries({ queryKey: ["import-statements"] });
     void queryClient.invalidateQueries({ queryKey: ["transactions"] });
   };
 
+  /** Re-reading puts the file back in the queue; the worker does the reading. */
   const retry = async (statement: StatementRow) => {
     setBusy(statement.id);
     try {
-      const result = await parseStatement({ data: { statementId: statement.id } });
-      toast.success(
-        `${result.inserted} new, ${result.duplicates} already imported`,
-        result.discrepancy
-          ? { description: "The statement's own balances don't reconcile — flagged for review." }
-          : undefined,
-      );
+      await retryStatement.mutateAsync(statement.id);
+      toast.success("Back in the queue", {
+        description: "It will be read within a few minutes, or sooner while this tab is open.",
+      });
+      await pump.mutateAsync(2).catch(() => undefined);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not read that statement.");
+      toast.error(error instanceof Error ? error.message : "Could not queue that statement.");
     } finally {
       setBusy(null);
       refresh();
@@ -73,7 +84,11 @@ export function StatementsPanel({
         .delete()
         .eq("statement_id", statement.id);
       if (txError) throw txError;
-      await supabase.storage.from("statements").remove([statement.file_path]);
+      // The cached extraction lives beside the file so a re-read costs nothing;
+      // deleting the import should take it too.
+      await supabase.storage
+        .from("statements")
+        .remove([statement.file_path, `${statement.file_path}.extract.json`]);
       const { error } = await db.from("statements").delete().eq("id", statement.id);
       if (error) throw error;
       toast.success("Import removed");
@@ -100,8 +115,8 @@ export function StatementsPanel({
       <EmptyState
         icon={<FileText className="size-4" />}
         title="No statements imported yet"
-        body="Drag in a PDF or CSV from any of your banks — UK, Egyptian, Jordanian or US. Each file is stored privately against its account and read into dated, categorised transactions."
-        action={<Button onClick={onImport}>Import statement</Button>}
+        body="Drag in a PDF or CSV from any of your banks — UK, Egyptian, Jordanian or US. You don't need to say which account: each file is read on the server, matched to the right account by its masked identifier, and turned into dated, categorised transactions."
+        action={<Button onClick={onImport}>Import statements</Button>}
       />
     );
   }
@@ -111,9 +126,10 @@ export function StatementsPanel({
       {statements.map((statement) => {
         const status = STATUS[statement.status] ?? STATUS["uploaded"]!;
         const isBusy = busy === statement.id;
+        const account = accountFor(statement.account_id);
         return (
           <li key={statement.id} className="flex flex-wrap items-start gap-3 py-3">
-            <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <BankMark institution={account?.institution} size={26} className="mt-0.5" />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="truncate text-sm">{statement.file_name ?? "Statement"}</p>

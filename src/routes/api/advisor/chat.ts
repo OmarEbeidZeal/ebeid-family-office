@@ -10,9 +10,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { authenticateRequest, UnauthorizedError } from "@/lib/api-auth.server";
 import { loadAdvisorContext, NoHouseholdError } from "@/lib/advisor/context.server";
-import { advisorSystemPrompt, ADVISOR_MODEL } from "@/lib/advisor/prompt";
+import { advisorSystemPrompt } from "@/lib/advisor/prompt";
 import {
   AdvisorGatewayError,
+  resolveAdvisorModel,
   streamAdvisor,
   type AdvisorInputItem,
 } from "@/lib/advisor/gateway.server";
@@ -27,6 +28,8 @@ const HISTORY_LIMIT = 24;
 type Event =
   | { type: "reasoning"; delta: string }
   | { type: "text"; delta: string }
+  /** Who is answering — the household's choice, or whoever stood in for it. */
+  | { type: "model"; provider: string; model: string; note: string | null }
   | { type: "done"; messageId: string | null; model: string }
   | { type: "error"; message: string };
 
@@ -104,21 +107,36 @@ async function handlePost({ request }: { request: Request }) {
     today: new Date().toISOString().slice(0, 10),
   });
 
+  const choice = await resolveAdvisorModel(supabase, loaded.householdId);
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let answer = "";
       let reasoning = "";
+      let usedModel = choice.model;
 
       try {
         for await (const event of streamAdvisor({
-          model: ADVISOR_MODEL,
+          provider: choice.provider,
+          model: choice.model,
+          note: choice.note,
           instructions,
           input: [...priorTurns, { role: "user", text: parsed.message }],
           reasoningEffort: "low",
           maxOutputTokens: 4000,
           ...(request.signal ? { signal: request.signal } : {}),
         })) {
-          if (event.type === "reasoning") {
+          if (event.type === "model") {
+            usedModel = event.model;
+            controller.enqueue(
+              line({
+                type: "model",
+                provider: event.provider,
+                model: event.model,
+                note: event.note,
+              }),
+            );
+          } else if (event.type === "reasoning") {
             reasoning += event.delta;
             controller.enqueue(line({ type: "reasoning", delta: event.delta }));
           } else if (event.type === "text") {
@@ -150,7 +168,7 @@ async function handlePost({ request }: { request: Request }) {
             role: "assistant",
             content: answer,
             reasoning: reasoning.trim() || null,
-            model: ADVISOR_MODEL,
+            model: usedModel,
             context_snapshot: JSON.parse(JSON.stringify(loaded.context)),
           })
           .select("id")
@@ -158,7 +176,7 @@ async function handlePost({ request }: { request: Request }) {
         messageId = data?.id ?? null;
       }
 
-      controller.enqueue(line({ type: "done", messageId, model: ADVISOR_MODEL }));
+      controller.enqueue(line({ type: "done", messageId, model: usedModel }));
       controller.close();
     },
   });

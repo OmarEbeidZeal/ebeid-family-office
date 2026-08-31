@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Receipt, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -7,7 +7,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BulkActionsBar } from "@/components/transactions/BulkActionsBar";
-import { ImportStatementDialog } from "@/components/transactions/ImportStatementDialog";
 import { LedgerSummary } from "@/components/transactions/LedgerSummary";
 import { SplitDialog } from "@/components/transactions/SplitDialog";
 import { RulesPanel } from "@/components/transactions/RulesPanel";
@@ -35,6 +34,8 @@ import { useQuickAdd, useTransactionSearchIntent } from "@/lib/quick-add";
 const PAGE_SIZE = 50;
 
 export const Route = createFileRoute("/transactions")({
+  validateSearch: (search: Record<string, unknown>): { statement?: string } =>
+    typeof search["statement"] === "string" ? { statement: search["statement"] } : {},
   head: () => ({
     meta: [
       { title: "Transactions — Ebeid Family Office" },
@@ -56,6 +57,8 @@ export const Route = createFileRoute("/transactions")({
 });
 
 function TransactionsPage() {
+  const navigate = useNavigate();
+  const { statement: scopedStatementId } = Route.useSearch();
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const { data: statements = [] } = useStatements();
@@ -65,15 +68,24 @@ function TransactionsPage() {
   const [filters, setFilters] = useState<TransactionFilters>(defaultFilters);
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [importOpen, setImportOpen] = useState(false);
   const [splitting, setSplitting] = useState<TransactionRow | null>(null);
 
-  useQuickAdd("import", () => setImportOpen(true));
+  const openImport = () => void navigate({ to: "/import" });
+  useQuickAdd("import", openImport);
   useTransactionSearchIntent((term) => {
     setTab("all");
     setPage(0);
     setFilters((current) => ({ ...current, search: term }));
   });
+
+  useEffect(() => {
+    if (!scopedStatementId) return;
+    // Arriving from the import workspace means "show me what this file brought
+    // in" — transfers included, or the rows would silently go missing.
+    setTab("all");
+    setPage(0);
+    setFilters({ ...defaultFilters, statementId: scopedStatementId, hideTransfers: false });
+  }, [scopedStatementId]);
 
   const activeFilters = useMemo<TransactionFilters>(
     () => (tab === "review" ? { ...filters, reviewOnly: true } : filters),
@@ -294,10 +306,10 @@ function TransactionsPage() {
         <EmptyState
           icon={<Receipt className="size-4" />}
           title="Nothing imported yet"
-          body="Drag in statements from Starling, HSBC, CIB, Arab Bank or a US brokerage — PDF, CSV or Excel, up to 20MB each. Each file is stored privately, read into transactions in its own currency, converted at the rate for each transaction's date, and categorised for you."
+          body="Drag in statements from Starling, HSBC, CIB, Arab Bank or a US brokerage — PDF, CSV or Excel, up to 20MB each. You don't need to say which account: each file is read on the server, matched to the right account, converted at the rate for each transaction's date, and categorised for you."
           action={
-            <Button onClick={() => setImportOpen(true)}>
-              <Upload className="size-3.5" /> Import statement
+            <Button onClick={openImport}>
+              <Upload className="size-3.5" /> Import statements
             </Button>
           }
         />
@@ -318,8 +330,8 @@ function TransactionsPage() {
               <TabsTrigger value="rules">Rules</TabsTrigger>
             </TabsList>
 
-            <Button size="sm" onClick={() => setImportOpen(true)}>
-              <Upload className="size-3.5" /> Import statement
+            <Button size="sm" onClick={openImport}>
+              <Upload className="size-3.5" /> Import statements
             </Button>
           </div>
 
@@ -329,7 +341,7 @@ function TransactionsPage() {
             <div className="hairline rounded-lg bg-surface px-4">
               <StatementsPanel
                 accounts={accounts}
-                onImport={() => setImportOpen(true)}
+                onImport={openImport}
                 onReview={(statement) => {
                   // Reviewing a file means every row it brought in, transfers included.
                   setFilters({
@@ -350,7 +362,6 @@ function TransactionsPage() {
         </Tabs>
       )}
 
-      <ImportStatementDialog open={importOpen} onOpenChange={setImportOpen} />
       <SplitDialog
         transaction={splitting}
         categories={categories}

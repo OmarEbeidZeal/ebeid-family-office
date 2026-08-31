@@ -17,7 +17,14 @@ import {
   type CategoryRef,
   type CategoryRule,
 } from "./categorise.server";
-import { applyMapping, extractFromPdfText, inferColumnMapping } from "./statement-extract.server";
+import { createJsonRunner, type JsonRunner } from "./ai/runner.server";
+import {
+  applyMapping,
+  extractFromPdfText,
+  inferColumnMapping,
+  type ExtractionResult,
+} from "./statement-extract.server";
+
 import {
   SCANNED_PDF_MESSAGE,
   decodeText,
@@ -153,6 +160,62 @@ async function fail(supabase: Client, statementId: string, message: string): Pro
   };
 }
 
+/** A failure with a sentence worth showing the household. */
+export class StatementFailure extends Error {}
+
+export type LoadedStatementFile = {
+  kind: "pdf" | "csv" | "xlsx";
+  bytes: Uint8Array;
+};
+
+export async function downloadStatementFile(
+  supabase: Client,
+  statement: { file_path: string; file_name?: string | null },
+): Promise<LoadedStatementFile> {
+  const { data: file, error } = await supabase.storage
+    .from("statements")
+    .download(statement.file_path);
+  if (error || !file) {
+    throw new StatementFailure(
+      "The uploaded file could not be read back from storage. Upload it again.",
+    );
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const kind = detectFileKind(statement.file_name ?? statement.file_path, (file as any).type);
+  if (!kind) {
+    throw new StatementFailure(
+      "Only PDF, CSV and Excel statements can be read. Export one of those formats from your bank.",
+    );
+  }
+  return { kind, bytes };
+}
+
+/** File bytes → rows plus everything the statement says about itself. */
+export async function extractStatementContent(
+  runner: JsonRunner,
+  file: LoadedStatementFile,
+): Promise<ExtractionResult> {
+  if (file.kind === "pdf") {
+    const pdf = await extractPdfText(file.bytes);
+    if (looksScanned(pdf)) throw new StatementFailure(SCANNED_PDF_MESSAGE);
+    return extractFromPdfText(runner, pdf.text);
+  }
+
+  const rawRows =
+    file.kind === "csv"
+      ? await parseDelimitedRows(decodeText(file.bytes))
+      : await parseWorkbookRows(file.bytes);
+  const rows = rawRows.filter((row) => row.some((cell) => (cell ?? "").trim().length > 0));
+  if (rows.length < 2) {
+    throw new StatementFailure(
+      "This file has no readable rows. Check you exported the transaction list rather than a summary.",
+    );
+  }
+  const mapping = await inferColumnMapping(runner, rows);
+  return applyMapping(rows, mapping);
+}
+
 export async function importStatement(
   supabase: Client,
   statementId: string,
@@ -184,51 +247,37 @@ export async function importStatement(
     .eq("id", statementId);
 
   try {
-    /* ---------------------------------------------------------- download */
-    const { data: file, error: downloadError } = await supabase.storage
-      .from("statements")
-      .download(statement.file_path);
-    if (downloadError || !file) {
-      return fail(
-        supabase,
-        statementId,
-        "The uploaded file could not be read back from storage. Upload it again.",
-      );
-    }
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    const file = await downloadStatementFile(supabase, statement);
+    const extractionRunner = await createJsonRunner(supabase, statement.household_id, "extraction");
+    const extraction = await extractStatementContent(extractionRunner, file);
+    return await importExtracted(supabase, statement, extraction);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "The statement could not be read. Try again.";
+    return fail(supabase, statementId, message);
+  }
+}
 
-    const kind = detectFileKind(statement.file_name ?? statement.file_path, (file as any).type);
-    if (!kind) {
-      return fail(
-        supabase,
-        statementId,
-        "Only PDF, CSV and Excel statements can be read. Export one of those formats from your bank.",
-      );
-    }
+/**
+ * Everything after extraction: convert, deduplicate, categorise, detect,
+ * reconcile, write. Split out so a statement whose account was confirmed later
+ * can be imported from its cached extraction without paying to read it twice.
+ */
+export type ImportableStatement = {
+  id: string;
+  household_id: string;
+  account_id: string | null;
+  [key: string]: unknown;
+};
 
-    /* ----------------------------------------------------------- extract */
-    let extraction;
-    if (kind === "pdf") {
-      const pdf = await extractPdfText(bytes);
-      if (looksScanned(pdf)) return fail(supabase, statementId, SCANNED_PDF_MESSAGE);
-      extraction = await extractFromPdfText(pdf.text);
-    } else {
-      const rawRows =
-        kind === "csv"
-          ? await parseDelimitedRows(decodeText(bytes))
-          : await parseWorkbookRows(bytes);
-      const rows = rawRows.filter((row) => row.some((cell) => (cell ?? "").trim().length > 0));
-      if (rows.length < 2) {
-        return fail(
-          supabase,
-          statementId,
-          "This file has no readable rows. Check you exported the transaction list rather than a summary.",
-        );
-      }
-      const mapping = await inferColumnMapping(rows);
-      extraction = applyMapping(rows, mapping);
-    }
+export async function importExtracted(
+  supabase: Client,
+  statement: ImportableStatement,
+  extraction: ExtractionResult,
+): Promise<ImportResult> {
+  const statementId = statement.id;
 
+  try {
     const parsed: RawTransaction[] = extraction.transactions;
     if (!parsed.length) {
       return fail(
@@ -345,9 +394,12 @@ export async function importStatement(
       .filter((entry) => !assignments[entry.index]);
 
     let aiNote: string | null = null;
+    let categoriser: JsonRunner | null = null;
     if (needsAi.length) {
       try {
+        categoriser = await createJsonRunner(supabase, statement.household_id, "categorisation");
         const results = await categoriseBatch(
+          categoriser,
           needsAi.map((entry) => ({
             description: entry.row.description,
             merchant: entry.row.merchant,
@@ -357,6 +409,7 @@ export async function importStatement(
           })),
           categories,
         );
+
         results.forEach((result, position) => {
           const entry = needsAi[position]!;
           assignments[entry.index] = {
@@ -367,6 +420,7 @@ export async function importStatement(
           };
           if (result.merchant) entry.row.merchant = result.merchant;
         });
+        for (const note of categoriser.notes) if (!notes.includes(note)) notes.push(note);
       } catch (error) {
         // Import the money even when categorisation is unavailable; the review
         // queue then holds everything uncategorised.
@@ -493,6 +547,15 @@ export async function importStatement(
         discrepancy,
         error_message: needsReview ? message : null,
         parsed_at: new Date().toISOString(),
+        summary: {
+          inserted: insertedIds.length,
+          duplicates,
+          skipped_rows: extraction.skippedRows,
+          notes,
+          categorised_by: categoriser
+            ? { provider: categoriser.provider, model: categoriser.model }
+            : null,
+        },
       })
       .eq("id", statementId);
 
