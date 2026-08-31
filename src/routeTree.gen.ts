@@ -18,6 +18,7 @@ import { Route as ForecastRouteImport } from './routes/forecast'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PlanningRouteImport } from './routes/planning'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as ScenariosRouteImport } from './routes/scenarios'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -74,6 +75,11 @@ const ImportRoute = ImportRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanningRoute = PlanningRouteImport.update({
+  id: '/planning',
+  path: '/planning',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortfolioRoute = PortfolioRouteImport.update({
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
+  '/planning': typeof PlanningRoute
   '/portfolio': typeof PortfolioRoute
   '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
+  '/planning': typeof PlanningRoute
   '/portfolio': typeof PortfolioRoute
   '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
@@ -198,6 +206,7 @@ export interface FileRoutesById {
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
+  '/planning': typeof PlanningRoute
   '/portfolio': typeof PortfolioRoute
   '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
@@ -223,6 +232,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/import'
     | '/onboarding'
+    | '/planning'
     | '/portfolio'
     | '/scenarios'
     | '/settings'
@@ -246,6 +256,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/import'
     | '/onboarding'
+    | '/planning'
     | '/portfolio'
     | '/scenarios'
     | '/settings'
@@ -269,6 +280,7 @@ export interface FileRouteTypes {
     | '/goals'
     | '/import'
     | '/onboarding'
+    | '/planning'
     | '/portfolio'
     | '/scenarios'
     | '/settings'
@@ -293,6 +305,7 @@ export interface RootRouteChildren {
   GoalsRoute: typeof GoalsRoute
   ImportRoute: typeof ImportRoute
   OnboardingRoute: typeof OnboardingRoute
+  PlanningRoute: typeof PlanningRoute
   PortfolioRoute: typeof PortfolioRoute
   ScenariosRoute: typeof ScenariosRoute
   SettingsRoute: typeof SettingsRoute
@@ -370,6 +383,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/planning': {
+      id: '/planning'
+      path: '/planning'
+      fullPath: '/planning'
+      preLoaderRoute: typeof PlanningRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/portfolio': {
@@ -469,6 +489,7 @@ const rootRouteChildren: RootRouteChildren = {
   GoalsRoute: GoalsRoute,
   ImportRoute: ImportRoute,
   OnboardingRoute: OnboardingRoute,
+  PlanningRoute: PlanningRoute,
   PortfolioRoute: PortfolioRoute,
   ScenariosRoute: ScenariosRoute,
   SettingsRoute: SettingsRoute,

@@ -54,11 +54,19 @@ export function ScopeProvider({ children }: { children: ReactNode }) {
     const partners = members.filter((member) => member.id !== profile?.id);
     for (const partner of partners) {
       const name = personName(partner);
-      list.push({ id: partner.id, label: name, short: name.split(" ")[0] ?? name });
+      const pending = partner.status === "pending";
+      list.push({
+        id: partner.id,
+        label: name,
+        short: name.split(" ")[0] ?? name,
+        // A pending member owns things already, so her side is worth looking
+        // at even before she has signed in.
+        ...(pending ? { hint: `${name} has been invited but has not signed in yet.` } : {}),
+      });
     }
 
-    // Partner named during onboarding but not yet signed up: show the tab so
-    // the household reads correctly, but make clear it needs an invitation.
+    // Named during onboarding and never invited: show the tab so the household
+    // reads correctly, but make clear it needs an invitation.
     if (!partners.length && household?.partner_display_name) {
       list.push({
         id: "partner-pending",
@@ -71,6 +79,7 @@ export function ScopeProvider({ children }: { children: ReactNode }) {
 
     return list;
   }, [profile, members, household?.partner_display_name]);
+
 
   // A stored scope pointing at a profile that no longer exists falls back.
   useEffect(() => {

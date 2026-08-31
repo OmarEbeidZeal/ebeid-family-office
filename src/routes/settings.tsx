@@ -9,6 +9,7 @@ import { MarketDataCard } from "@/components/settings/MarketDataCard";
 import { BankMarksCard } from "@/components/settings/BankMarksCard";
 import { AllowanceCard } from "@/components/settings/AllowanceCard";
 import { AccessCard } from "@/components/settings/AccessCard";
+import { OwnershipCard } from "@/components/settings/OwnershipCard";
 import { NotificationsCard } from "@/components/settings/NotificationsCard";
 import { AutomationCard } from "@/components/settings/AutomationCard";
 import { AppearanceCard } from "@/components/settings/AppearanceCard";
@@ -47,6 +48,7 @@ function SettingsPage() {
         <ProfileCard />
         <HouseholdCard />
         <AccessCard />
+        <OwnershipCard />
         <NotificationsCard />
         <AutomationCard />
         <AllowanceCard />

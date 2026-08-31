@@ -65,15 +65,41 @@ export const registerAllowedUser = createServerFn({ method: "POST" })
         if (catError) throw new Error(catError.message);
       }
 
-      const { error: profileError } = await (supabaseAdmin as any).from("profiles").insert({
-        id: userId,
-        household_id: householdId,
-        email,
-        full_name: data.fullName,
-        display_name: data.fullName.split(" ")[0],
-        role: allowed.role,
-      });
-      if (profileError) throw new Error(profileError.message);
+      // Someone invited may already exist as a member: accounts, goals and
+      // income can be assigned to her before she has ever signed in. Attach
+      // the new login to that record rather than making a second one, so
+      // nothing has to be re-keyed.
+      const { data: pending } = await (supabaseAdmin as any)
+        .from("profiles")
+        .select("id, full_name, display_name")
+        .eq("email", email)
+        .is("user_id", null)
+        .maybeSingle();
+
+      if (pending) {
+        const { error: linkError } = await (supabaseAdmin as any)
+          .from("profiles")
+          .update({
+            user_id: userId,
+            household_id: householdId,
+            status: "active",
+            full_name: data.fullName || pending.full_name,
+            display_name: pending.display_name || data.fullName.split(" ")[0],
+          })
+          .eq("id", pending.id);
+        if (linkError) throw new Error(linkError.message);
+      } else {
+        const { error: profileError } = await (supabaseAdmin as any).from("profiles").insert({
+          user_id: userId,
+          household_id: householdId,
+          email,
+          full_name: data.fullName,
+          display_name: data.fullName.split(" ")[0],
+          role: allowed.role,
+          status: "active",
+        });
+        if (profileError) throw new Error(profileError.message);
+      }
 
       await supabaseAdmin
         .from("allowed_emails")
@@ -81,6 +107,7 @@ export const registerAllowedUser = createServerFn({ method: "POST" })
         .eq("id", allowed.id);
 
       return { ok: true as const };
+
     } catch (error) {
       await supabaseAdmin.auth.admin.deleteUser(userId);
       throw error;

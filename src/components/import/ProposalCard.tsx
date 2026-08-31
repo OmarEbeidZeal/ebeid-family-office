@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, SelectNative } from "@/components/forms/FormField";
 import { useResolveProposal, type AccountProposalRow } from "@/hooks/useImports";
-import { useAuth } from "@/hooks/useAuth";
+import { useOwners, memberName } from "@/hooks/useOwners";
 import type { AccountRow } from "@/hooks/useFinancials";
 import {
   ACCOUNT_TYPES,
@@ -39,7 +39,7 @@ export function ProposalCard({
   proposal: AccountProposalRow;
   accounts: AccountRow[];
 }) {
-  const { members } = useAuth();
+  const { options: ownerOptions, matchHolder } = useOwners();
   const resolve = useResolveProposal();
 
   const [mode, setMode] = useState<"create" | "link">("create");
@@ -48,11 +48,19 @@ export function ProposalCard({
   const [accountType, setAccountType] = useState(typeFor(proposal.account_type));
   const [currency, setCurrency] = useState((proposal.currency ?? "GBP").toUpperCase());
   const [country, setCountry] = useState((proposal.country ?? "GB").toUpperCase());
-  const [owner, setOwner] = useState("joint");
+  // Deliberately empty. Whoever uploaded the file has no bearing on whose
+  // account this is, so there is nothing sensible to pre-select.
+  const [owner, setOwner] = useState("");
   const [linkTo, setLinkTo] = useState(proposal.matched_account_id ?? accounts[0]?.id ?? "");
 
   const mask = proposal.identifier_last4
     ? `${proposal.identifier_kind === "iban" ? "IBAN" : proposal.identifier_kind === "card" ? "Card" : "••••"} ${proposal.identifier_last4}`
+    : null;
+
+  // The statement's own holder name is the clue, shown rather than acted on.
+  const likely = matchHolder(proposal.holder);
+  const holderHint = proposal.holder
+    ? `Statement is in the name of ${proposal.holder}${likely ? ` — that looks like ${memberName(likely)}` : ""}.`
     : null;
 
   const period =
@@ -73,8 +81,7 @@ export function ProposalCard({
               currency,
               country,
               institution: proposal.institution,
-              ownerProfileId: owner === "joint" ? null : owner,
-              isJoint: owner === "joint",
+              ownership: owner,
             }
           : {}),
       });
@@ -185,17 +192,31 @@ export function ProposalCard({
             </Field>
           </div>
 
+          <Field
+            label="Whose account is this?"
+            hint={
+              holderHint ??
+              "Uploading someone else's statement does not make it yours — say who it belongs to."
+            }
+          >
+            <SelectNative
+              value={owner}
+              onChange={setOwner}
+              options={[{ value: "", label: "Choose a person…" }, ...ownerOptions]}
+            />
+          </Field>
+
           <button
             type="button"
             onClick={() => setDetails((open) => !open)}
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
             <ChevronDown className={cn("size-3 transition-transform", details && "rotate-180")} />
-            Currency, country and owner
+            Currency and country
           </button>
 
           {details && (
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Currency">
                 <SelectNative
                   value={currency}
@@ -208,19 +229,6 @@ export function ProposalCard({
                   value={country}
                   onChange={setCountry}
                   options={COUNTRIES.map((entry) => ({ value: entry.code, label: entry.label }))}
-                />
-              </Field>
-              <Field label="Owner">
-                <SelectNative
-                  value={owner}
-                  onChange={setOwner}
-                  options={[
-                    { value: "joint", label: "Joint" },
-                    ...members.map((member) => ({
-                      value: member.id,
-                      label: member.display_name ?? member.full_name ?? member.email,
-                    })),
-                  ]}
                 />
               </Field>
             </div>
@@ -244,7 +252,7 @@ export function ProposalCard({
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button
           size="sm"
-          disabled={busy || (mode === "link" && !linkTo)}
+          disabled={busy || (mode === "link" && !linkTo) || (mode === "create" && !owner)}
           onClick={() => void submit(mode)}
           className="min-h-9"
         >

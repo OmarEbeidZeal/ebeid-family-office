@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Baby,
   Building2,
   CalendarRange,
   FileUp,
@@ -32,6 +33,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/", label: "Dashboard", icon: LayoutDashboard },
       { to: "/goals", label: "Goals", icon: Target },
+      { to: "/planning", label: "Planning", icon: Baby },
       { to: "/advisor", label: "Advisor", icon: MessageSquareText },
     ],
   },

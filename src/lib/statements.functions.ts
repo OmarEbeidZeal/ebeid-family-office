@@ -62,21 +62,22 @@ const resolveInput = z.object({
   currency: z.string().length(3).nullable().optional(),
   country: z.string().min(2).max(2).nullable().optional(),
   institution: z.string().max(120).nullable().optional(),
-  ownerProfileId: z.string().uuid().nullable().optional(),
-  isJoint: z.boolean().optional(),
+  // A profile id, or "joint". Required to confirm a new account — never
+  // filled in from whoever happened to upload the statement.
+  ownership: z.string().min(1).max(64).nullable().optional(),
+
 });
 
-/** The household this user belongs to — every write below is scoped to it. */
-async function householdOf(supabase: unknown, userId: string): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabase as any)
-    .from("profiles")
-    .select("household_id")
-    .eq("id", userId)
-    .maybeSingle();
-  if (!data?.household_id) throw new Error("No household is linked to this account.");
-  return data.household_id as string;
+/**
+ * The household this person belongs to, and the member record they *are*.
+ * A login is not a profile id any more — Haya can own accounts before she has
+ * signed in, so the two are resolved rather than assumed equal.
+ */
+async function viewerOf(supabase: unknown, userId: string) {
+  const { resolveViewer } = await import("./viewer.server");
+  return resolveViewer(supabase, userId);
 }
+
 
 /**
  * Registers uploaded files as a batch of queued statements. No account is
@@ -87,7 +88,7 @@ export const queueStatements = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => queueInput.parse(data))
   .handler(async ({ data, context }) => {
-    const householdId = await householdOf(context.supabase, context.userId);
+    const { householdId, profileId } = await viewerOf(context.supabase, context.userId);
 
     // Every path must sit under this household's own folder, matching the
     // storage policy — a crafted path cannot reach another household's files.
@@ -111,7 +112,7 @@ export const queueStatements = createServerFn({ method: "POST" })
       .from("import_batches")
       .insert({
         household_id: householdId,
-        created_by: context.userId,
+        created_by: profileId,
         status: "queued",
         total_files: data.files.length,
         started_at: new Date().toISOString(),
@@ -127,7 +128,7 @@ export const queueStatements = createServerFn({ method: "POST" })
           household_id: householdId,
           account_id: data.accountId ?? null,
           import_batch_id: batch.id,
-          uploaded_by: context.userId,
+          uploaded_by: profileId,
           file_path: file.path,
           file_name: file.name,
           file_size: file.size,
@@ -148,7 +149,7 @@ export const pumpImportQueue = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => pumpInput.parse(data))
   .handler(async ({ data, context }) => {
-    const householdId = await householdOf(context.supabase, context.userId);
+    const { householdId } = await viewerOf(context.supabase, context.userId);
     const { runImportQueue } = await import("./import/worker.server");
     return runImportQueue(context.supabase, { householdId, limit: data?.limit ?? 2 });
   });
@@ -158,7 +159,7 @@ export const retryStatement = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => statementInput.parse(data))
   .handler(async ({ data, context }) => {
-    const householdId = await householdOf(context.supabase, context.userId);
+    const { householdId } = await viewerOf(context.supabase, context.userId);
     const { error } = await context.supabase
       .from("statements")
       .update({
@@ -180,7 +181,7 @@ export const cancelStatement = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => statementInput.parse(data))
   .handler(async ({ data, context }) => {
-    const householdId = await householdOf(context.supabase, context.userId);
+    const { householdId } = await viewerOf(context.supabase, context.userId);
     const { error } = await context.supabase
       .from("statements")
       .update({ status: "cancelled", locked_at: null, error_message: null })
@@ -202,7 +203,7 @@ export const assignStatementAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => assignInput.parse(data))
   .handler(async ({ data, context }) => {
-    const householdId = await householdOf(context.supabase, context.userId);
+    const { householdId } = await viewerOf(context.supabase, context.userId);
 
     const { data: account } = await context.supabase
       .from("accounts")
@@ -239,11 +240,11 @@ export const resolveAccountProposal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => resolveInput.parse(data))
   .handler(async ({ data, context }) => {
-    const householdId = await householdOf(context.supabase, context.userId);
+    const { householdId, profileId } = await viewerOf(context.supabase, context.userId);
     const { resolveProposal } = await import("./import/proposals.server");
     return resolveProposal(context.supabase, {
       householdId,
-      userId: context.userId,
+      profileId,
       ...data,
     });
   });
@@ -254,7 +255,7 @@ export const applyCategoryRule = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => ruleInput.parse(data))
   .handler(async ({ data, context }) => {
     const { applyRuleToExisting } = await import("./statement-import.server");
-    const householdId = await householdOf(context.supabase, context.userId);
+    const { householdId } = await viewerOf(context.supabase, context.userId);
     const updated = await applyRuleToExisting(context.supabase, householdId, data.ruleId);
     return { updated };
   });

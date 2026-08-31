@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 
 import { useCurrency } from "./useCurrency";
 import { useNetWorth } from "./useNetWorth";
+import { useScope } from "./useScope";
 import { useObservedSpending } from "./useObservedSpending";
 import {
   useAccounts,
@@ -20,7 +21,9 @@ import {
   type IncomeRow,
   type LiabilityRow,
 } from "./useFinancials";
+import { useBabyPlan } from "./useBabyPlan";
 import { computeGoalPlan, type GoalInput, type GoalLineItemInput } from "@/lib/goal-math";
+import { babyForecastLayers, type BabyLayers } from "@/lib/planning/forecast-bridge";
 import {
   DEFAULT_ASSUMPTIONS,
   monthIndexOf,
@@ -58,7 +61,8 @@ export type SurplusEstimate = {
  * fact — and when neither exists the answer is null rather than a guess.
  */
 export function useMonthlySurplus(): SurplusEstimate {
-  const nw = useNetWorth({ householdWide: true });
+  // Scoped, like everything else: "Me" has to mean my surplus, not ours.
+  const nw = useNetWorth();
   const observed = useObservedSpending();
 
   return useMemo(() => {
@@ -133,19 +137,27 @@ export function toLineItemInput(item: GoalLineItemRow): GoalLineItemInput {
 }
 
 /**
- * Every goal with its all-in cost, required monthly contribution and status.
- * Goals are household-level by design: a flat the two of them buy together is
- * not "his" or "hers", so this ignores the Me/partner perspective.
+ * Every goal with its all-in cost, required monthly contribution and status,
+ * seen from whichever side of the household is selected. Joint and unassigned
+ * goals belong to both, so they survive a personal view.
  */
 export function useGoalPlan() {
   const { convert, base } = useCurrency();
+  const { matches } = useScope();
   const goalsQuery = useGoals();
   const itemsQuery = useGoalLineItems();
   const surplus = useMonthlySurplus();
 
   const loading = goalsQuery.isLoading || itemsQuery.isLoading;
-  const goals = useMemo(() => goalsQuery.data ?? [], [goalsQuery.data]);
-  const lineItems = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data]);
+  const goals = useMemo(
+    () => (goalsQuery.data ?? []).filter((goal) => matches(goal.owner_profile_id)),
+    [goalsQuery.data, matches],
+  );
+  const goalIds = useMemo(() => new Set(goals.map((goal) => goal.id)), [goals]);
+  const lineItems = useMemo(
+    () => (itemsQuery.data ?? []).filter((item) => goalIds.has(item.goal_id)),
+    [itemsQuery.data, goalIds],
+  );
 
   const plan = useMemo(
     () =>
@@ -225,6 +237,7 @@ export function useForecastSource(
   assumptions: ForecastAssumptions = DEFAULT_ASSUMPTIONS,
 ): ForecastSource {
   const { convert, base } = useCurrency();
+  const { matches } = useScope();
   const accountsQuery = useAccounts();
   const assetsQuery = useAssets();
   const liabilitiesQuery = useLiabilities();
@@ -233,15 +246,57 @@ export function useForecastSource(
   const categoriesQuery = useCategories();
   const observed = useObservedSpending();
   const { plan } = useGoalPlan();
+  const baby = useBabyPlan();
+
+  // Held steady across renders so the projection memo is not rebuilt every time.
+  const start = useMemo(() => startOfNextMonth(), []);
+
+  // The baby plan speaks in leave weeks and term dates; this turns it into the
+  // overrides, expense lines and benefit income the engine understands.
+  const babyLayers = useMemo<BabyLayers | null>(() => {
+    if (!baby.event) return null;
+    const dueDate = baby.event.expected_date;
+    return babyForecastLayers({
+      start,
+      months: Math.max(1, Math.round(assumptions.months)),
+      leave: baby.leave.map((entry) => ({
+        incomeStreamId: entry.row.income_stream_id,
+        personLabel: entry.personLabel,
+        plan: entry.plan,
+        normalMonthly: entry.normalMonthly,
+      })),
+      childcare: baby.childcare
+        ? {
+            plan: baby.childcare.plan,
+            dueDate,
+            eligible: baby.childcare.eligible,
+            lostToCliff: baby.childcare.lostToCliff,
+          }
+        : null,
+      childBenefit:
+        baby.childBenefit && baby.childBenefit.retained > 0
+          ? {
+              monthly: baby.childBenefit.retained / 12,
+              fromDate: dueDate,
+              label: baby.childBenefit.chargeRate > 0 ? "Child Benefit (after charge)" : "Child Benefit",
+            }
+          : null,
+    });
+  }, [baby.event, baby.leave, baby.childcare, baby.childBenefit, start, assumptions.months]);
 
   return useMemo(() => {
     const toBase = (amount: number, currency: string) => convert(Number(amount), currency, base);
-    const start = startOfNextMonth();
-    const accounts = (accountsQuery.data ?? []).filter((account) => account.is_active);
-    const assets = assetsQuery.data ?? [];
-    const liabilityRows = liabilitiesQuery.data ?? [];
-    const incomeRows = incomeQuery.data ?? [];
-    const expenseRows = expensesQuery.data ?? [];
+    // The projection is only as scoped as the page showing it: "Me" must
+    // project my position, not the household's.
+    const accounts = (accountsQuery.data ?? []).filter(
+      (account) => account.is_active && matches(account.owner_profile_id),
+    );
+    const assets = (assetsQuery.data ?? []).filter((row) => matches(row.owner_profile_id));
+    const liabilityRows = (liabilitiesQuery.data ?? []).filter((row) =>
+      matches(row.owner_profile_id),
+    );
+    const incomeRows = (incomeQuery.data ?? []).filter((row) => matches(row.owner_profile_id));
+    const expenseRows = (expensesQuery.data ?? []).filter((row) => matches(row.owner_profile_id));
     const categories = categoriesQuery.data ?? [];
 
     let cash = 0;
@@ -330,7 +385,17 @@ export function useForecastSource(
       incomeType: row.income_type,
       startMonth: null,
       endMonth: null,
+      // Maternity pay replaces the salary outright in the months it covers.
+      overrides: babyLayers?.incomeOverrides[row.id] ?? null,
+      overrideLabel: babyLayers?.incomeOverrides[row.id] ? "Parental leave begins" : null,
     }));
+
+    // The baby's own costs are a joint commitment, so they follow the same
+    // rule as any other unassigned record under the "Me" toggle.
+    const babyIsInScope = matches(null);
+    if (babyLayers && babyIsInScope) {
+      for (const row of babyLayers.extraIncome) income.push(row);
+    }
 
     const essentialCategories = new Set(
       categories.filter((category) => category.is_essential).map((category) => category.id),
@@ -380,7 +445,22 @@ export function useForecastSource(
       })
       .filter((goal) => !goal.skipped);
 
+    if (babyLayers && babyIsInScope) expenses.push(...babyLayers.extraExpenses);
+
     const gaps: string[] = [];
+    if (babyLayers) {
+      // A gap about a stream nobody is projecting is noise, so only report
+      // leave that could not be applied to a stream inside the scope.
+      const projected = new Set(income.map((row) => row.id));
+      for (const gap of babyLayers.gaps) gaps.push(gap);
+      for (const [streamId, months] of Object.entries(babyLayers.incomeOverrides)) {
+        if (projected.has(streamId) || !Object.keys(months).length) continue;
+        gaps.push(
+          "A parental leave plan points at an income stream outside this view, so its drop in pay is not shown here.",
+        );
+        break;
+      }
+    }
     if (!income.length)
       gaps.push("No income streams recorded, so the projection has nothing coming in.");
     if (!expenses.length && observed.essentialBaseline === null)
@@ -458,8 +538,11 @@ export function useForecastSource(
     observed.essentialBaseline,
     plan,
     assumptions,
+    matches,
     convert,
     base,
+    start,
+    babyLayers,
   ]);
 }
 

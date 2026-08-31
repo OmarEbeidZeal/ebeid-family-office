@@ -38,9 +38,16 @@ function accountType(detected: string | null | undefined): AccountType {
   return "current";
 }
 
+/**
+ * Who owns the account, chosen deliberately at the confirmation step.
+ * A profile id, or `joint` for both. Never inferred from who uploaded the file.
+ */
+export type OwnerChoice = string;
+
 export type ResolveInput = {
   householdId: string;
-  userId: string;
+  /** The member confirming — recorded as the resolver, never as the owner. */
+  profileId: string;
   proposalId: string;
   action: "create" | "link" | "reject";
   accountId?: string | null | undefined;
@@ -49,8 +56,8 @@ export type ResolveInput = {
   currency?: string | null | undefined;
   country?: string | null | undefined;
   institution?: string | null | undefined;
-  ownerProfileId?: string | null | undefined;
-  isJoint?: boolean | undefined;
+  /** Required to create: a profile id, or `joint`. */
+  ownership?: OwnerChoice | null | undefined;
 };
 
 export type ResolveOutcome = {
@@ -126,6 +133,25 @@ export async function resolveProposal(
       await supabase.from("accounts").update(patch).eq("id", accountId);
     }
   } else {
+    // The owner is a decision, not a default. Whoever dropped the file in has
+    // no bearing on whose account this is.
+    const ownership = (input.ownership ?? "").trim();
+    if (!ownership) {
+      throw new Error("Choose who owns this account before confirming it.");
+    }
+    const isJoint = ownership === "joint";
+    let ownerProfileId: string | null = null;
+    if (!isJoint) {
+      const { data: owner } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", ownership)
+        .eq("household_id", input.householdId)
+        .maybeSingle();
+      if (!owner) throw new Error("That person is not part of this household.");
+      ownerProfileId = owner.id;
+    }
+
     const { data: household } = await supabase
       .from("households")
       .select("base_currency")
@@ -145,7 +171,7 @@ export async function resolveProposal(
       .from("accounts")
       .insert({
         household_id: input.householdId,
-        owner_profile_id: input.ownerProfileId ?? null,
+        owner_profile_id: ownerProfileId,
         nickname: (input.nickname ?? proposal.suggested_nickname).slice(0, 80),
         institution,
         institution_domain: institution ? bankDomain(institution) : null,
@@ -168,7 +194,7 @@ export async function resolveProposal(
         last_balance_update: closingDate
           ? new Date(`${closingDate}T23:59:59Z`).toISOString()
           : new Date().toISOString(),
-        is_joint: input.isJoint ?? false,
+        is_joint: isJoint,
         is_active: true,
       })
       .select("id")

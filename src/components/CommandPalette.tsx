@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  Baby,
   BarChart3,
   Building2,
   CalendarRange,
@@ -38,6 +39,7 @@ type Destination =
   | "/spending"
   | "/portfolio"
   | "/goals"
+  | "/planning"
   | "/forecast"
   | "/scenarios"
   | "/advisor"
@@ -62,6 +64,12 @@ const PAGES: { to: Destination; label: string; icon: typeof LayoutDashboard; hin
   { to: "/spending", label: "Spending", icon: PiggyBank, hint: "Categories, recurring, merchants" },
   { to: "/portfolio", label: "Portfolio", icon: BarChart3, hint: "Holdings, policy, watchlist" },
   { to: "/goals", label: "Goals", icon: Target, hint: "Costings, contributions, SDLT" },
+  {
+    to: "/planning",
+    label: "Planning",
+    icon: Baby,
+    hint: "New baby: leave, childcare, the £100k line",
+  },
   { to: "/forecast", label: "Forecast", icon: CalendarRange, hint: "Five-year projection" },
   { to: "/scenarios", label: "Scenarios", icon: GitCompare, hint: "What-ifs and Monte Carlo" },
   { to: "/advisor", label: "Advisor", icon: MessageSquareText, hint: "Grounded in your numbers" },

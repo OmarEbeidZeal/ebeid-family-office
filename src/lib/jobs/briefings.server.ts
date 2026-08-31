@@ -27,6 +27,9 @@ type ProfileRow = {
   email: string;
   display_name: string | null;
   full_name: string | null;
+  /** `pending` means invited but never signed in — nobody to deliver to. */
+  status: string;
+
   weekly_briefing_enabled: boolean;
   briefing_day: number;
   briefing_email_enabled: boolean;
@@ -52,7 +55,7 @@ export async function runScheduledBriefings(input: {
     supabaseAdmin
       .from("profiles")
       .select(
-        "id, household_id, email, display_name, full_name, weekly_briefing_enabled, briefing_day, briefing_email_enabled",
+        "id, household_id, email, display_name, full_name, status, weekly_briefing_enabled, briefing_day, briefing_email_enabled",
       ),
   ]);
 
@@ -61,7 +64,10 @@ export async function runScheduledBriefings(input: {
     return { status: "skipped", message: "There are no households to brief." };
   }
 
-  const profiles = (profileRows ?? []) as ProfileRow[];
+  // Someone invited but not yet signed in has nowhere to receive a briefing.
+  const profiles = ((profileRows ?? []) as ProfileRow[]).filter(
+    (profile) => profile.status !== "pending",
+  );
   const membersOf = (householdId: string) =>
     profiles.filter((profile) => profile.household_id === householdId);
 

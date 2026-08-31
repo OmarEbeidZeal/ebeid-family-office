@@ -20,6 +20,7 @@ type Invite = {
 export function AccessCard() {
   const { household, profile, isOwner } = useAuth();
   const queryClient = useQueryClient();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
 
   const { data: invites = [], isLoading } = useQuery({
@@ -37,33 +38,54 @@ export function AccessCard() {
 
   const invite = useMutation({
     mutationFn: async () => {
-      const value = email.trim().toLowerCase();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+      const address = email.trim().toLowerCase();
+      const person = name.trim();
+      if (!person) throw new Error("Give them a name — it is what the owner selectors will show");
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address)) {
         throw new Error("Enter a valid email address");
       }
+
       const { error } = await supabase.from("allowed_emails").insert({
-        email: value,
+        email: address,
         role: "member",
         household_id: household!.id,
         invited_by: profile!.id,
       });
       if (error) throw error;
+
+      // The invitation creates the person, not just the permission. She can
+      // own accounts, goals and income from this moment; signing in later
+      // simply attaches a login to the record already here.
+      const { error: memberError } = await supabase.from("profiles").insert({
+        household_id: household!.id,
+        email: address,
+        full_name: person,
+        display_name: person.split(" ")[0] ?? person,
+        role: "member",
+        status: "pending",
+        invited_at: new Date().toISOString(),
+        invited_by: profile!.id,
+      });
+      if (memberError) throw memberError;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      setName("");
       setEmail("");
-      queryClient.invalidateQueries({ queryKey: ["allowed_emails"] });
-      toast.success("Invitation added — they can now create an account with that address");
+      await queryClient.invalidateQueries();
+      toast.success("Invited — you can assign accounts to them straight away");
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   const revoke = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("allowed_emails").delete().eq("id", id);
+    mutationFn: async (row: Invite) => {
+      const { error } = await supabase.from("allowed_emails").delete().eq("id", row.id);
       if (error) throw error;
+      // The member record is removed in Household, where what they own is
+      // visible — revoking here only closes the door.
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["allowed_emails"] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["allowed_emails"] });
       toast.success("Invitation revoked");
     },
     onError: (error: Error) => toast.error(error.message),
@@ -76,8 +98,17 @@ export function AccessCard() {
     >
       {isOwner && (
         <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[15rem] flex-1">
-            <Field label="Invite by email">
+          <div className="min-w-[9rem] flex-1">
+            <Field label="Name">
+              <Input
+                placeholder="Haya"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+          </div>
+          <div className="min-w-[13rem] flex-[2]">
+            <Field label="Email" hint="They become a member now; signing in comes later.">
               <Input
                 type="email"
                 placeholder="partner@example.com"
@@ -90,7 +121,7 @@ export function AccessCard() {
             </Field>
           </div>
           <Button size="sm" onClick={() => invite.mutate()} disabled={invite.isPending}>
-            {invite.isPending ? "Adding…" : "Add invitation"}
+            {invite.isPending ? "Adding…" : "Add member"}
           </Button>
         </div>
       )}
@@ -117,7 +148,7 @@ export function AccessCard() {
                 size="sm"
                 variant="ghost"
                 className="text-muted-foreground hover:text-loss"
-                onClick={() => revoke.mutate(row.id)}
+                onClick={() => revoke.mutate(row)}
                 disabled={revoke.isPending}
               >
                 Revoke
