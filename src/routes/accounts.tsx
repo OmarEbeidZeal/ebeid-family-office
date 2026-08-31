@@ -251,6 +251,11 @@ function AccountRowItem({
 }) {
   const isDebt = DEBT_ACCOUNT_TYPES.includes(account.account_type);
   const tone = balanceAgeTone(account.last_balance_update);
+  // An account discovered from a statement is usually named with its own last
+  // four, so the masked identifier is only worth repeating when the name omits it.
+  const maskDigits = account.identifier_mask?.replace(/\D/g, "") ?? "";
+  const showMask = Boolean(account.identifier_mask) && !account.nickname.includes(maskDigits);
+
 
   return (
     <div className="flex items-center gap-3 border-t border-border px-4 py-3.5 first:border-t-0 sm:gap-4">
