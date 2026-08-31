@@ -348,7 +348,7 @@ function readStatement(
       booked_date: bookedDate,
       value_date: valueIso,
       description,
-      raw_description: `${head ?? ""} ${narrativeField ?? ""}`
+      raw_description: `${head ?? ""} ${supplementary} ${narrativeField ?? ""}`
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 500),
