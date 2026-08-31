@@ -153,8 +153,9 @@ function ImportPage() {
             <EmptyState
               icon={<Inbox className="size-4" />}
               title="No statements imported yet"
-              body="Drop a PDF, CSV or Excel statement above — from Starling, HSBC, CIB, Arab Bank or a US brokerage. Each file is stored privately, read into transactions in its own currency and converted at each transaction's date."
+              body="Drop an export above — CAMT.053 or MT940 if your bank offers them, otherwise CSV, Excel, QIF or PDF. Each file is stored privately, read into transactions in its own currency and converted at each transaction's date."
             />
+
           ) : (
             <ul className="hairline rounded-lg bg-surface">
               {recent.map((statement) => (
