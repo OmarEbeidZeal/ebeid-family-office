@@ -614,10 +614,13 @@ function readStatement(
     skippedRows,
     notes,
     format: "camt053",
+    // Recorded for traceability only — the reading above never consults it.
+    formatVersion: version,
     exactBalances: opening !== null && closing !== null,
     accountDetectable: Boolean(identity.account_identifier),
     statementReference,
     meta: {
+
       period_start: periodStart,
       period_end: periodEnd,
       opening_balance: opening?.value ?? null,
