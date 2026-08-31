@@ -6,7 +6,9 @@ import { useQueueImport, type UploadProgress } from "@/hooks/useImports";
 import { UPLOAD_ACCEPT } from "@/lib/import/formats";
 import { cn } from "@/lib/utils";
 
-const MAX_BYTES = 20 * 1024 * 1024;
+// Matches the storage bucket's own ceiling exactly, so a file is refused here
+// with a clear message rather than by the upload half a second later.
+const MAX_BYTES = 20_000_000;
 const MAX_FILES = 40;
 
 /**
