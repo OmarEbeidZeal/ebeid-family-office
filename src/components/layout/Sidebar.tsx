@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/Wordmark";
 import { NAV_GROUPS, SETTINGS_ITEM, isActivePath } from "./nav-items";
 import { useAuth } from "@/hooks/useAuth";
 import { useUnreadNotes } from "@/hooks/useFinancials";
+import { useAccountProposals } from "@/hooks/useImports";
 
 export function Sidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -11,6 +12,14 @@ export function Sidebar() {
   // A briefing written at 07:00 on Sunday has to be visible the moment the app
   // is opened, on whichever device that happens to be.
   const unread = useUnreadNotes();
+  // The same goes for accounts an import found days ago and nobody confirmed.
+  const { data: proposals = [] } = useAccountProposals();
+
+  const badgeFor = (to: string) => {
+    if (to === "/advisor") return { count: unread, label: "unread" };
+    if (to === "/accounts") return { count: proposals.length, label: "waiting to be confirmed" };
+    return { count: 0, label: "" };
+  };
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-border bg-surface lg:flex">
@@ -28,20 +37,25 @@ export function Sidebar() {
               {group.label}
             </p>
             <div className="space-y-0.5">
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  label={item.label}
-                  icon={item.icon}
-                  active={isActivePath(pathname, item.to)}
-                  badge={item.to === "/advisor" ? unread : 0}
-                />
-              ))}
+              {group.items.map((item) => {
+                const badge = badgeFor(item.to);
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    label={item.label}
+                    icon={item.icon}
+                    active={isActivePath(pathname, item.to)}
+                    badge={badge.count}
+                    badgeLabel={badge.label}
+                  />
+                );
+              })}
             </div>
           </div>
         ))}
       </nav>
+
 
       <div className="border-t border-border px-3 py-3">
         <NavLink
@@ -64,12 +78,14 @@ function NavLink({
   icon: Icon,
   active,
   badge = 0,
+  badgeLabel = "unread",
 }: {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   active: boolean;
   badge?: number;
+  badgeLabel?: string;
 }) {
   return (
     <Link
@@ -86,7 +102,7 @@ function NavLink({
       <span className="flex-1 truncate">{label}</span>
       {badge > 0 && (
         <span
-          aria-label={`${badge} unread`}
+          aria-label={`${badge} ${badgeLabel}`}
           className="num min-w-[1.25rem] rounded-full bg-gold px-1.5 py-px text-center text-[0.6rem] leading-4 text-background"
         >
           {badge > 9 ? "9+" : badge}
@@ -95,3 +111,4 @@ function NavLink({
     </Link>
   );
 }
+

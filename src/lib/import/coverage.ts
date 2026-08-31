@@ -53,13 +53,9 @@ export function monthsCovered(start: string | null, end: string | null): string[
   return span(monthKey(from), monthKey(to));
 }
 
-/**
- * Gaps per account: months inside the imported range with nothing covering
- * them, plus whole months since the last statement ended.
- */
-export function coverageGaps(rows: CoverageInput[], today = new Date()): CoverageGap[] {
+/** Every month each account has a statement behind it, keyed by account. */
+function monthsByAccount(rows: CoverageInput[]): Map<string, Set<string>> {
   const byAccount = new Map<string, Set<string>>();
-
   for (const row of rows) {
     if (!row.accountId || !COUNTED.has(row.status)) continue;
     const months = monthsCovered(row.periodStart, row.periodEnd);
@@ -68,10 +64,21 @@ export function coverageGaps(rows: CoverageInput[], today = new Date()): Coverag
     for (const month of months) set.add(month);
     byAccount.set(row.accountId, set);
   }
+  return byAccount;
+}
 
-  // The month in progress is not a gap: its statement does not exist yet.
-  const currentMonth = monthKey(today);
-  const lastComplete = addMonths(currentMonth, -1);
+/** The month in progress is never a gap: its statement does not exist yet. */
+function lastCompleteMonth(today: Date): string {
+  return addMonths(monthKey(today), -1);
+}
+
+/**
+ * Gaps per account: months inside the imported range with nothing covering
+ * them, plus whole months since the last statement ended.
+ */
+export function coverageGaps(rows: CoverageInput[], today = new Date()): CoverageGap[] {
+  const byAccount = monthsByAccount(rows);
+  const lastComplete = lastCompleteMonth(today);
 
   const gaps: CoverageGap[] = [];
   for (const [accountId, set] of byAccount) {
@@ -85,6 +92,50 @@ export function coverageGaps(rows: CoverageInput[], today = new Date()): Coverag
 
   return gaps.sort((a, b) => b.months.length - a.months.length);
 }
+
+/** How complete one account's records are: how many files, spanning what. */
+export type AccountCoverage = {
+  accountId: string;
+  /** Files that were read successfully — queued and failed ones prove nothing. */
+  statements: number;
+  /** Oldest and newest month covered, as YYYY-MM, or null when no file carried a period. */
+  earliest: string | null;
+  latest: string | null;
+  /** Months inside the range, and since it ended, with nothing behind them. */
+  missing: number;
+};
+
+export function accountCoverage(
+  rows: CoverageInput[],
+  today = new Date(),
+): Map<string, AccountCoverage> {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (!row.accountId || !COUNTED.has(row.status)) continue;
+    counts.set(row.accountId, (counts.get(row.accountId) ?? 0) + 1);
+  }
+
+  const byAccount = monthsByAccount(rows);
+  const lastComplete = lastCompleteMonth(today);
+  const coverage = new Map<string, AccountCoverage>();
+
+  for (const [accountId, statements] of counts) {
+    const set = byAccount.get(accountId);
+    if (!set?.size) {
+      coverage.set(accountId, { accountId, statements, earliest: null, latest: null, missing: 0 });
+      continue;
+    }
+    const sorted = [...set].sort();
+    const earliest = sorted[0]!;
+    const latest = sorted[sorted.length - 1]!;
+    const upTo = lastComplete > latest ? lastComplete : latest;
+    const missing = span(earliest, upTo).filter((month) => !set.has(month)).length;
+    coverage.set(accountId, { accountId, statements, earliest, latest, missing });
+  }
+
+  return coverage;
+}
+
 
 export function monthLabel(key: string): string {
   const [year, month] = key.split("-").map(Number);

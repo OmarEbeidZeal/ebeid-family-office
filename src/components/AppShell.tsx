@@ -85,19 +85,29 @@ export function AppShell({
         <TopBar />
         <main className="mx-auto max-w-[88rem] px-4 pb-28 pt-8 sm:px-8 lg:pb-16">
           <div key={pathname} className="page-enter">
-            <div className="mb-8 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
-              <div className="min-w-0">
-                <h1 className="truncate text-xl font-light tracking-tight text-foreground sm:text-2xl">
-                  {title}
-                </h1>
-                {description && (
-                  <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+            {/* Title and actions share the first line; the description takes the
+                full width beneath, so a long one never gets squeezed on a phone. */}
+            <div className="mb-8 flex flex-wrap items-center gap-x-4 gap-y-2">
+              <h1 className="min-w-0 flex-1 truncate text-xl font-light tracking-tight text-foreground sm:text-2xl">
+                {title}
+              </h1>
+              {actions && (
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  {actions}
+                </div>
+              )}
+              {description && (
+                // Own full-width flex line (no max-width on the wrapper, or it
+                // would sit beside the title again on a wide screen).
+                <div className="w-full">
+                  <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
                     {description}
                   </p>
-                )}
-              </div>
-              {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+                </div>
+              )}
+
             </div>
+
             {children}
           </div>
         </main>

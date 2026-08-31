@@ -4,6 +4,7 @@ import { MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useUnreadNotes } from "@/hooks/useFinancials";
+import { useAccountProposals } from "@/hooks/useImports";
 import { MOBILE_PRIMARY, NAV_GROUPS, SETTINGS_ITEM, isActivePath } from "./nav-items";
 
 const isPrimary = (to: string) => (MOBILE_PRIMARY as readonly string[]).includes(to);
@@ -14,6 +15,10 @@ export function MobileNav() {
   // Advisor lives behind More on a phone, so a new briefing has to announce
   // itself on the tab bar or it may as well not exist.
   const unread = useUnreadNotes();
+  // Accounts found in a statement and never confirmed do the same on their tab.
+  const { data: proposals = [] } = useAccountProposals();
+  const pending = proposals.length;
+
 
   const primary = NAV_GROUPS.flatMap((group) => group.items).filter((item) => isPrimary(item.to));
   const moreGroups = NAV_GROUPS.map((group) => ({
@@ -36,21 +41,33 @@ export function MobileNav() {
           {primary.map((item) => {
             const active = isActivePath(pathname, item.to);
             const Icon = item.icon;
+            const flagged = item.to === "/accounts" && pending > 0;
             return (
               <Link
                 key={item.to}
                 to={item.to}
                 aria-current={active ? "page" : undefined}
+                aria-label={
+                  flagged
+                    ? `${item.label}, ${pending} waiting to be confirmed`
+                    : undefined
+                }
                 className={cn(
                   "flex min-h-[3.25rem] flex-col items-center justify-center gap-1 px-1 py-2 text-[0.62rem] tracking-wide transition-colors",
                   active ? "text-gold" : "text-muted-foreground",
                 )}
               >
-                <Icon className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.6} />
+                <span className="relative">
+                  <Icon className="h-[1.15rem] w-[1.15rem]" strokeWidth={1.6} />
+                  {flagged && (
+                    <span className="absolute -right-1.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-gold" />
+                  )}
+                </span>
                 {item.label.split(" ")[0]}
               </Link>
             );
           })}
+
           <button
             type="button"
             onClick={() => setMoreOpen(true)}

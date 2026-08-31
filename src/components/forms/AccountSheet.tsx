@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ChevronDown } from "lucide-react";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
 import { Field, SelectNative } from "./FormField";
@@ -17,6 +18,7 @@ import { BankMark } from "@/components/BankMark";
 import { useAuth } from "@/hooks/useAuth";
 import { useSaveRow } from "@/hooks/useUpsertRow";
 import type { AccountRow } from "@/hooks/useFinancials";
+import { cn } from "@/lib/utils";
 
 const schema = z.object({
   nickname: z.string().min(2, "Give the account a name"),
@@ -31,6 +33,11 @@ const schema = z.object({
 
 type Values = z.infer<typeof schema>;
 
+/**
+ * Manual entry is the exception: an account that no statement can reach.
+ * It asks only for what a statement would otherwise have told us, and keeps
+ * housekeeping — whether the account is still open — behind a disclosure.
+ */
 export function AccountSheet({
   open,
   onOpenChange,
@@ -45,6 +52,7 @@ export function AccountSheet({
 }) {
   const { members, profile } = useAuth();
   const save = useSaveRow("accounts", "accounts", "Account");
+  const [details, setDetails] = useState(false);
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -62,6 +70,7 @@ export function AccountSheet({
 
   useEffect(() => {
     if (!open) return;
+    setDetails(false);
     form.reset({
       nickname: account?.nickname ?? "",
       institution: account?.institution ?? "",
@@ -81,6 +90,12 @@ export function AccountSheet({
   const institutionName = form.watch("institution");
 
   const onSubmit = form.handleSubmit(async (values) => {
+    const balance = Math.abs(values.current_balance);
+    // Renaming an account should not claim its balance was typed today: only a
+    // changed figure re-stamps the provenance.
+    const balanceChanged =
+      !account || Math.abs(Number(account.current_balance) - balance) > 0.005;
+
     const savedId = await save.mutateAsync({
       id: account?.id,
       values: {
@@ -92,11 +107,17 @@ export function AccountSheet({
         country: values.country,
         account_type: values.account_type,
         currency: values.currency,
-        current_balance: Math.abs(values.current_balance),
+        current_balance: balance,
         is_joint: values.owner_profile_id === "joint",
         owner_profile_id: values.owner_profile_id === "joint" ? null : values.owner_profile_id,
         is_active: values.is_active === "true",
-        last_balance_update: new Date().toISOString(),
+        ...(balanceChanged
+          ? {
+              balance_source: "manual",
+              balance_statement_id: null,
+              last_balance_update: new Date().toISOString(),
+            }
+          : {}),
       },
     });
     if (savedId) onSaved?.(savedId);
@@ -107,8 +128,12 @@ export function AccountSheet({
     <FormSheet
       open={open}
       onOpenChange={onOpenChange}
-      title={account ? "Edit account" : "Add account"}
-      description="Balances entered here are yours to maintain; imported statements update the account's balance on their own. Saving stamps today's date."
+      title={account ? "Edit account" : "Add account manually"}
+      description={
+        account
+          ? "Changing the balance marks it as your figure and stamps today's date. Imported statements keep the account's balance current on their own."
+          : "For accounts no statement can reach — cash, a crypto wallet, a pension, or a foreign account you can't export from. Anything you can export, import instead: the details are read from the file."
+      }
       onSubmit={onSubmit}
       pending={save.isPending}
       submitLabel={account ? "Save changes" : "Add account"}
@@ -136,6 +161,51 @@ export function AccountSheet({
         </div>
       </Field>
 
+      <Field label="Type">
+        <Controller
+          control={form.control}
+          name="account_type"
+          render={({ field }) => (
+            <SelectNative
+              value={field.value}
+              onChange={field.onChange}
+              options={ACCOUNT_TYPES.map((type) => ({
+                value: type,
+                label: ACCOUNT_TYPE_LABELS[type] ?? type,
+              }))}
+            />
+          )}
+        />
+      </Field>
+
+      <Field label="Currency">
+        <Controller
+          control={form.control}
+          name="currency"
+          render={({ field }) => (
+            <SelectNative
+              value={field.value}
+              onChange={field.onChange}
+              options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+            />
+          )}
+        />
+      </Field>
+
+      <Field label="Country">
+        <Controller
+          control={form.control}
+          name="country"
+          render={({ field }) => (
+            <SelectNative
+              value={field.value}
+              onChange={field.onChange}
+              options={COUNTRIES.map((country) => ({ value: country.code, label: country.label }))}
+            />
+          )}
+        />
+      </Field>
+
       <Field label="Owner">
         <Controller
           control={form.control}
@@ -156,51 +226,6 @@ export function AccountSheet({
         />
       </Field>
 
-      <Field label="Type">
-        <Controller
-          control={form.control}
-          name="account_type"
-          render={({ field }) => (
-            <SelectNative
-              value={field.value}
-              onChange={field.onChange}
-              options={ACCOUNT_TYPES.map((type) => ({
-                value: type,
-                label: ACCOUNT_TYPE_LABELS[type] ?? type,
-              }))}
-            />
-          )}
-        />
-      </Field>
-
-      <Field label="Country">
-        <Controller
-          control={form.control}
-          name="country"
-          render={({ field }) => (
-            <SelectNative
-              value={field.value}
-              onChange={field.onChange}
-              options={COUNTRIES.map((country) => ({ value: country.code, label: country.label }))}
-            />
-          )}
-        />
-      </Field>
-
-      <Field label="Currency">
-        <Controller
-          control={form.control}
-          name="currency"
-          render={({ field }) => (
-            <SelectNative
-              value={field.value}
-              onChange={field.onChange}
-              options={CURRENCIES.map((code) => ({ value: code, label: code }))}
-            />
-          )}
-        />
-      </Field>
-
       <Field
         label={isDebt ? "Amount owed" : "Current balance"}
         error={form.formState.errors.current_balance?.message}
@@ -214,22 +239,38 @@ export function AccountSheet({
       </Field>
 
       {account && (
-        <Field label="Status" hint="Closed accounts drop out of every total.">
-          <Controller
-            control={form.control}
-            name="is_active"
-            render={({ field }) => (
-              <SelectNative
-                value={field.value}
-                onChange={field.onChange}
-                options={[
-                  { value: "true", label: "Open" },
-                  { value: "false", label: "Closed" },
-                ]}
-              />
-            )}
-          />
-        </Field>
+        <FullRow>
+          <button
+            type="button"
+            onClick={() => setDetails((value) => !value)}
+            className="flex min-h-9 items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            aria-expanded={details}
+          >
+            <ChevronDown className={cn("size-3 transition-transform", details && "rotate-180")} />
+            Add more detail
+          </button>
+
+          {details && (
+            <div className="mt-3">
+              <Field label="Status" hint="Closed accounts drop out of every total.">
+                <Controller
+                  control={form.control}
+                  name="is_active"
+                  render={({ field }) => (
+                    <SelectNative
+                      value={field.value}
+                      onChange={field.onChange}
+                      options={[
+                        { value: "true", label: "Open" },
+                        { value: "false", label: "Closed" },
+                      ]}
+                    />
+                  )}
+                />
+              </Field>
+            </div>
+          )}
+        </FullRow>
       )}
     </FormSheet>
   );

@@ -7,6 +7,7 @@
  * again.
  */
 import { bankDomain } from "../ai/banks";
+import { DEBT_ACCOUNT_TYPES } from "../format";
 import { lastFourHash, maskIdentifier, type IdentifierKind } from "./identity.server";
 import { refreshBatch } from "./queue.server";
 
@@ -133,6 +134,12 @@ export async function resolveProposal(
 
     const institution = input.institution ?? proposal.institution ?? null;
     const closingDate = proposal.closing_balance_date ?? proposal.period_end ?? null;
+    const type = input.accountType ?? accountType(proposal.account_type);
+    // Debt is held as the amount owed, positive: a card closing at -1,240.18
+    // is 1,240.18 owed.
+    const closing = proposal.closing_balance ?? null;
+    const balance =
+      closing === null ? 0 : DEBT_ACCOUNT_TYPES.includes(type) ? Math.abs(closing) : closing;
 
     const { data: created, error } = await supabase
       .from("accounts")
@@ -151,11 +158,13 @@ export async function resolveProposal(
           : null,
         discovered_from: "statement",
         country: (input.country ?? proposal.country ?? "GB").toUpperCase().slice(0, 2),
-        account_type: input.accountType ?? accountType(proposal.account_type),
+        account_type: type,
         currency: (input.currency ?? proposal.currency ?? household?.base_currency ?? "GBP")
           .toUpperCase()
           .slice(0, 3),
-        current_balance: proposal.closing_balance ?? 0,
+        current_balance: balance,
+        // The figure came off a statement, not out of anyone's head.
+        balance_source: closing === null ? "manual" : "statement",
         last_balance_update: closingDate
           ? new Date(`${closingDate}T23:59:59Z`).toISOString()
           : new Date().toISOString(),
@@ -167,6 +176,7 @@ export async function resolveProposal(
     if (error) throw new Error(error.message);
     accountId = created.id;
   }
+
 
   /* ------------------------------------------------------- the identifier */
   if (proposal.identifier_hash || proposal.identifier_last4) {

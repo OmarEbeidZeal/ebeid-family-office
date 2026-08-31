@@ -21,6 +21,10 @@ export type AccountRow = {
   account_type: string;
   currency: string;
   current_balance: number;
+  /** "manual" when the figure was typed, "statement" when it is a closing balance. */
+  balance_source: string;
+  /** The statement that supplied the balance, when one did. */
+  balance_statement_id: string | null;
   is_joint: boolean;
   is_active: boolean;
   last_balance_update: string | null;

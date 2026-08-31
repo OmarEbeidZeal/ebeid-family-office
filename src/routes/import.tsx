@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo } from "react";
+import { createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import { Inbox, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
@@ -10,6 +10,7 @@ import { ImportDropzone } from "@/components/import/ImportDropzone";
 import { ImportFileRow } from "@/components/import/ImportFileRow";
 import { ProposalCard } from "@/components/import/ProposalCard";
 import { useAccounts } from "@/hooks/useFinancials";
+import { usePrefersReducedMotion } from "@/hooks/useMotion";
 import {
   IN_FLIGHT,
   useAccountProposals,
@@ -17,6 +18,7 @@ import {
   useImportStatements,
   useQueueDriver,
 } from "@/hooks/useImports";
+
 
 export const Route = createFileRoute("/import")({
   head: () => ({
@@ -44,6 +46,8 @@ const RECENT_LIMIT = 24;
 
 function ImportPage() {
   const navigate = useNavigate();
+  const hash = useRouterState({ select: (state) => state.location.hash });
+  const reduceMotion = usePrefersReducedMotion();
   const { data: accounts = [] } = useAccounts();
   const { data: statements = [], isLoading } = useImportStatements();
   const { data: batches = [] } = useImportBatches();
@@ -60,6 +64,14 @@ function ImportPage() {
     [statements, active],
   );
 
+  // Arriving from an account's "4 months missing" lands on the grid itself,
+  // which only exists once the statements have loaded.
+  useEffect(() => {
+    if (hash !== "coverage" || !statements.length) return;
+    const target = document.getElementById("coverage");
+    target?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  }, [hash, statements.length, reduceMotion]);
+
   const batch = batches[0] ?? null;
   const progress = batch
     ? Math.round(((batch.finished_files ?? 0) / Math.max(batch.total_files || 1, 1)) * 100)
@@ -67,6 +79,7 @@ function ImportPage() {
 
   const reviewStatement = (statementId: string) =>
     void navigate({ to: "/transactions", search: { statement: statementId } as never });
+
 
   return (
     <AppShell
