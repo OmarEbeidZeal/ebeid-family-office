@@ -322,23 +322,37 @@ type Detail = {
   fxRate: number | null;
 };
 
+/**
+ * What the payment says about itself.
+ *
+ * Structured remittance wins wherever both are present — a creditor reference
+ * or an invoice number is the bank's own identifier for the payment, while the
+ * unstructured line is free text a person typed. Newer versions populate the
+ * structured block far more often, and taking it is most of the gain from
+ * them; the free-text line remains the fallback for .02 files and for banks
+ * that never fill the structured block in.
+ */
 function remittanceOf(txDetail: Unknown): string | null {
   const info = at(txDetail, "RmtInf");
+
+  const structured = list(info, "Strd")
+    .flatMap((entry) =>
+      [
+        text(at(entry, "CdtrRefInf", "Ref")),
+        text(at(entry, "RfrdDocInf", "Nb")),
+        text(at(entry, "RfrdDocAmt", "RmtdAmt")) ? null : null,
+        text(at(entry, "AddtlRmtInf")),
+      ].filter((line): line is string => Boolean(line)),
+    )
+    .filter((line, index, all) => all.indexOf(line) === index);
+  if (structured.length) return structured.join(" ").replace(/\s+/g, " ").trim();
+
   const unstructured = list(info, "Ustrd")
     .map((line) => text(line))
     .filter((line): line is string => Boolean(line));
-  if (unstructured.length) return unstructured.join(" ").replace(/\s+/g, " ").trim();
-
-  const structured = list(info, "Strd")
-    .map(
-      (entry) =>
-        text(at(entry, "CdtrRefInf", "Ref")) ??
-        text(at(entry, "AddtlRmtInf")) ??
-        text(at(entry, "RfrdDocInf", "Nb")),
-    )
-    .filter((line): line is string => Boolean(line));
-  return structured.length ? structured.join(" ").trim() : null;
+  return unstructured.length ? unstructured.join(" ").replace(/\s+/g, " ").trim() : null;
 }
+
 
 /** The other side of the transaction: who was paid, or who paid. */
 function counterparty(txDetail: Unknown, flow: Direction): string | null {
