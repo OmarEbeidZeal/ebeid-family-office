@@ -81,7 +81,10 @@ export function AccountListRow({
           )}
         </div>
 
-        <p className="mt-1 truncate text-xs text-muted-foreground">
+        {/* Wraps on a phone rather than truncating: a half-shown provenance
+            date is worse than a second line. */}
+        <p className="mt-1 text-xs text-muted-foreground sm:truncate">
+
           {account.institution ?? "Institution not recorded"}
           {showMask ? (
             <>
