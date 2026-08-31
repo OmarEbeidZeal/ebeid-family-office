@@ -312,7 +312,30 @@ Everything else
 - [x] Import screen ranks the exports plainly (CAMT.053 best → PDF last resort) behind one
       expansion, and every file row says which format it was and how it was read
 
+## Accounts, reframed around the statements (this build)
+
+The page no longer reads as a data-entry form. Uploading is the path; typing is the exception.
+
+- [x] Empty state leads with importing a statement and explains what is read out of the file;
+      manual entry is a quiet link underneath, for cash and things no bank sends
+- [x] Header action is "Import statements"; adding by hand moved into the overflow menu and a
+      footer link, on both desktop and mobile
+- [x] Accounts found in statements and still unconfirmed sit at the top of the page — confirm as
+      new, merge into an existing account, or reject, without leaving Accounts
+- [x] Sidebar and mobile tab carry a count when accounts are waiting to be confirmed
+- [x] Every row shows its statement coverage: how many statements, the period they span, and any
+      missing months linked through to the gap list on Import
+- [x] Balance provenance is explicit — "closing balance, 31 Aug 2026" links to that statement's
+      transactions; a hand-typed figure says how long ago it was updated and flags when stale
+- [x] `accounts.balance_source` / `balance_statement_id` record where each balance came from, and
+      confirming a proposal writes the statement's own closing balance across
+- [x] Manual account form cut to the essentials, with currency, country and owner behind a
+      disclosure
+- [x] Page header rebuilt so title and actions share a line and the description runs beneath —
+      no more squeezed sentences on a phone
+
 ## Backlog / ideas captured while building
+
 
 
 
