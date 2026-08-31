@@ -7,6 +7,7 @@
  * only import into an account the household has actually confirmed.
  */
 import { bankDomain, findBank } from "../ai/banks";
+import { DEBT_ACCOUNT_TYPES } from "../format";
 import {
   EMPTY_IDENTITY,
   type ExtractionResult,
@@ -517,7 +518,7 @@ export async function processStatement(
     await releaseStatement(supabase, statement.id);
 
     if (result.status !== "failed") {
-      await touchAccountFromStatement(supabase, accountId, extraction, currency);
+      await touchAccountFromStatement(supabase, accountId, statement.id, extraction, currency);
     }
 
     return { kind: "imported", result };
@@ -541,11 +542,13 @@ export async function processStatement(
 /**
  * A statement's closing balance is a better figure than a balance last typed in
  * months ago — but only when this statement is the most recent thing we have
- * seen for the account.
+ * seen for the account. The account records that the figure came from a
+ * statement, so the page can say so rather than implying someone typed it.
  */
 async function touchAccountFromStatement(
   supabase: Client,
   accountId: string,
+  statementId: string,
   extraction: ExtractionResult,
   currency: string | null,
 ): Promise<void> {
@@ -555,7 +558,7 @@ async function touchAccountFromStatement(
 
   const { data: account } = await supabase
     .from("accounts")
-    .select("currency, last_balance_update, current_balance")
+    .select("currency, account_type, last_balance_update, current_balance")
     .eq("id", accountId)
     .maybeSingle();
   if (!account) return;
@@ -567,13 +570,20 @@ async function touchAccountFromStatement(
     : 0;
   if (statementTime <= lastUpdate) return;
 
+  // Debt is held as the amount owed, positive, everywhere in the app: a card
+  // statement closing at -1,240.18 is 1,240.18 owed, not a negative asset.
+  const owed = DEBT_ACCOUNT_TYPES.includes(account.account_type);
+
   await supabase
     .from("accounts")
     .update({
-      current_balance: closing,
+      current_balance: owed ? Math.abs(closing) : closing,
+      balance_source: "statement",
+      balance_statement_id: statementId,
       last_balance_update: new Date(`${periodEnd}T23:59:59Z`).toISOString(),
     })
     .eq("id", accountId);
 }
+
 
 export { maskIdentifier };

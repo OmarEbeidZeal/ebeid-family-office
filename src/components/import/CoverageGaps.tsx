@@ -28,11 +28,12 @@ export function CoverageGaps({
   if (!gaps.length) return null;
 
   return (
-    <section>
+    <section id="coverage" className="scroll-mt-24">
       <SectionHeader
         title="Missing months"
         description="Every month up to last month should have a statement behind it. These do not, so spending for them is understated until you import them."
       />
+
       <ul className="hairline space-y-0 rounded-lg bg-surface">
         {gaps.map((gap) => {
           const account = accounts.find((row) => row.id === gap.accountId)!;

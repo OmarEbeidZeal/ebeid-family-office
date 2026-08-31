@@ -172,17 +172,44 @@ export function useAccountProposals() {
   });
 }
 
+/** Just enough of every statement to say how complete an account's records are. */
+export type StatementCoverageRow = {
+  account_id: string | null;
+  status: string;
+  period_start: string | null;
+  period_end: string | null;
+};
+
+export function useStatementCoverage() {
+  const { household } = useAuth();
+  return useQuery({
+    queryKey: ["statement-coverage", household?.id],
+    enabled: !!household?.id,
+    queryFn: async () => {
+      const { data, error } = await db
+        .from("statements")
+        .select("account_id, status, period_start, period_end")
+        .eq("household_id", household!.id)
+        .limit(5000);
+      if (error) throw error;
+      return (data ?? []) as StatementCoverageRow[];
+    },
+  });
+}
+
 function useInvalidateImports() {
   const queryClient = useQueryClient();
   return () => {
     void queryClient.invalidateQueries({ queryKey: ["import-statements"] });
     void queryClient.invalidateQueries({ queryKey: ["import-batches"] });
     void queryClient.invalidateQueries({ queryKey: ["account-proposals"] });
+    void queryClient.invalidateQueries({ queryKey: ["statement-coverage"] });
     void queryClient.invalidateQueries({ queryKey: ["statements"] });
     void queryClient.invalidateQueries({ queryKey: ["transactions"] });
     void queryClient.invalidateQueries({ queryKey: ["accounts"] });
   };
 }
+
 
 const SAFE_NAME = /[^a-zA-Z0-9._-]+/g;
 
@@ -334,6 +361,7 @@ export function useQueueDriver(statements: ImportStatementRow[] | undefined) {
           void queryClient.invalidateQueries({ queryKey: ["import-statements"] });
           void queryClient.invalidateQueries({ queryKey: ["import-batches"] });
           void queryClient.invalidateQueries({ queryKey: ["account-proposals"] });
+          void queryClient.invalidateQueries({ queryKey: ["statement-coverage"] });
           void queryClient.invalidateQueries({ queryKey: ["transactions"] });
         }
       }

@@ -180,6 +180,8 @@ export type Database = {
       accounts: {
         Row: {
           account_type: string
+          balance_source: string
+          balance_statement_id: string | null
           country: string
           created_at: string
           currency: string
@@ -200,6 +202,8 @@ export type Database = {
         }
         Insert: {
           account_type?: string
+          balance_source?: string
+          balance_statement_id?: string | null
           country?: string
           created_at?: string
           currency?: string
@@ -220,6 +224,8 @@ export type Database = {
         }
         Update: {
           account_type?: string
+          balance_source?: string
+          balance_statement_id?: string | null
           country?: string
           created_at?: string
           currency?: string
@@ -239,6 +245,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "accounts_balance_statement_id_fkey"
+            columns: ["balance_statement_id"]
+            isOneToOne: false
+            referencedRelation: "statements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "accounts_household_id_fkey"
             columns: ["household_id"]

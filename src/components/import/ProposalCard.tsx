@@ -111,12 +111,14 @@ export function ProposalCard({
           <p className="mt-0.5 text-xs text-muted-foreground">
             {[
               proposal.holder,
+              (proposal.currency ?? "").toUpperCase() || null,
               period,
               `${proposal.statement_count} file${proposal.statement_count === 1 ? "" : "s"} waiting`,
             ]
               .filter(Boolean)
               .join(" · ")}
           </p>
+
           {proposal.reason && (
             <p className="mt-1 text-[0.7rem] text-muted-foreground">{proposal.reason}</p>
           )}
