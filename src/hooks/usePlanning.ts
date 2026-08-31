@@ -21,7 +21,9 @@ import {
   type IncomeRow,
   type LiabilityRow,
 } from "./useFinancials";
+import { useBabyPlan } from "./useBabyPlan";
 import { computeGoalPlan, type GoalInput, type GoalLineItemInput } from "@/lib/goal-math";
+import { babyForecastLayers, type BabyLayers } from "@/lib/planning/forecast-bridge";
 import {
   DEFAULT_ASSUMPTIONS,
   monthIndexOf,
@@ -244,10 +246,46 @@ export function useForecastSource(
   const categoriesQuery = useCategories();
   const observed = useObservedSpending();
   const { plan } = useGoalPlan();
+  const baby = useBabyPlan();
+
+  // Held steady across renders so the projection memo is not rebuilt every time.
+  const start = useMemo(() => startOfNextMonth(), []);
+
+  // The baby plan speaks in leave weeks and term dates; this turns it into the
+  // overrides, expense lines and benefit income the engine understands.
+  const babyLayers = useMemo<BabyLayers | null>(() => {
+    if (!baby.event) return null;
+    const dueDate = baby.event.expected_date;
+    return babyForecastLayers({
+      start,
+      months: Math.max(1, Math.round(assumptions.months)),
+      leave: baby.leave.map((entry) => ({
+        incomeStreamId: entry.row.income_stream_id,
+        personLabel: entry.personLabel,
+        plan: entry.plan,
+        normalMonthly: entry.normalMonthly,
+      })),
+      childcare: baby.childcare
+        ? {
+            plan: baby.childcare.plan,
+            dueDate,
+            eligible: baby.childcare.eligible,
+            lostToCliff: baby.childcare.lostToCliff,
+          }
+        : null,
+      childBenefit:
+        baby.childBenefit && baby.childBenefit.retained > 0
+          ? {
+              monthly: baby.childBenefit.retained / 12,
+              fromDate: dueDate,
+              label: baby.childBenefit.chargeRate > 0 ? "Child Benefit (after charge)" : "Child Benefit",
+            }
+          : null,
+    });
+  }, [baby.event, baby.leave, baby.childcare, baby.childBenefit, start, assumptions.months]);
 
   return useMemo(() => {
     const toBase = (amount: number, currency: string) => convert(Number(amount), currency, base);
-    const start = startOfNextMonth();
     // The projection is only as scoped as the page showing it: "Me" must
     // project my position, not the household's.
     const accounts = (accountsQuery.data ?? []).filter(
@@ -347,7 +385,17 @@ export function useForecastSource(
       incomeType: row.income_type,
       startMonth: null,
       endMonth: null,
+      // Maternity pay replaces the salary outright in the months it covers.
+      overrides: babyLayers?.incomeOverrides[row.id] ?? null,
+      overrideLabel: babyLayers?.incomeOverrides[row.id] ? "Parental leave begins" : null,
     }));
+
+    // The baby's own costs are a joint commitment, so they follow the same
+    // rule as any other unassigned record under the "Me" toggle.
+    const babyIsInScope = matches(null);
+    if (babyLayers && babyIsInScope) {
+      for (const row of babyLayers.extraIncome) income.push(row);
+    }
 
     const essentialCategories = new Set(
       categories.filter((category) => category.is_essential).map((category) => category.id),
@@ -397,7 +445,22 @@ export function useForecastSource(
       })
       .filter((goal) => !goal.skipped);
 
+    if (babyLayers && babyIsInScope) expenses.push(...babyLayers.extraExpenses);
+
     const gaps: string[] = [];
+    if (babyLayers) {
+      // A gap about a stream nobody is projecting is noise, so only report
+      // leave that could not be applied to a stream inside the scope.
+      const projected = new Set(income.map((row) => row.id));
+      for (const gap of babyLayers.gaps) gaps.push(gap);
+      for (const [streamId, months] of Object.entries(babyLayers.incomeOverrides)) {
+        if (projected.has(streamId) || !Object.keys(months).length) continue;
+        gaps.push(
+          "A parental leave plan points at an income stream outside this view, so its drop in pay is not shown here.",
+        );
+        break;
+      }
+    }
     if (!income.length)
       gaps.push("No income streams recorded, so the projection has nothing coming in.");
     if (!expenses.length && observed.essentialBaseline === null)
@@ -478,6 +541,8 @@ export function useForecastSource(
     matches,
     convert,
     base,
+    start,
+    babyLayers,
   ]);
 }
 
