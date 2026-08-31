@@ -140,8 +140,9 @@ export function AccountListRow({
       <Money
         amount={isDebt ? -Number(account.current_balance) : Number(account.current_balance)}
         currency={account.currency}
-        className={cn("text-sm", isDebt && "text-loss")}
+        className={cn("shrink-0 text-right text-sm", isDebt && "text-loss")}
       />
+
 
       <RowActions
         label={account.nickname}
