@@ -18,11 +18,12 @@ export type AiJob = "extraction" | "categorisation" | "advisory";
 export const EXTRACTION_MODEL = "openai/gpt-5.6-sol";
 
 /**
- * Bulk transaction categorisation. High volume, and every result is one click
- * to correct — cost is controlled by batching forty rows per call and capping
- * the output rather than by dropping to a weaker model.
+ * Bulk transaction categorisation. Three years of statements across several
+ * banks is tens of thousands of single-label calls, each one click to correct,
+ * so this runs on the cheapest capable model the gateway's Responses endpoint
+ * serves rather than on the reasoning model.
  */
-export const CATEGORISATION_MODEL = "openai/gpt-5.6-sol";
+export const CATEGORISATION_MODEL = "openai/gpt-5.4-nano";
 
 /**
  * The advisor and the weekly briefing. It has to hold the twelve policy rules
