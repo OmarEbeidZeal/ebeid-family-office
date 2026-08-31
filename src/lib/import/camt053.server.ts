@@ -15,7 +15,6 @@ import type { ExtractionResult, StatementIdentity } from "../statement-extract.s
 import type { RawTransaction } from "../statement-parse.server";
 import { StatementFailure } from "./failure";
 
-
 /* -------------------------------------------------------------- primitives */
 
 type Unknown = unknown;
@@ -50,7 +49,6 @@ function list(node: Unknown, ...path: string[]): Unknown[] {
   if (parent === null || parent === undefined || typeof parent !== "object") return [];
   return asArray((parent as Record<string, unknown>)[last]);
 }
-
 
 /** The text of an element, whether it carries attributes or not. */
 function text(node: Unknown): string | null {
@@ -212,7 +210,6 @@ function readIdentity(stmt: Unknown): {
     currency: text(at(account, "Ccy")),
   };
 }
-
 
 /* --------------------------------------------------------------- balances */
 

@@ -217,7 +217,6 @@ function readIdentity(
     if (compact.replace(/\D/g, "").length >= 4) identifier = compact;
   }
 
-
   const isIban = identifier ? /^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(identifier) : false;
   const prefix = candidates.length > 1 ? candidates[0]! : null;
   const institution =
@@ -342,7 +341,6 @@ function readStatement(
       .filter(Boolean)
       .join(" ")
       .slice(0, 300);
-
 
     transactions.push({
       booked_date: bookedDate,
