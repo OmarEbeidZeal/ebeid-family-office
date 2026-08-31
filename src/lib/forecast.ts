@@ -59,6 +59,16 @@ export type ForecastIncome = {
   incomeType: string;
   startMonth: number | null;
   endMonth: number | null;
+  /**
+   * Month-by-month replacements for the grown figure, in base currency.
+   *
+   * Parental leave is the reason this exists: statutory pay is a step function
+   * fixed in cash terms, so those months are stated outright rather than
+   * grown, and the pause shock — a flat percentage — cannot express them.
+   */
+  overrides?: Record<number, number> | null;
+  /** Shown against the month an override first applies, for annotating the chart. */
+  overrideLabel?: string | null;
 };
 
 export type ForecastExpense = {
@@ -181,7 +191,7 @@ export type ForecastPoint = {
   belowFloor: boolean;
   cashNegative: boolean;
   drawnFromInvestments: number;
-  events: { title: string; kind: "goal" | "shock"; amount: number }[];
+  events: { title: string; kind: "goal" | "shock" | "life"; amount: number }[];
 };
 
 export type GoalOutcome = {
@@ -375,6 +385,15 @@ export function runProjection(
           ? stream.growthPct
           : assumptions.salaryGrowthPct;
       let amount = stream.monthly * Math.pow(1 + growth / 100, yearFraction);
+      // A scheduled replacement — maternity pay — states the month outright.
+      const override = stream.overrides?.[month];
+      if (override !== undefined) {
+        const previous = stream.overrides?.[month - 1];
+        if (previous === undefined && stream.overrideLabel) {
+          events.push({ title: stream.overrideLabel, kind: "life", amount: override - amount });
+        }
+        amount = override;
+      }
       const pause = shocks.incomePause;
       if (
         pause &&
