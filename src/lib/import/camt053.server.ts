@@ -340,8 +340,8 @@ function remittanceOf(txDetail: Unknown): string | null {
       [
         text(at(entry, "CdtrRefInf", "Ref")),
         text(at(entry, "RfrdDocInf", "Nb")),
-        text(at(entry, "RfrdDocAmt", "RmtdAmt")) ? null : null,
         text(at(entry, "AddtlRmtInf")),
+
       ].filter((line): line is string => Boolean(line)),
     )
     .filter((line, index, all) => all.indexOf(line) === index);
