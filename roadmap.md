@@ -347,6 +347,10 @@ The page no longer reads as a data-entry form. Uploading is the path; typing is 
 - [ ] Mortgage offer / remortgage modelling inside a property goal
 - [ ] Backfill past net-worth snapshots from statement history, so the trend reaches back before
       the nightly job started
+- [ ] Nudge when an account's newest statement is over a month old, so gaps are chased rather than
+      noticed
+- [ ] Archive rather than delete an account, keeping its statements and transactions readable
+
 
 
 
