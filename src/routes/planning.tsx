@@ -143,7 +143,7 @@ function PlanningPage() {
               label="Funded hours start"
               value={
                 <span className="text-base font-light">
-                  {keyDates?.nurseryStart
+                  {keyDates
                     ? new Date(`${keyDates.fundedHoursStart}T00:00:00Z`).toLocaleDateString(
                         "en-GB",
                         { month: "short", year: "numeric" },
