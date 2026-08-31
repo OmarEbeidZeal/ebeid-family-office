@@ -36,6 +36,22 @@ function at(node: Unknown, ...path: string[]): Unknown {
   return cursor;
 }
 
+/**
+ * Every occurrence of the final element, not just the first.
+ *
+ * The distinction is the whole statement: `Ntry`, `Bal` and `TxDtls` repeat,
+ * and reading only the first would silently drop transactions and lose the
+ * closing balance — a quiet, plausible, wrong statement.
+ */
+function list(node: Unknown, ...path: string[]): Unknown[] {
+  const last = path[path.length - 1];
+  if (!last) return asArray(node);
+  const parent = path.length > 1 ? at(node, ...path.slice(0, -1)) : node;
+  if (parent === null || parent === undefined || typeof parent !== "object") return [];
+  return asArray((parent as Record<string, unknown>)[last]);
+}
+
+
 /** The text of an element, whether it carries attributes or not. */
 function text(node: Unknown): string | null {
   if (node === null || node === undefined) return null;
