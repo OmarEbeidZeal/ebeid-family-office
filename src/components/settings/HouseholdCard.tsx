@@ -7,7 +7,9 @@ import { Field, SelectNative } from "@/components/forms/FormField";
 import { SettingsCard } from "./SettingsCard";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { memberName } from "@/hooks/useOwners";
 import { CURRENCIES } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export function HouseholdCard() {
   const { household, members, isOwner } = useAuth();
@@ -91,6 +93,41 @@ export function HouseholdCard() {
           Only the household owner can change these settings.
         </p>
       )}
+
+      <div className="mt-6 border-t border-border pt-4">
+        <p className="text-[0.7rem] uppercase tracking-[0.14em] text-muted-foreground">Members</p>
+        <ul className="mt-2 divide-y divide-border">
+          {members.map((member) => {
+            const pending = member.status === "pending";
+            return (
+              <li key={member.id} className="flex items-baseline gap-2 py-2">
+                <span className="text-sm text-foreground">{memberName(member)}</span>
+                <span className="text-border">·</span>
+                <span
+                  className={cn(
+                    "text-[0.7rem]",
+                    pending ? "text-warning" : "text-muted-foreground",
+                  )}
+                >
+                  {pending
+                    ? "invited, not yet signed in"
+                    : member.role === "owner"
+                      ? "owner"
+                      : "member"}
+                </span>
+                <span className="ml-auto truncate text-[0.7rem] text-muted-foreground">
+                  {member.email}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-2 text-[0.7rem] text-muted-foreground">
+          An invited member can own accounts, assets, goals and income before they sign in. When
+          they do, everything already theirs stays theirs.
+        </p>
+      </div>
     </SettingsCard>
   );
 }
+

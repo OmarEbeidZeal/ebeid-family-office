@@ -334,6 +334,51 @@ The page no longer reads as a data-entry form. Uploading is the path; typing is 
 - [x] Page header rebuilt so title and actions share a line and the description runs beneath —
       no more squeezed sentences on a phone
 
+## Ownership: one person uploads, two people own (this build)
+
+- [ ] `profiles` decoupled from `auth.users`: a member is a record with a name, an email and a
+      status, and a login attaches to it later
+- [ ] Inviting someone creates a **pending member** immediately — she can own accounts, assets,
+      debts, goals and income before she has ever signed in
+- [ ] Signing up with an invited address links the new login to the member record already there;
+      nothing is re-keyed and nothing assigned to her is lost
+- [ ] Settings → Household lists members with their state ("invited, not yet signed in")
+- [ ] Uploader and owner kept apart everywhere: `statements.uploaded_by` is who dropped the file
+      in, `accounts.owner_profile_id` is whose account it is, and the import never infers one
+      from the other
+- [ ] Confirming a detected account requires an explicit owner — Omar / Haya / Joint, nothing
+      pre-selected — with the statement's own holder name shown beside the choice
+- [ ] Bulk reassignment on Accounts and in Settings: select several accounts, change the owner
+      once, told how many accounts and transactions move before it happens
+- [ ] Per-account `visibility`: `household` by default, `private` hides the account, its
+      statements and its transactions from the other person — and takes them out of the totals
+      that person sees, rather than showing a total that disagrees with the rows
+- [ ] Perspective toggle honest on every screen: dashboard, accounts, balance sheet,
+      transactions, spending, portfolio, goals, forecast, scenarios and the advisor
+
+## Baby planning — due 20 March 2027 (this build)
+
+- [ ] `life_events` model with a first-class "New baby" event; everything generated stays linked
+      to it, so moving the due date moves the whole plan
+- [ ] Maternity income schedule per person: SMP (90% for 6 weeks, then the lower of 90% and
+      £194.32 for 33 weeks, then unpaid), Maternity Allowance, Statutory Paternity Pay, plus
+      employer enhancement in weeks of full and half pay
+- [ ] Forecast shows the taper week by week — the cliff at week 7 and the drop to zero at week 40
+- [ ] One-off costs as line items under a "New baby" goal, every amount left at zero to fill in
+- [ ] Recurring costs as planned outgoings anchored to the due date
+- [ ] Childcare on the real timeline: paid in full from return to work, funded hours only from the
+      term after the child turns nine months, Tax-Free Childcare at 20% capped at £2,000 a year
+- [ ] The £100,000 cliff made loud: adjusted net income per person, distance to the line, the
+      pension contribution that recovers the funded hours, Tax-Free Childcare and the personal
+      allowance, and the combined value of doing it
+- [ ] Child Benefit handled properly: £27.05/week, HICBC taper £60k–£80k, and the claim registered
+      by the lower earner with payments declined for the National Insurance credits
+- [ ] Key dates anchored to the due date and counted down, including the 15th-week employer
+      notification, MATB1, nursery waiting lists, wills and life cover, 5 April, birth
+      registration, the Child Benefit claim window and the Junior ISA
+- [ ] Wired into forecast, scenarios (six months vs twelve, part-time, nursery vs nanny), the
+      dashboard goals strip and the advisor's context
+
 ## Backlog / ideas captured while building
 
 

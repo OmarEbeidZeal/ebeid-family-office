@@ -26,6 +26,10 @@ export type AccountRow = {
   /** The statement that supplied the balance, when one did. */
   balance_statement_id: string | null;
   is_joint: boolean;
+  /** "household" — both see it; "private" — only the owner does, and it is
+   *  left out of the totals shown to the other person. */
+  visibility: string;
+
   is_active: boolean;
   last_balance_update: string | null;
 };
@@ -101,6 +105,8 @@ export type GoalRow = {
   financed_term_years: number | null;
   /** Path inside the private goal-images bucket; never a public URL. */
   image_path: string | null;
+  /** Set when the goal exists because of a life event, so it moves with it. */
+  life_event_id: string | null;
 };
 
 export type GoalLineItemRow = {
@@ -152,6 +158,9 @@ export type ForecastExpenseRow = {
   end_date: string | null;
   inflation_rate: number;
   notes: string | null;
+  life_event_id: string | null;
+  /** Months after the event date this outgoing starts, when it is anchored to one. */
+  event_offset_months: number | null;
 };
 
 export type TransactionRow = {
@@ -260,6 +269,79 @@ export type TaxAllowanceRow = {
   pension_used: number;
   employer_match_secured: boolean;
   notes: string | null;
+  /** The parts an adjusted net income is built from. */
+  gross_salary: number;
+  bonus: number;
+  other_taxable_income: number;
+  /** Contributions that reduce adjusted net income, unlike the annual-allowance figure. */
+  pension_sacrifice: number;
+  gift_aid: number;
+  /** A manual override; null means the figure is derived from the parts above. */
+  adjusted_net_income: number | null;
+};
+
+export type LifeEventRow = {
+  id: string;
+  household_id: string;
+  event_type: string;
+  title: string;
+  /** The due date for a baby; every derived date in the plan hangs off it. */
+  expected_date: string;
+  status: string;
+  child_count: number;
+  notes: string | null;
+};
+
+export type LifeEventTaskRow = {
+  id: string;
+  life_event_id: string;
+  task_key: string;
+  title: string;
+  detail: string | null;
+  due_date: string | null;
+  /** Days from the event date, so the task moves if the date does. */
+  offset_days: number;
+  category: string;
+  status: string;
+  /** True where missing the date costs money rather than causing a delay. */
+  is_legal_deadline: boolean;
+  completed_at: string | null;
+  sort_order: number;
+};
+
+export type ParentalLeavePlanRow = {
+  id: string;
+  life_event_id: string;
+  profile_id: string | null;
+  /** The income stream the leave interrupts. */
+  income_stream_id: string | null;
+  scheme: string;
+  leave_start_date: string;
+  leave_weeks: number;
+  average_weekly_earnings: number | null;
+  employer_enhanced: boolean;
+  enhanced_full_pay_weeks: number;
+  enhanced_half_pay_weeks: number;
+  keeps_pension_contributions: boolean;
+  notes: string | null;
+};
+
+export type ChildcarePlanRow = {
+  id: string;
+  life_event_id: string;
+  provider_type: string;
+  starts_on: string | null;
+  hours_per_week: number;
+  hourly_rate: number;
+  weeks_per_year: number;
+  monthly_extras: number;
+  currency: string;
+  funded_eligible: boolean;
+  funded_hours_per_week: number;
+  funded_weeks_per_year: number;
+  funded_hours_start: string | null;
+  tax_free_childcare: boolean;
+  notes: string | null;
 };
 
 function useTable<T>(key: string, table: string, order?: string) {
@@ -296,6 +378,13 @@ export const useAdvisorNotes = () =>
 export const useTaxAllowances = () => useTable<TaxAllowanceRow>("tax_allowances", "tax_allowances");
 export const useSnapshots = () =>
   useTable<SnapshotRow>("net_worth_snapshots", "net_worth_snapshots", "as_of");
+export const useLifeEvents = () => useTable<LifeEventRow>("life_events", "life_events");
+export const useLifeEventTasks = () =>
+  useTable<LifeEventTaskRow>("life_event_tasks", "life_event_tasks");
+export const useParentalLeavePlans = () =>
+  useTable<ParentalLeavePlanRow>("parental_leave_plans", "parental_leave_plans");
+export const useChildcarePlans = () =>
+  useTable<ChildcarePlanRow>("childcare_plans", "childcare_plans");
 
 /**
  * How many briefing notes are waiting. Drives the Advisor badge in the sidebar,

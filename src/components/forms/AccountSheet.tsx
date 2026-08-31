@@ -16,6 +16,7 @@ import {
 import { bankDomain } from "@/lib/ai/banks";
 import { BankMark } from "@/components/BankMark";
 import { useAuth } from "@/hooks/useAuth";
+import { useOwners } from "@/hooks/useOwners";
 import { useSaveRow } from "@/hooks/useUpsertRow";
 import type { AccountRow } from "@/hooks/useFinancials";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ const schema = z.object({
   currency: z.string().min(3),
   current_balance: z.coerce.number(),
   owner_profile_id: z.string(),
+  visibility: z.string(),
   is_active: z.string(),
 });
 
@@ -50,7 +52,8 @@ export function AccountSheet({
   /** Fired with the saved account's id, so callers can select what was just created. */
   onSaved?: ((id: string) => void) | undefined;
 }) {
-  const { members, profile } = useAuth();
+  const { profile } = useAuth();
+  const { options: ownerOptions } = useOwners();
   const save = useSaveRow("accounts", "accounts", "Account");
   const [details, setDetails] = useState(false);
 
@@ -64,6 +67,7 @@ export function AccountSheet({
       currency: "GBP",
       current_balance: 0,
       owner_profile_id: profile?.id ?? "joint",
+      visibility: "household",
       is_active: "true",
     },
   });
@@ -81,6 +85,7 @@ export function AccountSheet({
       owner_profile_id: account?.is_joint
         ? "joint"
         : (account?.owner_profile_id ?? profile?.id ?? "joint"),
+      visibility: account?.visibility ?? "household",
       is_active: account ? (account.is_active ? "true" : "false") : "true",
     });
   }, [open, account, profile?.id, form]);
@@ -110,6 +115,9 @@ export function AccountSheet({
         current_balance: balance,
         is_joint: values.owner_profile_id === "joint",
         owner_profile_id: values.owner_profile_id === "joint" ? null : values.owner_profile_id,
+        // Only a single-owner account can be private; a joint one has nobody
+        // to hide it from.
+        visibility: values.owner_profile_id === "joint" ? "household" : values.visibility,
         is_active: values.is_active === "true",
         ...(balanceChanged
           ? {
@@ -214,13 +222,7 @@ export function AccountSheet({
             <SelectNative
               value={field.value}
               onChange={field.onChange}
-              options={[
-                { value: "joint", label: "Joint" },
-                ...members.map((member) => ({
-                  value: member.id,
-                  label: member.display_name ?? member.full_name ?? member.email,
-                })),
-              ]}
+              options={ownerOptions}
             />
           )}
         />
@@ -251,7 +253,7 @@ export function AccountSheet({
           </button>
 
           {details && (
-            <div className="mt-3">
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <Field label="Status" hint="Closed accounts drop out of every total.">
                 <Controller
                   control={form.control}
@@ -268,6 +270,28 @@ export function AccountSheet({
                   )}
                 />
               </Field>
+
+              {form.watch("owner_profile_id") !== "joint" && (
+                <Field
+                  label="Visibility"
+                  hint="A private account is hidden from the other person, and left out of the total they see."
+                >
+                  <Controller
+                    control={form.control}
+                    name="visibility"
+                    render={({ field }) => (
+                      <SelectNative
+                        value={field.value}
+                        onChange={field.onChange}
+                        options={[
+                          { value: "household", label: "Household — both see it" },
+                          { value: "private", label: "Private — only the owner" },
+                        ]}
+                      />
+                    )}
+                  />
+                </Field>
+              )}
             </div>
           )}
         </FullRow>

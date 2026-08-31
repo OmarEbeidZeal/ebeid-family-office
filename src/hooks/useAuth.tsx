@@ -6,6 +6,11 @@ import { supabase } from "@/integrations/supabase/client";
 export type Profile = {
   id: string;
   household_id: string;
+  /** Null until this person has signed in — an invited member owns things first. */
+  user_id: string | null;
+  /** `active` once a login is attached; `pending` while they are only invited. */
+  status: string;
+  invited_at: string | null;
   full_name: string | null;
   display_name: string | null;
   email: string;
@@ -68,14 +73,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", userId!)
+        .eq("user_id", userId!)
         .maybeSingle();
       if (error) throw error;
       if (!profile) return { profile: null, household: null, members: [] as Profile[] };
 
       const [{ data: household }, { data: members }] = await Promise.all([
         supabase.from("households").select("*").eq("id", profile.household_id).maybeSingle(),
-        supabase.from("profiles").select("*").eq("household_id", profile.household_id),
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("household_id", profile.household_id)
+          .order("created_at", { ascending: true }),
       ]);
 
       return {

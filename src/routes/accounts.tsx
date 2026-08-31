@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { FileUp, MoreHorizontal, Plus } from "lucide-react";
+import { FileUp, MoreHorizontal, Plus, Users } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { AccountListRow } from "@/components/accounts/AccountListRow";
 import { AccountsEmptyState } from "@/components/accounts/AccountsEmptyState";
 import { PendingAccounts } from "@/components/accounts/PendingAccounts";
+import { ReassignOwnerDialog } from "@/components/accounts/ReassignOwnerDialog";
 import { Money } from "@/components/Money";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +17,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { AccountSheet } from "@/components/forms/AccountSheet";
 import { useAccounts, type AccountRow } from "@/hooks/useFinancials";
-import { useAuth } from "@/hooks/useAuth";
+import { useOwners } from "@/hooks/useOwners";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDeleteRow } from "@/hooks/useUpsertRow";
 import { useScope } from "@/hooks/useScope";
@@ -58,7 +59,7 @@ type Group = {
 function AccountsPage() {
   const { data: accounts = [], isLoading } = useAccounts();
   const { data: statements = [] } = useStatementCoverage();
-  const { members } = useAuth();
+  const { nameOf } = useOwners();
   const { base, convert } = useCurrency();
   const { matches, activeLabel, isHousehold } = useScope();
   const remove = useDeleteRow("accounts", "accounts", "Account");
@@ -66,6 +67,9 @@ function AccountsPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<AccountRow | null>(null);
   const [showClosed, setShowClosed] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [reassignOpen, setReassignOpen] = useState(false);
 
   useQuickAdd("account", () => {
     setEditing(null);
@@ -108,11 +112,7 @@ function AccountsPage() {
       byOwner.set(key, list);
     }
 
-    const ownerLabel = (key: string) => {
-      if (key === "joint") return "Joint";
-      const member = members.find((profile) => profile.id === key);
-      return member?.display_name ?? member?.full_name ?? member?.email ?? "Unassigned";
-    };
+    const ownerLabel = (key: string) => (key === "joint" ? "Joint" : nameOf(key));
 
     return [...byOwner.entries()]
       .map(([key, list]) => {
@@ -136,7 +136,7 @@ function AccountsPage() {
       })
       .sort((a, b) => b.total - a.total);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, members, base, convert]);
+  }, [visible, nameOf, base, convert]);
 
   const grandTotal = groups.reduce((sum, group) => sum + group.total, 0);
   const closedCount = accounts.filter((account) => !account.is_active).length;
@@ -145,6 +145,14 @@ function AccountsPage() {
     setEditing(account);
     setSheetOpen(true);
   };
+
+  const toggleSelecting = () => {
+    setSelecting((on) => !on);
+    setSelected([]);
+  };
+
+  const toggleOne = (id: string, on: boolean) =>
+    setSelected((current) => (on ? [...current, id] : current.filter((value) => value !== id)));
 
   return (
     <AppShell
@@ -178,6 +186,10 @@ function AccountsPage() {
                 <Plus className="mr-2 h-3.5 w-3.5" />
                 Add an account manually
               </DropdownMenuItem>
+              <DropdownMenuItem disabled={!visible.length} onSelect={toggleSelecting}>
+                <Users className="mr-2 h-3.5 w-3.5" />
+                {selecting ? "Done reassigning" : "Reassign owners"}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </>
@@ -196,6 +208,28 @@ function AccountsPage() {
           <AccountsEmptyState onAddManually={() => openSheet(null)} />
         ) : (
           <>
+            {selecting && (
+              <div className="hairline sticky top-2 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-raised px-4 py-3">
+                <p className="text-xs text-muted-foreground">
+                  {selected.length
+                    ? `${selected.length} selected`
+                    : "Tick the accounts whose owner is wrong."}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={toggleSelecting}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={!selected.length}
+                    onClick={() => setReassignOpen(true)}
+                  >
+                    Reassign {selected.length || ""}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {groups.map((group) => (
               <section key={group.key}>
                 <div className="mb-2 flex items-end justify-between gap-4">
@@ -231,6 +265,9 @@ function AccountsPage() {
                           coverage={coverage.get(account.id)}
                           onEdit={() => openSheet(account)}
                           onDelete={() => remove.mutate(account.id)}
+                          selectable={selecting}
+                          selected={selected.includes(account.id)}
+                          onSelectedChange={(on) => toggleOne(account.id, on)}
                         />
                       ))}
                     </div>
@@ -278,6 +315,15 @@ function AccountsPage() {
       </div>
 
       <AccountSheet open={sheetOpen} onOpenChange={setSheetOpen} account={editing} />
+      <ReassignOwnerDialog
+        open={reassignOpen}
+        onOpenChange={setReassignOpen}
+        accountIds={selected}
+        onDone={() => {
+          setSelected([]);
+          setSelecting(false);
+        }}
+      />
     </AppShell>
   );
 }

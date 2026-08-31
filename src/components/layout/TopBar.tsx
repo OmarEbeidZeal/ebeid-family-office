@@ -3,6 +3,7 @@ import { openCommandPalette } from "@/components/CommandPalette";
 import { useNetWorth } from "@/hooks/useNetWorth";
 import { formatMoney, formatReadableMoney } from "@/lib/format";
 import { ScopeToggle } from "@/components/ScopeToggle";
+import { useScope } from "@/hooks/useScope";
 import { FxIndicator } from "@/components/FxIndicator";
 import { ProfileMenu } from "./ProfileMenu";
 import { LastUpdated } from "./LastUpdated";
@@ -10,7 +11,10 @@ import { Wordmark } from "@/components/Wordmark";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function TopBar() {
-  const { netWorth, base, loading, hasData } = useNetWorth({ householdWide: true });
+  // Follows the toggle sitting a few pixels to its right — a figure labelled
+  // "Me" that quietly totals both people would be a lie.
+  const { netWorth, base, loading, hasData } = useNetWorth();
+  const { activeLabel } = useScope();
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/85 backdrop-blur">
@@ -21,7 +25,7 @@ export function TopBar() {
         <div className="flex min-w-0 flex-col justify-center gap-1">
           <div className="flex min-w-0 items-center gap-2.5">
             <Wordmark size="sm" compact className="hidden sm:inline-flex lg:hidden" />
-            <span className="eyebrow hidden lg:inline">Household</span>
+            <span className="eyebrow hidden lg:inline">{activeLabel}</span>
             <span aria-hidden className="hidden h-3.5 w-px bg-border sm:block lg:hidden" />
             {loading ? (
               <Skeleton className="h-4 w-20" />

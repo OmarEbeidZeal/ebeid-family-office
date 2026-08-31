@@ -316,8 +316,9 @@ export type ResolveProposalInput = {
   currency?: string | null;
   country?: string | null;
   institution?: string | null;
-  ownerProfileId?: string | null;
-  isJoint?: boolean;
+  /** A profile id, or "joint". Required to confirm a new account. */
+  ownership?: string | null;
+
 };
 
 export function useResolveProposal() {

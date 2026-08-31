@@ -115,7 +115,7 @@ export async function loadAdvisorContext(
   const { data: profile, error: profileError } = await client
     .from("profiles")
     .select("id, household_id")
-    .eq("id", userId)
+    .eq("user_id", userId)
     .maybeSingle();
   if (profileError) throw new Error(`Could not read the profile: ${profileError.message}`);
   if (!profile?.household_id) {

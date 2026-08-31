@@ -91,7 +91,7 @@ async function handlePost({ request }: { request: Request }) {
   // must not lose what they asked.
   await supabase.from("advisor_chat").insert({
     household_id: loaded.householdId,
-    profile_id: userId,
+    profile_id: loaded.profileId,
     role: "user",
     content: parsed.message,
   });
@@ -142,7 +142,7 @@ async function handlePost({ request }: { request: Request }) {
           .from("advisor_chat")
           .insert({
             household_id: loaded.householdId,
-            profile_id: userId,
+            profile_id: loaded.profileId,
             role: "assistant",
             content: answer,
             reasoning: reasoning.trim() || null,

@@ -199,6 +199,7 @@ export type Database = {
           owner_profile_id: string | null
           statement_holder: string | null
           updated_at: string
+          visibility: string
         }
         Insert: {
           account_type?: string
@@ -221,6 +222,7 @@ export type Database = {
           owner_profile_id?: string | null
           statement_holder?: string | null
           updated_at?: string
+          visibility?: string
         }
         Update: {
           account_type?: string
@@ -243,6 +245,7 @@ export type Database = {
           owner_profile_id?: string | null
           statement_holder?: string | null
           updated_at?: string
+          visibility?: string
         }
         Relationships: [
           {
@@ -658,6 +661,84 @@ export type Database = {
           },
         ]
       }
+      childcare_plans: {
+        Row: {
+          created_at: string
+          currency: string
+          funded_eligible: boolean
+          funded_hours_per_week: number
+          funded_hours_start: string | null
+          funded_weeks_per_year: number
+          hourly_rate: number
+          hours_per_week: number
+          household_id: string
+          id: string
+          life_event_id: string
+          monthly_extras: number
+          notes: string | null
+          provider_type: string
+          starts_on: string | null
+          tax_free_childcare: boolean
+          updated_at: string
+          weeks_per_year: number
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          funded_eligible?: boolean
+          funded_hours_per_week?: number
+          funded_hours_start?: string | null
+          funded_weeks_per_year?: number
+          hourly_rate?: number
+          hours_per_week?: number
+          household_id: string
+          id?: string
+          life_event_id: string
+          monthly_extras?: number
+          notes?: string | null
+          provider_type?: string
+          starts_on?: string | null
+          tax_free_childcare?: boolean
+          updated_at?: string
+          weeks_per_year?: number
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          funded_eligible?: boolean
+          funded_hours_per_week?: number
+          funded_hours_start?: string | null
+          funded_weeks_per_year?: number
+          hourly_rate?: number
+          hours_per_week?: number
+          household_id?: string
+          id?: string
+          life_event_id?: string
+          monthly_extras?: number
+          notes?: string | null
+          provider_type?: string
+          starts_on?: string | null
+          tax_free_childcare?: boolean
+          updated_at?: string
+          weeks_per_year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "childcare_plans_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "childcare_plans_life_event_id_fkey"
+            columns: ["life_event_id"]
+            isOneToOne: false
+            referencedRelation: "life_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       forecast_expenses: {
         Row: {
           amount: number
@@ -666,11 +747,13 @@ export type Database = {
           created_at: string
           currency: string
           end_date: string | null
+          event_offset_months: number | null
           frequency: string
           household_id: string
           id: string
           inflation_rate: number
           label: string
+          life_event_id: string | null
           notes: string | null
           owner_profile_id: string | null
           start_date: string | null
@@ -683,11 +766,13 @@ export type Database = {
           created_at?: string
           currency?: string
           end_date?: string | null
+          event_offset_months?: number | null
           frequency?: string
           household_id: string
           id?: string
           inflation_rate?: number
           label: string
+          life_event_id?: string | null
           notes?: string | null
           owner_profile_id?: string | null
           start_date?: string | null
@@ -700,11 +785,13 @@ export type Database = {
           created_at?: string
           currency?: string
           end_date?: string | null
+          event_offset_months?: number | null
           frequency?: string
           household_id?: string
           id?: string
           inflation_rate?: number
           label?: string
+          life_event_id?: string | null
           notes?: string | null
           owner_profile_id?: string | null
           start_date?: string | null
@@ -723,6 +810,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forecast_expenses_life_event_id_fkey"
+            columns: ["life_event_id"]
+            isOneToOne: false
+            referencedRelation: "life_events"
             referencedColumns: ["id"]
           },
           {
@@ -840,6 +934,7 @@ export type Database = {
           household_id: string
           id: string
           image_path: string | null
+          life_event_id: string | null
           non_uk_resident: boolean
           notes: string | null
           owner_profile_id: string | null
@@ -866,6 +961,7 @@ export type Database = {
           household_id: string
           id?: string
           image_path?: string | null
+          life_event_id?: string | null
           non_uk_resident?: boolean
           notes?: string | null
           owner_profile_id?: string | null
@@ -892,6 +988,7 @@ export type Database = {
           household_id?: string
           id?: string
           image_path?: string | null
+          life_event_id?: string | null
           non_uk_resident?: boolean
           notes?: string | null
           owner_profile_id?: string | null
@@ -909,6 +1006,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_life_event_id_fkey"
+            columns: ["life_event_id"]
+            isOneToOne: false
+            referencedRelation: "life_events"
             referencedColumns: ["id"]
           },
           {
@@ -1261,6 +1365,122 @@ export type Database = {
           },
         ]
       }
+      life_event_tasks: {
+        Row: {
+          category: string
+          completed_at: string | null
+          created_at: string
+          detail: string | null
+          due_date: string | null
+          household_id: string
+          id: string
+          is_legal_deadline: boolean
+          life_event_id: string
+          offset_days: number
+          sort_order: number
+          status: string
+          task_key: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          completed_at?: string | null
+          created_at?: string
+          detail?: string | null
+          due_date?: string | null
+          household_id: string
+          id?: string
+          is_legal_deadline?: boolean
+          life_event_id: string
+          offset_days?: number
+          sort_order?: number
+          status?: string
+          task_key: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          completed_at?: string | null
+          created_at?: string
+          detail?: string | null
+          due_date?: string | null
+          household_id?: string
+          id?: string
+          is_legal_deadline?: boolean
+          life_event_id?: string
+          offset_days?: number
+          sort_order?: number
+          status?: string
+          task_key?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "life_event_tasks_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "life_event_tasks_life_event_id_fkey"
+            columns: ["life_event_id"]
+            isOneToOne: false
+            referencedRelation: "life_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      life_events: {
+        Row: {
+          child_count: number
+          created_at: string
+          event_type: string
+          expected_date: string
+          household_id: string
+          id: string
+          notes: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          child_count?: number
+          created_at?: string
+          event_type?: string
+          expected_date: string
+          household_id: string
+          id?: string
+          notes?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          child_count?: number
+          created_at?: string
+          event_type?: string
+          expected_date?: string
+          household_id?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "life_events_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       net_worth_snapshots: {
         Row: {
           as_of: string
@@ -1307,6 +1527,92 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parental_leave_plans: {
+        Row: {
+          average_weekly_earnings: number | null
+          created_at: string
+          employer_enhanced: boolean
+          enhanced_full_pay_weeks: number
+          enhanced_half_pay_weeks: number
+          household_id: string
+          id: string
+          income_stream_id: string | null
+          keeps_pension_contributions: boolean
+          leave_start_date: string
+          leave_weeks: number
+          life_event_id: string
+          notes: string | null
+          profile_id: string | null
+          scheme: string
+          updated_at: string
+        }
+        Insert: {
+          average_weekly_earnings?: number | null
+          created_at?: string
+          employer_enhanced?: boolean
+          enhanced_full_pay_weeks?: number
+          enhanced_half_pay_weeks?: number
+          household_id: string
+          id?: string
+          income_stream_id?: string | null
+          keeps_pension_contributions?: boolean
+          leave_start_date: string
+          leave_weeks?: number
+          life_event_id: string
+          notes?: string | null
+          profile_id?: string | null
+          scheme?: string
+          updated_at?: string
+        }
+        Update: {
+          average_weekly_earnings?: number | null
+          created_at?: string
+          employer_enhanced?: boolean
+          enhanced_full_pay_weeks?: number
+          enhanced_half_pay_weeks?: number
+          household_id?: string
+          id?: string
+          income_stream_id?: string | null
+          keeps_pension_contributions?: boolean
+          leave_start_date?: string
+          leave_weeks?: number
+          life_event_id?: string
+          notes?: string | null
+          profile_id?: string | null
+          scheme?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parental_leave_plans_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parental_leave_plans_income_stream_id_fkey"
+            columns: ["income_stream_id"]
+            isOneToOne: false
+            referencedRelation: "income_streams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parental_leave_plans_life_event_id_fkey"
+            columns: ["life_event_id"]
+            isOneToOne: false
+            referencedRelation: "life_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parental_leave_plans_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1361,8 +1667,12 @@ export type Database = {
           full_name: string | null
           household_id: string
           id: string
+          invited_at: string | null
+          invited_by: string | null
           role: string
+          status: string
           updated_at: string
+          user_id: string | null
           weekly_briefing_enabled: boolean
         }
         Insert: {
@@ -1374,9 +1684,13 @@ export type Database = {
           email: string
           full_name?: string | null
           household_id: string
-          id: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
           role?: string
+          status?: string
           updated_at?: string
+          user_id?: string | null
           weekly_briefing_enabled?: boolean
         }
         Update: {
@@ -1389,8 +1703,12 @@ export type Database = {
           full_name?: string | null
           household_id?: string
           id?: string
+          invited_at?: string | null
+          invited_by?: string | null
           role?: string
+          status?: string
           updated_at?: string
+          user_id?: string | null
           weekly_briefing_enabled?: boolean
         }
         Relationships: [
@@ -1399,6 +1717,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1680,42 +2005,60 @@ export type Database = {
       }
       tax_allowances: {
         Row: {
+          adjusted_net_income: number | null
+          bonus: number
           created_at: string
           employer_match_secured: boolean
+          gift_aid: number
+          gross_salary: number
           household_id: string
           id: string
           isa_used: number
           jisa_used: number
           lisa_used: number
           notes: string | null
+          other_taxable_income: number
+          pension_sacrifice: number
           pension_used: number
           profile_id: string | null
           tax_year: string
           updated_at: string
         }
         Insert: {
+          adjusted_net_income?: number | null
+          bonus?: number
           created_at?: string
           employer_match_secured?: boolean
+          gift_aid?: number
+          gross_salary?: number
           household_id: string
           id?: string
           isa_used?: number
           jisa_used?: number
           lisa_used?: number
           notes?: string | null
+          other_taxable_income?: number
+          pension_sacrifice?: number
           pension_used?: number
           profile_id?: string | null
           tax_year: string
           updated_at?: string
         }
         Update: {
+          adjusted_net_income?: number | null
+          bonus?: number
           created_at?: string
           employer_match_secured?: boolean
+          gift_aid?: number
+          gross_salary?: number
           household_id?: string
           id?: string
           isa_used?: number
           jisa_used?: number
           lisa_used?: number
           notes?: string | null
+          other_taxable_income?: number
+          pension_sacrifice?: number
           pension_used?: number
           profile_id?: string | null
           tax_year?: string

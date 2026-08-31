@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 
 import { useCurrency } from "./useCurrency";
 import { useNetWorth } from "./useNetWorth";
+import { useScope } from "./useScope";
 import { useObservedSpending } from "./useObservedSpending";
 import {
   useAccounts,
@@ -58,7 +59,8 @@ export type SurplusEstimate = {
  * fact — and when neither exists the answer is null rather than a guess.
  */
 export function useMonthlySurplus(): SurplusEstimate {
-  const nw = useNetWorth({ householdWide: true });
+  // Scoped, like everything else: "Me" has to mean my surplus, not ours.
+  const nw = useNetWorth();
   const observed = useObservedSpending();
 
   return useMemo(() => {
@@ -133,19 +135,27 @@ export function toLineItemInput(item: GoalLineItemRow): GoalLineItemInput {
 }
 
 /**
- * Every goal with its all-in cost, required monthly contribution and status.
- * Goals are household-level by design: a flat the two of them buy together is
- * not "his" or "hers", so this ignores the Me/partner perspective.
+ * Every goal with its all-in cost, required monthly contribution and status,
+ * seen from whichever side of the household is selected. Joint and unassigned
+ * goals belong to both, so they survive a personal view.
  */
 export function useGoalPlan() {
   const { convert, base } = useCurrency();
+  const { matches } = useScope();
   const goalsQuery = useGoals();
   const itemsQuery = useGoalLineItems();
   const surplus = useMonthlySurplus();
 
   const loading = goalsQuery.isLoading || itemsQuery.isLoading;
-  const goals = useMemo(() => goalsQuery.data ?? [], [goalsQuery.data]);
-  const lineItems = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data]);
+  const goals = useMemo(
+    () => (goalsQuery.data ?? []).filter((goal) => matches(goal.owner_profile_id)),
+    [goalsQuery.data, matches],
+  );
+  const goalIds = useMemo(() => new Set(goals.map((goal) => goal.id)), [goals]);
+  const lineItems = useMemo(
+    () => (itemsQuery.data ?? []).filter((item) => goalIds.has(item.goal_id)),
+    [itemsQuery.data, goalIds],
+  );
 
   const plan = useMemo(
     () =>
@@ -225,6 +235,7 @@ export function useForecastSource(
   assumptions: ForecastAssumptions = DEFAULT_ASSUMPTIONS,
 ): ForecastSource {
   const { convert, base } = useCurrency();
+  const { matches } = useScope();
   const accountsQuery = useAccounts();
   const assetsQuery = useAssets();
   const liabilitiesQuery = useLiabilities();
@@ -237,11 +248,17 @@ export function useForecastSource(
   return useMemo(() => {
     const toBase = (amount: number, currency: string) => convert(Number(amount), currency, base);
     const start = startOfNextMonth();
-    const accounts = (accountsQuery.data ?? []).filter((account) => account.is_active);
-    const assets = assetsQuery.data ?? [];
-    const liabilityRows = liabilitiesQuery.data ?? [];
-    const incomeRows = incomeQuery.data ?? [];
-    const expenseRows = expensesQuery.data ?? [];
+    // The projection is only as scoped as the page showing it: "Me" must
+    // project my position, not the household's.
+    const accounts = (accountsQuery.data ?? []).filter(
+      (account) => account.is_active && matches(account.owner_profile_id),
+    );
+    const assets = (assetsQuery.data ?? []).filter((row) => matches(row.owner_profile_id));
+    const liabilityRows = (liabilitiesQuery.data ?? []).filter((row) =>
+      matches(row.owner_profile_id),
+    );
+    const incomeRows = (incomeQuery.data ?? []).filter((row) => matches(row.owner_profile_id));
+    const expenseRows = (expensesQuery.data ?? []).filter((row) => matches(row.owner_profile_id));
     const categories = categoriesQuery.data ?? [];
 
     let cash = 0;
@@ -458,6 +475,7 @@ export function useForecastSource(
     observed.essentialBaseline,
     plan,
     assumptions,
+    matches,
     convert,
     base,
   ]);
