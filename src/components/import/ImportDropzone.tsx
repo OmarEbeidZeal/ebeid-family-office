@@ -3,9 +3,9 @@ import { FileUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useQueueImport, type UploadProgress } from "@/hooks/useImports";
+import { UPLOAD_ACCEPT } from "@/lib/import/formats";
 import { cn } from "@/lib/utils";
 
-const ACCEPT = ".pdf,.csv,.xls,.xlsx,.txt";
 const MAX_BYTES = 20 * 1024 * 1024;
 const MAX_FILES = 40;
 
@@ -14,6 +14,7 @@ const MAX_FILES = 40;
  * accounts here — the reader works that out, and the review list below asks
  * only where it genuinely could not tell.
  */
+
 export function ImportDropzone({ onQueued }: { onQueued?: (batchId: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -97,9 +98,9 @@ export function ImportDropzone({ onQueued }: { onQueued?: (batchId: string) => v
           {busy ? "Uploading…" : "Drop statements here"}
         </p>
         <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-muted-foreground">
-          PDF, CSV or Excel, up to 20MB each and 40 at a time. No need to say which account each one
-          is — the reader identifies the bank, the holder and the last four digits, then asks only
-          when it cannot tell.
+          CAMT.053, MT940, QIF, CSV, Excel or PDF — up to 20MB each and 40 at a time. The format is
+          recognised from the file itself, and so are the bank, the holder and the last four digits.
+          You are asked only when a file genuinely cannot say which account it belongs to.
         </p>
         <div className="mt-5 flex justify-center">
           <Button
@@ -115,7 +116,8 @@ export function ImportDropzone({ onQueued }: { onQueued?: (batchId: string) => v
           ref={inputRef}
           type="file"
           multiple
-          accept={ACCEPT}
+          accept={UPLOAD_ACCEPT}
+
           className="hidden"
           onChange={(event) => {
             if (event.target.files) void send(event.target.files);

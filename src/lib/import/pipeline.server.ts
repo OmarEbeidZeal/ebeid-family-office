@@ -31,6 +31,7 @@ import {
   rememberIdentifier,
   type NormalisedIdentifier,
 } from "./identity.server";
+import { formatLabel } from "./formats";
 import { failStatement, releaseStatement, type QueuedStatement } from "./queue.server";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -38,7 +39,7 @@ type Client = any;
 
 export type ProcessOutcome =
   | { kind: "imported"; result: ImportResult }
-  | { kind: "awaiting_account"; proposalId: string; reason: string }
+  | { kind: "awaiting_account"; proposalId: string | null; reason: string }
   | { kind: "duplicate"; message: string }
   | { kind: "failed"; message: string };
 
@@ -57,15 +58,22 @@ function cachePath(filePath: string): string {
   return `${filePath}.extract.json`;
 }
 
+/**
+ * A file yields a list of statements, not one: a CAMT.053 export routinely
+ * carries several accounts, and an MT940 file several periods. The cache holds
+ * the whole list so the siblings never re-read the file.
+ */
 async function readCachedExtraction(
   supabase: Client,
   filePath: string,
-): Promise<ExtractionResult | null> {
+): Promise<ExtractionResult[] | null> {
   const { data } = await supabase.storage.from("statements").download(cachePath(filePath));
   if (!data) return null;
   try {
-    const parsed = JSON.parse(await data.text()) as ExtractionResult;
-    return parsed?.transactions ? parsed : null;
+    const parsed = JSON.parse(await data.text()) as ExtractionResult[] | ExtractionResult;
+    const list = Array.isArray(parsed) ? parsed : [parsed];
+    if (!list.length) return null;
+    return list.every((entry) => Array.isArray(entry?.transactions)) ? list : null;
   } catch {
     return null;
   }
@@ -74,13 +82,13 @@ async function readCachedExtraction(
 async function writeCachedExtraction(
   supabase: Client,
   filePath: string,
-  extraction: ExtractionResult,
+  extractions: ExtractionResult[],
 ): Promise<void> {
   await supabase.storage
     .from("statements")
     .upload(
       cachePath(filePath),
-      new Blob([JSON.stringify(extraction)], { type: "application/json" }),
+      new Blob([JSON.stringify(extractions)], { type: "application/json" }),
       {
         upsert: true,
         contentType: "application/json",
@@ -196,6 +204,90 @@ async function upsertProposal(
   return data as ProposalRow;
 }
 
+/* ------------------------------------------------------- multi-statement */
+
+/**
+ * One file, several statements.
+ *
+ * A CAMT.053 export commonly carries every account the bank holds for you, and
+ * an MT940 file a run of monthly periods. Each is its own statement: its own
+ * account, its own opening and closing balance, its own reconciliation. So the
+ * uploaded row keeps the first, and the rest are created here as siblings that
+ * the queue picks up like any other file.
+ *
+ * Done once: a retry finds the siblings already there and leaves them alone.
+ */
+async function fanOutStatements(
+  supabase: Client,
+  statement: Record<string, any>,
+  results: ExtractionResult[],
+): Promise<void> {
+  const count = results.length;
+  if (count < 2) {
+    if ((statement["statement_count"] ?? 1) !== 1) {
+      await supabase
+        .from("statements")
+        .update({ statement_index: 0, statement_count: 1 })
+        .eq("id", statement["id"]);
+    }
+    return;
+  }
+
+  const { data: siblings } = await supabase
+    .from("statements")
+    .select("id")
+    .eq("household_id", statement["household_id"])
+    .eq("file_path", statement["file_path"])
+    .neq("id", statement["id"])
+    .limit(1);
+
+  await supabase
+    .from("statements")
+    .update({ statement_index: Number(statement["statement_index"] ?? 0), statement_count: count })
+    .eq("id", statement["id"]);
+
+  if (siblings?.length) return;
+
+  const rows = results.slice(1).map((result, offset) => ({
+    household_id: statement["household_id"],
+    account_id: null,
+    import_batch_id: statement["import_batch_id"] ?? null,
+    uploaded_by: statement["uploaded_by"] ?? null,
+    file_path: statement["file_path"],
+    file_name: statement["file_name"],
+    file_size: statement["file_size"] ?? null,
+    // The hash is copied deliberately: it stops each sibling being read as a
+    // duplicate of the row it came from, while a genuine re-upload of the same
+    // file still matches.
+    file_hash: statement["file_hash"] ?? null,
+    source_format: result.format ?? null,
+    statement_index: offset + 1,
+    statement_count: count,
+    currency: result.meta.currency ?? null,
+    period_start: result.meta.period_start ?? null,
+    period_end: result.meta.period_end ?? null,
+    status: "queued",
+  }));
+
+  const { error } = await supabase.from("statements").insert(rows);
+  if (error) return;
+
+  // The batch counts files, and this file just became several of them.
+  if (statement["import_batch_id"]) {
+    const { data: batch } = await supabase
+      .from("import_batches")
+      .select("total_files")
+      .eq("id", statement["import_batch_id"])
+      .maybeSingle();
+    if (batch) {
+      await supabase
+        .from("import_batches")
+        .update({ total_files: Number(batch.total_files ?? 1) + rows.length })
+        .eq("id", statement["import_batch_id"]);
+    }
+  }
+}
+
 /* ---------------------------------------------------------------- process */
 
 /**
@@ -252,17 +344,28 @@ export async function processStatement(
     }
 
     /* ------------------------------------------------------ extraction */
-    let extraction = await readCachedExtraction(supabase, statement.file_path);
-    if (!extraction) {
+    let results = await readCachedExtraction(supabase, statement.file_path);
+    if (!results) {
       file = file ?? (await downloadStatementFile(supabase, statement));
-      extraction = await extractStatementContent(file);
-      await writeCachedExtraction(supabase, statement.file_path, extraction);
-      if (extraction.notes.length) {
-        await supabase
-          .from("statements")
-          .update({ summary: { extraction_notes: extraction.notes } })
-          .eq("id", statement.id);
-      }
+      results = await extractStatementContent(file);
+      await writeCachedExtraction(supabase, statement.file_path, results);
+    }
+    if (!results.length) {
+      throw new StatementFailure(
+        "Nothing in this file reads as a bank statement. Check you exported the transaction list from your bank.",
+      );
+    }
+
+    await fanOutStatements(supabase, statement, results);
+
+    const index = Math.min(Number(statement.statement_index ?? 0), results.length - 1);
+    const extraction = results[index]!;
+
+    if (extraction.notes.length) {
+      await supabase
+        .from("statements")
+        .update({ summary: { extraction_notes: extraction.notes } })
+        .eq("id", statement.id);
     }
 
     const identity: StatementIdentity = extraction.meta.identity ?? EMPTY_IDENTITY;
@@ -284,7 +387,6 @@ export async function processStatement(
         "Nothing in this file reads as a bank statement — no transactions, no account and no statement period. Check you exported the transaction list from your bank.",
       );
     }
-
     /* -------------------------------------------------------- identity */
     let identifier: NormalisedIdentifier | null = null;
     try {
@@ -317,6 +419,7 @@ export async function processStatement(
     await supabase
       .from("statements")
       .update({
+        source_format: extraction.format ?? null,
         detected_institution: identity.institution,
         detected_institution_domain: bankDomain(identity.institution),
         detected_holder: identity.statement_holder,
@@ -336,7 +439,14 @@ export async function processStatement(
     let accountId: string | null = statement.account_id ?? null;
     let proposalId: string | null = statement.proposal_id ?? null;
 
-    if (!accountId) {
+    // A file that names no bank and carries no account number — a QIF export,
+    // most often — cannot be proposed as an account: there is nothing to
+    // recognise it by, and pooling every such file under one "unknown account"
+    // would file two different accounts into the same place. It is asked about
+    // on its own row instead.
+    const anonymous = !identity.institution && !identifier;
+
+    if (!accountId && !anonymous) {
       const proposal = await upsertProposal(supabase, {
         householdId: statement.household_id,
         identity,
@@ -364,16 +474,20 @@ export async function processStatement(
     }
 
     if (!accountId) {
+      const reason = anonymous
+        ? `${formatLabel(extraction.format ?? "qif")} carries no account number and no bank name, so this file cannot be matched on its own — choose the account it belongs to.`
+        : match.reason;
+
       await supabase
         .from("statements")
         .update({
           status: "awaiting_account",
           locked_at: null,
-          error_message: null,
+          error_message: anonymous ? reason : null,
           parsed_at: null,
         })
         .eq("id", statement.id);
-      return { kind: "awaiting_account", proposalId: proposalId!, reason: match.reason };
+      return { kind: "awaiting_account", proposalId, reason };
     }
 
     /* ---------------------------------------------------------- import */

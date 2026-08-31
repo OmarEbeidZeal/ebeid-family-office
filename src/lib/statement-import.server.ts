@@ -18,6 +18,12 @@ import {
   type CategoryRule,
 } from "./categorise.server";
 import { CATEGORISATION_MODEL } from "./ai/models";
+import { parseCamt053 } from "./import/camt053.server";
+import { StatementFailure } from "./import/failure";
+import { EXACT_BALANCE_FORMATS, formatLabel, type SourceFormat } from "./import/formats";
+import { parseMt940 } from "./import/mt940.server";
+import { parseQif } from "./import/qif.server";
+import { sniffFormat } from "./import/sniff.server";
 import {
   applyMapping,
   extractFromPdfText,
@@ -28,7 +34,6 @@ import {
 import {
   SCANNED_PDF_MESSAGE,
   decodeText,
-  detectFileKind,
   extractPdfText,
   fingerprintOf,
   looksScanned,
@@ -130,10 +135,28 @@ type ExistingRow = {
   direction: string;
   description: string | null;
   import_fingerprint: string | null;
+  bank_reference?: string | null;
 };
 
 function bucketKey(date: string, amount: number, direction: string) {
   return `${date}|${Math.round(Math.abs(amount) * 100)}|${direction}`;
+}
+
+/**
+ * A bank reference alone is not safe to deduplicate on: MT940 reuses the same
+ * customer reference for every instalment of a standing order. Pinned to the
+ * date and the amount it becomes exact, and it catches the case the
+ * description-similarity test cannot — the same entry re-exported with
+ * different wording.
+ */
+function referenceKey(
+  reference: string | null | undefined,
+  date: string,
+  amount: number,
+): string | null {
+  const value = (reference ?? "").trim();
+  if (value.length < 4) return null;
+  return `${value.toUpperCase()}|${date}|${Math.round(Math.abs(amount) * 100)}`;
 }
 
 function baseOf(fingerprint: string | null): string | null {
@@ -160,12 +183,13 @@ async function fail(supabase: Client, statementId: string, message: string): Pro
   };
 }
 
-/** A failure with a sentence worth showing the household. */
-export class StatementFailure extends Error {}
+export { StatementFailure };
 
 export type LoadedStatementFile = {
-  kind: "pdf" | "csv" | "xlsx";
+  format: SourceFormat;
   bytes: Uint8Array;
+  /** Already decoded, for the text formats. */
+  text: string | null;
 };
 
 export async function downloadStatementFile(
@@ -182,37 +206,71 @@ export async function downloadStatementFile(
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const kind = detectFileKind(statement.file_name ?? statement.file_path, (file as any).type);
-  if (!kind) {
+  const sniffed = sniffFormat(
+    bytes,
+    statement.file_name ?? statement.file_path,
+    (file as any).type,
+  );
+  if (!sniffed) {
     throw new StatementFailure(
-      "Only PDF, CSV and Excel statements can be read. Export one of those formats from your bank.",
+      "This file does not read as a statement in any format the reader knows. Export CAMT.053, MT940, CSV, Excel, QIF or PDF from your bank — CAMT.053 first if it is offered.",
     );
   }
-  return { kind, bytes };
+  return { format: sniffed.format, bytes, text: sniffed.text };
 }
 
-/** File bytes → rows plus everything the statement says about itself. */
+/**
+ * File bytes → statements.
+ *
+ * A list, because one CAMT.053 or MT940 file routinely holds several accounts
+ * or several periods, and each of those is its own statement with its own
+ * account and its own reconciliation.
+ *
+ * The structured formats are parsed by code alone. Only CSV, Excel and PDF —
+ * the formats that do not state their own structure — reach a model.
+ */
 export async function extractStatementContent(
   file: LoadedStatementFile,
-): Promise<ExtractionResult> {
-  if (file.kind === "pdf") {
-    const pdf = await extractPdfText(file.bytes);
-    if (looksScanned(pdf)) throw new StatementFailure(SCANNED_PDF_MESSAGE);
-    return extractFromPdfText(pdf.text);
-  }
+): Promise<ExtractionResult[]> {
+  const body = () => file.text ?? decodeText(file.bytes);
 
-  const rawRows =
-    file.kind === "csv"
-      ? await parseDelimitedRows(decodeText(file.bytes))
-      : await parseWorkbookRows(file.bytes);
-  const rows = rawRows.filter((row) => row.some((cell) => (cell ?? "").trim().length > 0));
-  if (rows.length < 2) {
-    throw new StatementFailure(
-      "This file has no readable rows. Check you exported the transaction list rather than a summary.",
-    );
+  switch (file.format) {
+    case "camt053":
+      return parseCamt053(body());
+    case "mt940":
+      return parseMt940(body());
+    case "qif":
+      return parseQif(body());
+    case "pdf": {
+      const pdf = await extractPdfText(file.bytes);
+      if (looksScanned(pdf)) throw new StatementFailure(SCANNED_PDF_MESSAGE);
+      return [tag(await extractFromPdfText(pdf.text), "pdf")];
+    }
+    default: {
+      const rawRows =
+        file.format === "csv"
+          ? await parseDelimitedRows(body())
+          : await parseWorkbookRows(file.bytes);
+      const rows = rawRows.filter((row) => row.some((cell) => (cell ?? "").trim().length > 0));
+      if (rows.length < 2) {
+        throw new StatementFailure(
+          "This file has no readable rows. Check you exported the transaction list rather than a summary.",
+        );
+      }
+      const mapping = await inferColumnMapping(rows);
+      return [tag(applyMapping(rows, mapping), file.format)];
+    }
   }
-  const mapping = await inferColumnMapping(rows);
-  return applyMapping(rows, mapping);
+}
+
+/** The inferred formats state what they are and what they could not promise. */
+function tag(result: ExtractionResult, format: SourceFormat): ExtractionResult {
+  return {
+    ...result,
+    format,
+    exactBalances: false,
+    accountDetectable: Boolean(result.meta.identity?.account_identifier),
+  };
 }
 
 export async function importStatement(
@@ -247,7 +305,12 @@ export async function importStatement(
 
   try {
     const file = await downloadStatementFile(supabase, statement);
-    const extraction = await extractStatementContent(file);
+    const results = await extractStatementContent(file);
+    const index = Number(statement.statement_index ?? 0);
+    const extraction = results[index] ?? results[0];
+    if (!extraction) {
+      throw new StatementFailure("Nothing in this file reads as a statement.");
+    }
     return await importExtracted(supabase, statement, extraction);
   } catch (error) {
     const message =
@@ -286,6 +349,8 @@ export async function importExtracted(
     }
 
     const notes = [...extraction.notes];
+    const format: SourceFormat = extraction.format ?? "csv";
+    const exactFormat = EXACT_BALANCE_FORMATS.has(format);
 
     /* -------------------------------------------------- context and rates */
     const [{ data: account }, { data: household }, { data: categoryRows }, { data: ruleRows }] =
@@ -326,13 +391,14 @@ export async function importExtracted(
     /* -------------------------------------------------------- deduplicate */
     const { data: existingRows } = await supabase
       .from("transactions")
-      .select("booked_date, amount, direction, description, import_fingerprint")
+      .select("booked_date, amount, direction, description, import_fingerprint, bank_reference")
       .eq("account_id", statement.account_id)
       .gte("booked_date", firstDate)
       .lte("booked_date", lastDate);
 
     const existingByBucket = new Map<string, ExistingRow[]>();
     const fingerprintCounts = new Map<string, number>();
+    const heldReferences = new Set<string>();
     for (const row of (existingRows ?? []) as ExistingRow[]) {
       const key = bucketKey(row.booked_date, Number(row.amount), row.direction);
       const bucket = existingByBucket.get(key) ?? [];
@@ -341,6 +407,9 @@ export async function importExtracted(
 
       const base = baseOf(row.import_fingerprint);
       if (base) fingerprintCounts.set(base, (fingerprintCounts.get(base) ?? 0) + 1);
+
+      const reference = referenceKey(row.bank_reference, row.booked_date, Number(row.amount));
+      if (reference) heldReferences.add(reference);
     }
 
     const consumed = new Set<ExistingRow>();
@@ -349,6 +418,15 @@ export async function importExtracted(
     let duplicates = 0;
 
     for (const row of parsed) {
+      // The bank's own reference is the one exact answer to "have we already
+      // got this?" — it survives a description the bank chose to word
+      // differently in a later export.
+      const reference = referenceKey(row.bank_reference ?? null, row.booked_date, row.amount);
+      if (reference && heldReferences.has(reference)) {
+        duplicates += 1;
+        continue;
+      }
+
       const key = bucketKey(row.booked_date, row.amount, row.direction);
       const bucket = existingByBucket.get(key) ?? [];
       const match = bucket.find(
@@ -432,11 +510,21 @@ export async function importExtracted(
       const assignment = assignments[index];
       const currency = (row.currency ?? statementCurrency).toUpperCase();
       const amountBase = convertToBase(fx, row.amount, currency, row.booked_date);
+      const original =
+        row.original_amount && row.original_currency && row.original_currency !== currency
+          ? {
+              original_amount: Number(Math.abs(row.original_amount).toFixed(2)),
+              original_currency: row.original_currency.toUpperCase(),
+              fx_rate: row.fx_rate ?? null,
+            }
+          : { original_amount: null, original_currency: null, fx_rate: null };
+
       return {
         household_id: statement.household_id,
         account_id: statement.account_id,
         statement_id: statementId,
         booked_date: row.booked_date,
+        value_date: row.value_date ?? null,
         description: row.description.slice(0, 300),
         raw_description: row.raw_description.slice(0, 500),
         merchant: row.merchant,
@@ -445,6 +533,9 @@ export async function importExtracted(
         currency,
         amount_base: amountBase === null ? null : Number(amountBase.toFixed(2)),
         balance_after: row.balance_after,
+        bank_reference: row.bank_reference ?? null,
+        bank_tx_code: row.bank_tx_code ?? null,
+        ...original,
         import_fingerprint: row.fingerprint,
         category_id: assignment?.category_id ?? null,
         ai_confidence: assignment?.ai_confidence ?? null,
@@ -500,12 +591,23 @@ export async function importExtracted(
 
     let discrepancy: number | null = null;
     if (opening !== null && closing !== null) {
+      // Minor units throughout: floating point should never be the reason a
+      // statement appears not to balance.
       const movement = parsed.reduce(
-        (sum, row) => sum + (row.direction === "credit" ? row.amount : -row.amount),
+        (sum, row) => sum + (row.direction === "credit" ? 1 : -1) * Math.round(row.amount * 100),
         0,
       );
-      discrepancy = Number((closing - (opening + movement)).toFixed(2));
-      if (Math.abs(discrepancy) < 0.02) discrepancy = 0;
+      const drift = Math.round(closing * 100) - Math.round(opening * 100) - movement;
+      discrepancy = Number((drift / 100).toFixed(2));
+      // A tolerance is only defensible where the figures were inferred. A file
+      // that states its own balances either reconciles or the reader is wrong.
+      if (!exactFormat && Math.abs(discrepancy) < 0.02) discrepancy = 0;
+    }
+
+    if (exactFormat && discrepancy) {
+      notes.push(
+        `${formatLabel(format)} states its own balances, so this file must reconcile to the penny — it is out by ${discrepancy.toFixed(2)} ${statementCurrency}. Nothing has been hidden, but treat this statement as unreliable until the difference is explained.`,
+      );
     }
 
     const needsReview =
@@ -520,6 +622,7 @@ export async function importExtracted(
       skipped: extraction.skippedRows,
       discrepancy,
       currency: statementCurrency,
+      exact: exactFormat,
     });
 
     // Count what this file actually accounts for rather than what this run
@@ -533,6 +636,7 @@ export async function importExtracted(
       .from("statements")
       .update({
         status: needsReview ? "needs_review" : "parsed",
+        source_format: format,
         transaction_count: heldCount ?? insertedIds.length,
         duplicate_count: duplicates,
         period_start: extraction.meta.period_start ?? firstDate,
@@ -548,6 +652,7 @@ export async function importExtracted(
           duplicates,
           skipped_rows: extraction.skippedRows,
           notes,
+          format,
           categorised_by: categorisedByModel ? { model: categorisedByModel } : null,
         },
       })
@@ -575,13 +680,17 @@ function buildMessage(input: {
   skipped: number;
   discrepancy: number | null;
   currency: string;
+  exact: boolean;
 }) {
   const parts = [`${input.inserted} new`];
   if (input.duplicates) parts.push(`${input.duplicates} already imported`);
   if (input.skipped) parts.push(`${input.skipped} rows unreadable`);
   if (input.discrepancy) {
+    const amount = `${input.discrepancy > 0 ? "+" : "−"}${Math.abs(input.discrepancy).toFixed(2)} ${input.currency}`;
     parts.push(
-      `balance out by ${input.discrepancy > 0 ? "+" : "−"}${Math.abs(input.discrepancy).toFixed(2)} ${input.currency}`,
+      input.exact
+        ? `balance out by ${amount} — this file states its own balances, so that is a reading fault`
+        : `balance out by ${amount}`,
     );
   }
   return parts.join(", ");

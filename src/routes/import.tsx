@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { EmptyState } from "@/components/EmptyState";
 import { SectionHeader } from "@/components/SectionHeader";
 import { CoverageGaps } from "@/components/import/CoverageGaps";
+import { FormatGuide } from "@/components/import/FormatGuide";
 import { ImportDropzone } from "@/components/import/ImportDropzone";
 import { ImportFileRow } from "@/components/import/ImportFileRow";
 import { ProposalCard } from "@/components/import/ProposalCard";
@@ -24,12 +25,13 @@ export const Route = createFileRoute("/import")({
       {
         name: "description",
         content:
-          "Drop in statements from any UK, Egyptian, Jordanian or US bank. Each file is read on the server, matched to an account and imported without losing progress.",
+          "Import CAMT.053, MT940, QIF, CSV, Excel or PDF statements from any UK, Egyptian, Jordanian or US bank. Structured formats are read exactly, matched to an account and reconciled to the penny.",
       },
       { property: "og:title", content: "Import statements — Ebeid Family Office" },
       {
         property: "og:description",
-        content: "Statement-led importing: drop the files, confirm the accounts, done.",
+        content:
+          "Statement-led importing: drop the files, confirm the accounts, done. CAMT.053 and MT940 are read from their own schema — nothing inferred.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -69,10 +71,13 @@ function ImportPage() {
   return (
     <AppShell
       title="Import"
-      description="Drop in statements and the reader identifies the bank, the account and the period itself. Importing continues on the server, so you can close this tab."
+      description="Drop in statements and the reader identifies the format, the bank, the account and the period itself. Importing continues on the server, so you can close this tab."
     >
       <div className="space-y-8">
-        <ImportDropzone />
+        <div className="space-y-3">
+          <ImportDropzone />
+          <FormatGuide />
+        </div>
 
         {batch && batch.status !== "completed" && (
           <section className="hairline rounded-lg bg-surface px-4 py-3">
