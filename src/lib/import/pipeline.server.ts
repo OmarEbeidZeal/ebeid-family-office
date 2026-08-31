@@ -359,7 +359,7 @@ export async function processStatement(
       );
     }
 
-    await fanOutStatements(supabase, statement, results);
+    await fanOutStatements(supabase, statement, results, fileHash);
 
     const index = Math.min(Number(statement.statement_index ?? 0), results.length - 1);
     const extraction = results[index]!;
