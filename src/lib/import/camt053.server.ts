@@ -452,10 +452,19 @@ export function parseCamt053(xml: string): ExtractionResult[] {
     );
   }
 
-  return statements.map((stmt, index) => readStatement(stmt, index, statements.length));
+  const version = camtVersion(xml);
+
+  return statements.map((stmt, index) =>
+    readStatement(stmt, index, statements.length, version),
+  );
 }
 
-function readStatement(stmt: Unknown, index: number, total: number): ExtractionResult {
+function readStatement(
+  stmt: Unknown,
+  index: number,
+  total: number,
+  version: string | null,
+): ExtractionResult {
   const { identity, currency } = readIdentity(stmt);
   const notes: string[] = [];
   if (total > 1) notes.push(`Statement ${index + 1} of ${total} in this file.`);
@@ -475,6 +484,8 @@ function readStatement(stmt: Unknown, index: number, total: number): ExtractionR
   let splitEntries = 0;
 
   for (const entry of list(stmt, "Ntry")) {
+    // Plain text in .02, a composite from .08 — `codeOf` reads both, and an
+    // entry that states no status at all is taken as booked, as the spec says.
     const status = (codeOf(at(entry, "Sts")) ?? "BOOK").toUpperCase();
     if (status !== "BOOK") {
       // A pending entry books later; importing it now would double-count it.
@@ -489,9 +500,12 @@ function readStatement(stmt: Unknown, index: number, total: number): ExtractionR
       continue;
     }
 
-    const reversed = (text(at(entry, "RvslInd")) ?? "").toLowerCase() === "true";
+    const reversed = flag(at(entry, "RvslInd"));
     const entryFlow = reversed ? flip(direction(entry)) : direction(entry);
-    const valueDate = isoDate(at(entry, "ValDt"));
+    // A file that omits the value date is not a broken file: the money moved
+    // on the day it was booked unless the bank says otherwise.
+    const valueDate = isoDate(at(entry, "ValDt")) ?? bookedDate;
+
     const entryReference = usableReference(
       text(at(entry, "AcctSvcrRef")) ?? text(at(entry, "NtryRef")),
     );
