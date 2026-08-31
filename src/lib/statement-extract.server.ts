@@ -65,6 +65,13 @@ export type ExtractionResult = {
   notes: string[];
   /** Which reader produced this. */
   format?: SourceFormat;
+  /**
+   * The dialect of that format the file declared, e.g. `camt.053.001.08`.
+   * Recorded so a parsing oddity can be traced back to its source version;
+   * nothing in the reader ever branches on it.
+   */
+  formatVersion?: string | null;
+
   /** The file states its own balances, so they must reconcile to the penny. */
   exactBalances?: boolean;
   /** The file identifies the account it belongs to. */
