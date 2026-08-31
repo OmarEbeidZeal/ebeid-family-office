@@ -11,6 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { db } from "@/lib/db";
 import {
+  assignStatementAccount,
   cancelStatement,
   pumpImportQueue,
   queueStatements,
@@ -26,6 +27,7 @@ export type StatementSummary = {
   skipped_rows?: number | null;
   notes?: string[] | null;
   extraction_notes?: string[] | null;
+  format?: string | null;
   categorised_by?: { model?: string | null } | null;
 };
 
@@ -39,7 +41,11 @@ export type ImportStatementRow = {
   file_name: string | null;
   file_size: number | null;
   file_hash: string | null;
+  source_format: string | null;
+  statement_index: number | null;
+  statement_count: number | null;
   status: string;
+
   attempts: number | null;
   next_attempt_at: string | null;
   transaction_count: number | null;
@@ -260,6 +266,16 @@ export function useCancelStatement() {
   const invalidate = useInvalidateImports();
   return useMutation({
     mutationFn: async (statementId: string) => cancelStatement({ data: { statementId } }),
+    onSuccess: invalidate,
+  });
+}
+
+/** Says which account a file belongs to when the file itself cannot say. */
+export function useAssignStatementAccount() {
+  const invalidate = useInvalidateImports();
+  return useMutation({
+    mutationFn: async (input: { statementId: string; accountId: string }) =>
+      assignStatementAccount({ data: input }),
     onSuccess: invalidate,
   });
 }

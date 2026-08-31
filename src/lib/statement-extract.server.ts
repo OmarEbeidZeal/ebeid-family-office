@@ -14,6 +14,7 @@
  * Statements are English-language UK, Egyptian, Jordanian and US formats.
  */
 import { completeJson } from "./ai/gateway.server";
+import type { SourceFormat } from "./import/formats";
 import {
   inferDateOrder,
   guessMerchant,
@@ -62,6 +63,14 @@ export type ExtractionResult = {
   /** Rows that looked like data but could not be read. */
   skippedRows: number;
   notes: string[];
+  /** Which reader produced this. */
+  format?: SourceFormat;
+  /** The file states its own balances, so they must reconcile to the penny. */
+  exactBalances?: boolean;
+  /** The file identifies the account it belongs to. */
+  accountDetectable?: boolean;
+  /** The bank's own name for the statement — CAMT `Id`, MT940 `:28C:`. */
+  statementReference?: string | null;
 };
 
 export const MAX_TRANSACTIONS = 6000;

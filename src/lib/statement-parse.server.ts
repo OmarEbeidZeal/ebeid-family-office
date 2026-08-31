@@ -21,6 +21,18 @@ export type RawTransaction = {
   direction: "debit" | "credit";
   balance_after: number | null;
   currency: string | null;
+  /**
+   * Everything below is carried by the structured formats (CAMT.053, MT940)
+   * and absent from a CSV or a PDF, so each is optional rather than invented.
+   */
+  value_date?: string | null;
+  /** The bank's own reference for the entry — an exact duplicate key. */
+  bank_reference?: string | null;
+  bank_tx_code?: string | null;
+  /** What was actually spent, when the payment was made in another currency. */
+  original_amount?: number | null;
+  original_currency?: string | null;
+  fx_rate?: number | null;
 };
 
 export type DateFormat = "DMY" | "MDY" | "YMD" | "auto";

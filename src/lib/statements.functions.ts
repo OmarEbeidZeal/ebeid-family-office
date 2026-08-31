@@ -34,6 +34,11 @@ const pumpInput = z.object({ limit: z.number().int().min(1).max(6).optional() })
 
 const statementInput = z.object({ statementId: z.string().uuid() });
 
+const assignInput = z.object({
+  statementId: z.string().uuid(),
+  accountId: z.string().uuid(),
+});
+
 const resolveInput = z.object({
   proposalId: z.string().uuid(),
   action: z.enum(["create", "link", "reject"]),
@@ -184,6 +189,45 @@ export const cancelStatement = createServerFn({ method: "POST" })
       .in("status", ["queued", "awaiting_account", "failed", "extracting"]);
     if (error) throw new Error(error.message);
     return { cancelled: true };
+  });
+
+/**
+ * Files the one kind of statement nobody can identify for you.
+ *
+ * A QIF export names no bank and carries no account number, so there is nothing
+ * to propose and nothing to remember — the household simply says which account
+ * it is, and the file goes straight back into the queue.
+ */
+export const assignStatementAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => assignInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const householdId = await householdOf(context.supabase, context.userId);
+
+    const { data: account } = await context.supabase
+      .from("accounts")
+      .select("id")
+      .eq("id", data.accountId)
+      .eq("household_id", householdId)
+      .maybeSingle();
+    if (!account) throw new Error("That account is not part of this household.");
+
+    const { error } = await context.supabase
+      .from("statements")
+      .update({
+        account_id: data.accountId,
+        status: "queued",
+        attempts: 0,
+        next_attempt_at: null,
+        locked_at: null,
+        error_message: null,
+        parsed_at: null,
+      })
+      .eq("id", data.statementId)
+      .eq("household_id", householdId)
+      .in("status", ["awaiting_account", "failed", "cancelled"]);
+    if (error) throw new Error(error.message);
+    return { queued: true };
   });
 
 /**

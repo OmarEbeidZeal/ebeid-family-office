@@ -387,6 +387,47 @@ export function bankDomain(institution: string | null | undefined): string | nul
   return findBank(institution)?.domain ?? null;
 }
 
+/**
+ * BIC (or the four-letter institution code inside an IBAN) → the bank's name.
+ *
+ * Structured statements name the bank by code rather than in words, so this is
+ * how CAMT.053 and MT940 get a logo and a readable institution. Only codes we
+ * are sure of are listed: a wrong bank name is worse than none, and anything
+ * unlisted simply falls through to a monogram.
+ */
+const BIC_INSTITUTIONS: Record<string, string> = {
+  MIDL: "HSBC UK",
+  HBUK: "HSBC UK",
+  BARC: "Barclays",
+  BUKB: "Barclays",
+  LOYD: "Lloyds Bank",
+  NWBK: "NatWest",
+  RBOS: "Royal Bank of Scotland",
+  BOFS: "Bank of Scotland",
+  HLFX: "Halifax",
+  ABBY: "Santander UK",
+  NAIA: "Nationwide",
+  TSBS: "TSB",
+  MONZ: "Monzo",
+  SRLG: "Starling Bank",
+  REVO: "Revolut",
+  CITI: "Citibank",
+  CHAS: "JPMorgan Chase",
+  BOFA: "Bank of America",
+  NBEG: "National Bank of Egypt",
+  CIBE: "Commercial International Bank",
+  BMISEGCX: "Banque Misr",
+  ARAB: "Arab Bank",
+  BJOR: "Bank of Jordan",
+  HBHO: "Housing Bank for Trade and Finance",
+};
+
+export function bankFromBic(bic: string | null | undefined): string | null {
+  const value = (bic ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (value.length < 4) return null;
+  return BIC_INSTITUTIONS[value] ?? BIC_INSTITUTIONS[value.slice(0, 4)] ?? null;
+}
+
 /** Two letters at most, from the words that carry meaning. */
 export function monogram(value: string | null | undefined): string {
   const words = (value ?? "")

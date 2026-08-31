@@ -1533,6 +1533,9 @@ export type Database = {
           period_end: string | null
           period_start: string | null
           proposal_id: string | null
+          source_format: string | null
+          statement_count: number
+          statement_index: number
           status: string
           summary: Json | null
           transaction_count: number | null
@@ -1571,6 +1574,9 @@ export type Database = {
           period_end?: string | null
           period_start?: string | null
           proposal_id?: string | null
+          source_format?: string | null
+          statement_count?: number
+          statement_index?: number
           status?: string
           summary?: Json | null
           transaction_count?: number | null
@@ -1609,6 +1615,9 @@ export type Database = {
           period_end?: string | null
           period_start?: string | null
           proposal_id?: string | null
+          source_format?: string | null
+          statement_count?: number
+          statement_index?: number
           status?: string
           summary?: Json | null
           transaction_count?: number | null
@@ -1845,12 +1854,15 @@ export type Database = {
           amount: number
           amount_base: number | null
           balance_after: number | null
+          bank_reference: string | null
+          bank_tx_code: string | null
           booked_date: string
           category_id: string | null
           created_at: string
           currency: string
           description: string | null
           direction: string
+          fx_rate: number | null
           household_id: string
           id: string
           import_fingerprint: string | null
@@ -1859,9 +1871,12 @@ export type Database = {
           is_transfer: boolean
           merchant: string | null
           notes: string | null
+          original_amount: number | null
+          original_currency: string | null
           raw_description: string | null
           statement_id: string | null
           updated_at: string
+          value_date: string | null
         }
         Insert: {
           account_id?: string | null
@@ -1869,12 +1884,15 @@ export type Database = {
           amount: number
           amount_base?: number | null
           balance_after?: number | null
+          bank_reference?: string | null
+          bank_tx_code?: string | null
           booked_date: string
           category_id?: string | null
           created_at?: string
           currency?: string
           description?: string | null
           direction: string
+          fx_rate?: number | null
           household_id: string
           id?: string
           import_fingerprint?: string | null
@@ -1883,9 +1901,12 @@ export type Database = {
           is_transfer?: boolean
           merchant?: string | null
           notes?: string | null
+          original_amount?: number | null
+          original_currency?: string | null
           raw_description?: string | null
           statement_id?: string | null
           updated_at?: string
+          value_date?: string | null
         }
         Update: {
           account_id?: string | null
@@ -1893,12 +1914,15 @@ export type Database = {
           amount?: number
           amount_base?: number | null
           balance_after?: number | null
+          bank_reference?: string | null
+          bank_tx_code?: string | null
           booked_date?: string
           category_id?: string | null
           created_at?: string
           currency?: string
           description?: string | null
           direction?: string
+          fx_rate?: number | null
           household_id?: string
           id?: string
           import_fingerprint?: string | null
@@ -1907,9 +1931,12 @@ export type Database = {
           is_transfer?: boolean
           merchant?: string | null
           notes?: string | null
+          original_amount?: number | null
+          original_currency?: string | null
           raw_description?: string | null
           statement_id?: string | null
           updated_at?: string
+          value_date?: string | null
         }
         Relationships: [
           {
