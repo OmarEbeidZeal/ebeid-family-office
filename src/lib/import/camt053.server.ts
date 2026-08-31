@@ -102,14 +102,32 @@ function isoDate(node: Unknown): string | null {
   return match ? match[0]! : null;
 }
 
+/**
+ * A code that may be plain text or a composite, read the same way either way.
+ *
+ * This single tolerance is what makes the reader version-agnostic. `Sts` is
+ * `<Sts>BOOK</Sts>` in .02 and `<Sts><Cd>BOOK</Cd></Sts>` from .08; balance
+ * types, account types and transaction codes moved the same way at various
+ * points. Take the element's own text when it has one, otherwise its `Cd`, and
+ * fall back to a proprietary code — never branch on the schema version.
+ */
 function codeOf(node: Unknown): string | null {
   return (
     text(node) ??
     text(at(node, "Cd")) ??
     text(at(node, "Prtry")) ??
     text(at(node, "Prtry", "Cd")) ??
+    text(at(node, "CdOrPrtry", "Cd")) ??
+    text(at(node, "CdOrPrtry", "Prtry")) ??
+    text(at(node, "CdOrPrtry")) ??
     null
   );
+}
+
+/** A flag that may be `true`, `1` or `Y`, and may be wrapped like a code. */
+function flag(node: Unknown): boolean {
+  const raw = (codeOf(node) ?? "").trim().toLowerCase();
+  return raw === "true" || raw === "1" || raw === "y" || raw === "yes";
 }
 
 const minor = (value: number) => Math.round(value * 100);
@@ -120,6 +138,18 @@ export function looksLikeCamt(sample: string): boolean {
   return /BkToCstmrStmt/.test(sample);
 }
 
+/**
+ * Which CAMT.053 version the file declares, e.g. `camt.053.001.08`.
+ *
+ * Recorded, never acted on. The reader behaves identically whatever this says;
+ * it exists so that if one file ever reads oddly, the version it came from is
+ * on the statement record rather than lost with the upload.
+ */
+export function camtVersion(xml: string): string | null {
+  const match = xml.match(/camt\.053\.001\.(\d{2})/i);
+  return match ? `camt.053.001.${match[1]}` : null;
+}
+
 /* ------------------------------------------------------------------ parser */
 
 const parser = new XMLParser({
@@ -128,6 +158,8 @@ const parser = new XMLParser({
   parseTagValue: false,
   parseAttributeValue: false,
   trimValues: true,
+  // Local names only: `<Ntry>`, `<ns:Ntry>` and `<camt:Ntry>` are one element,
+  // and the namespace version never reaches the reading code.
   removeNSPrefix: true,
   processEntities: true,
 });
@@ -135,11 +167,12 @@ const parser = new XMLParser({
 type Direction = "debit" | "credit";
 
 function direction(node: Unknown, fallback: Direction = "debit"): Direction {
-  const indicator = (text(at(node, "CdtDbtInd")) ?? "").toUpperCase();
+  const indicator = (codeOf(at(node, "CdtDbtInd")) ?? "").toUpperCase();
   if (indicator === "CRDT") return "credit";
   if (indicator === "DBIT") return "debit";
   return fallback;
 }
+
 
 function flip(value: Direction): Direction {
   return value === "credit" ? "debit" : "credit";
