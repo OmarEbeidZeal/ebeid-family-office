@@ -386,10 +386,15 @@ function readDetail(txDetail: Unknown, entryFlow: Direction): Detail {
   const flow = direction(txDetail, entryFlow);
   const { original, rate } = foreignAmount(txDetail);
   return {
+    // Absent in plenty of files, and that is fine: no counterparty means no
+    // merchant, and categorisation works from the reference and the narrative.
     merchant: counterparty(txDetail, flow),
     reference:
       text(at(txDetail, "Refs", "EndToEndId")) ??
       text(at(txDetail, "Refs", "TxId")) ??
+      // UETR only exists from .08 onward; read it if it is there, never expect it.
+      text(at(txDetail, "Refs", "UETR")) ??
+      text(at(txDetail, "Refs", "InstrId")) ??
       text(at(txDetail, "Refs", "MsgId")),
     remittance: remittanceOf(txDetail) ?? text(at(txDetail, "AddtlTxInf")),
     bankReference: text(at(txDetail, "Refs", "AcctSvcrRef")),
@@ -399,6 +404,7 @@ function readDetail(txDetail: Unknown, entryFlow: Direction): Detail {
     fxRate: rate,
   };
 }
+
 
 function describe(merchant: string | null, detail: string | null, fallback: string | null): string {
   const parts = [merchant, detail]
