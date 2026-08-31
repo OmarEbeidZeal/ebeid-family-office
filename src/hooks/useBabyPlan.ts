@@ -71,9 +71,31 @@ export function toChildcarePlan(
   };
 }
 
+/**
+ * The stored scheme codes and the ones the maths uses are not the same words.
+ * The database speaks HMRC's language — `spp`, `shared_parental` — while the
+ * calculator only cares about the shape of the payment. Shared parental pay is
+ * flat-rate throughout with no 90% opening weeks, which is the Maternity
+ * Allowance shape, so that is what it is priced as.
+ */
+const SCHEME_FROM_DB: Record<string, LeaveScheme> = {
+  smp: "smp",
+  maternity_allowance: "maternity_allowance",
+  spp: "paternity",
+  shared_parental: "maternity_allowance",
+  unpaid: "unpaid",
+};
+
+export const SCHEME_TO_DB: Record<LeaveScheme, string> = {
+  smp: "smp",
+  maternity_allowance: "maternity_allowance",
+  paternity: "spp",
+  unpaid: "unpaid",
+};
+
 export function toLeavePlan(row: ParentalLeavePlanRow, fallbackWeekly: number): LeavePlan {
   return {
-    scheme: (row.scheme as LeaveScheme) ?? "smp",
+    scheme: SCHEME_FROM_DB[row.scheme] ?? "smp",
     leaveStartDate: row.leave_start_date ?? "",
     leaveWeeks: Number(row.leave_weeks),
     averageWeeklyEarnings:
@@ -85,6 +107,7 @@ export function toLeavePlan(row: ParentalLeavePlanRow, fallbackWeekly: number): 
     enhancedHalfPayWeeks: Number(row.enhanced_half_pay_weeks),
   };
 }
+
 
 /**
  * Adjusted net income for each member, for the tax year in progress.
