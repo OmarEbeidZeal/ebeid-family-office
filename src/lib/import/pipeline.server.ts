@@ -261,7 +261,8 @@ async function fanOutStatements(
     // The hash is copied deliberately: it stops each sibling being read as a
     // duplicate of the row it came from, while a genuine re-upload of the same
     // file still matches.
-    file_hash: statement["file_hash"] ?? null,
+    file_hash: fileHash || (statement["file_hash"] ?? null),
+
     source_format: result.format ?? null,
     statement_index: offset + 1,
     statement_count: count,
