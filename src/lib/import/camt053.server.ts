@@ -282,9 +282,10 @@ function readBalances(
     if (currency && amount.currency && amount.currency !== currency) continue;
 
     const signed =
-      (text(at(balance, "CdtDbtInd")) ?? "").toUpperCase() === "DBIT"
+      (codeOf(at(balance, "CdtDbtInd")) ?? "").toUpperCase() === "DBIT"
         ? -Math.abs(amount.value)
         : Math.abs(amount.value);
+
 
     // The first of a repeated code wins: banks list the statement's own pair
     // before any supplementary readings.
