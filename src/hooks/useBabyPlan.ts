@@ -280,7 +280,7 @@ export function useBabyPlan(eventId?: string) {
 
 /** Tasks worth surfacing outside the planner: due soon, or already late. */
 export function upcomingTasks(tasks: LifeEventTaskRow[], withinDays = 45) {
-
+  const today = toIso(new Date());
   return tasks
     .filter((task) => task.status !== "done" && task.due_date)
     .map((task) => ({ task, days: daysUntil(task.due_date!, today) }))
