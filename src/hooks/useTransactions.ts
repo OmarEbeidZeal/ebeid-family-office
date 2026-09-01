@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { db } from "@/lib/db";
-import { applyCategoryRule } from "@/lib/statements.functions";
+import { applyCategoryRule, rescanTransfers } from "@/lib/statements.functions";
 import { expandSplits, type SplitPart } from "@/lib/spending";
 import { useAuth } from "./useAuth";
 import { useAccounts } from "./useFinancials";
@@ -416,6 +416,21 @@ export function useCreateCategoryRule() {
       invalidate();
       void queryClient.invalidateQueries({ queryKey: ["category-rules"] });
     },
+  });
+}
+
+/**
+ * Re-reads the whole ledger for internal movement.
+ *
+ * Import-time detection only sees the days around the file it just read, so
+ * confirming a second account — or a holder's name — leaves everything already
+ * imported unexamined. This closes that gap on demand.
+ */
+export function useRescanTransfers() {
+  const invalidate = useInvalidateTransactions();
+  return useMutation({
+    mutationFn: async () => rescanTransfers(),
+    onSuccess: invalidate,
   });
 }
 
