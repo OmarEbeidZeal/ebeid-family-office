@@ -406,9 +406,15 @@ export function ImportFileRow({
                 reimport
                   .mutateAsync(statement.id)
                   .then((result) => {
+                    const undone = [
+                      result.removed
+                        ? `${result.removed} transaction${result.removed === 1 ? "" : "s"}`
+                        : null,
+                      result.trades ? `${result.trades} order${result.trades === 1 ? "" : "s"}` : null,
+                    ].filter(Boolean);
                     toast.success("Reading it from nothing", {
-                      description: result.removed
-                        ? `${result.removed} transaction${result.removed === 1 ? "" : "s"} removed${
+                      description: undone.length
+                        ? `${undone.join(" and ")} removed${
                             result.accountNickname ? ` from ${result.accountNickname}` : ""
                           }.`
                         : "Nothing had been imported from it yet.",
