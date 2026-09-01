@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Plus, Trash2, Wand2 } from "lucide-react";
+import { ArrowLeftRight, Loader2, Plus, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +17,11 @@ import {
   useCategoryRules,
   useCreateCategoryRule,
   useDeleteCategoryRule,
+  useRescanTransfers,
 } from "@/hooks/useTransactions";
 import type { CategoryRow } from "@/hooks/useFinancials";
 import { formatDate } from "@/lib/format";
+
 
 const MATCH_LABELS: Record<string, string> = {
   contains: "contains",
