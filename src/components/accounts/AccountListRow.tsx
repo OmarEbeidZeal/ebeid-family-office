@@ -1,13 +1,16 @@
 import { Link } from "@tanstack/react-router";
-import { CalendarX2, FileText, Lock } from "lucide-react";
+import { CalendarX2, FileText, Lock, Merge } from "lucide-react";
 import { BankMark } from "@/components/BankMark";
 import { Money } from "@/components/Money";
 import { RowActions } from "@/components/RowActions";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import type { AccountRow } from "@/hooks/useFinancials";
+import { balanceKnown } from "@/lib/balances";
 import type { AccountCoverage } from "@/lib/import/coverage";
 import { monthLabel } from "@/lib/import/coverage";
+
 import {
   DEBT_ACCOUNT_TYPES,
   accountTypeLabel,
@@ -26,6 +29,7 @@ export function AccountListRow({
   coverage,
   onEdit,
   onDelete,
+  onMerge,
   selectable = false,
   selected = false,
   onSelectedChange,
@@ -34,11 +38,14 @@ export function AccountListRow({
   coverage?: AccountCoverage | undefined;
   onEdit: () => void;
   onDelete: () => void;
+  onMerge?: (() => void) | undefined;
   selectable?: boolean;
   selected?: boolean;
   onSelectedChange?: ((selected: boolean) => void) | undefined;
 }) {
+
   const isDebt = DEBT_ACCOUNT_TYPES.includes(account.account_type);
+  const known = balanceKnown(account);
   // An account discovered from a statement is usually named with its own last
   // four, so the masked identifier is only worth repeating when the name omits it.
   const maskDigits = account.identifier_mask?.replace(/\D/g, "") ?? "";
@@ -53,7 +60,9 @@ export function AccountListRow({
         : `${monthLabel(coverage.earliest)} – ${monthLabel(coverage.latest)}`
       : null;
 
-  const provenance = fromStatement ? (
+  const provenance = !known ? (
+    <span className="text-warn">no balance recorded</span>
+  ) : fromStatement ? (
     // The date is the statement's own period end, so read it as written.
     <span>closing balance, {formatDate(account.last_balance_update!.slice(0, 10), "short")}</span>
   ) : (
@@ -61,6 +70,7 @@ export function AccountListRow({
       {relativeAge(account.last_balance_update)}
     </span>
   );
+
 
   return (
     <div
@@ -163,21 +173,42 @@ export function AccountListRow({
         )}
       </div>
 
-      <Money
-        amount={isDebt ? -Number(account.current_balance) : Number(account.current_balance)}
-        currency={account.currency}
-        className={cn("shrink-0 text-right text-sm", isDebt && "text-loss")}
-      />
-
+      {known ? (
+        <Money
+          amount={isDebt ? -Number(account.current_balance) : Number(account.current_balance)}
+          currency={account.currency}
+          className={cn("shrink-0 text-right text-sm", isDebt && "text-loss")}
+        />
+      ) : (
+        // A placeholder zero here would quietly subtract this account from the
+        // household's wealth. Ask for the figure instead of inventing one.
+        <button
+          type="button"
+          onClick={onEdit}
+          className="shrink-0 rounded-md border border-dashed border-border px-2.5 py-1.5 text-right text-xs text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
+        >
+          Balance not set
+          <span className="ml-1.5 text-primary">Set</span>
+        </button>
+      )}
 
       {!selectable && (
-      <RowActions
-        label={account.nickname}
-        onEdit={onEdit}
-        onDelete={onDelete}
-        deleteDescription="The account and its recorded balance are removed from every total. Transactions linked to it are not deleted."
-      />
+        <RowActions
+          label={account.nickname}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          deleteDescription="The account and its recorded balance are removed from every total. Transactions linked to it are not deleted."
+          extra={
+            onMerge ? (
+              <DropdownMenuItem onSelect={onMerge}>
+                <Merge className="mr-2 h-3.5 w-3.5" />
+                Merge into another
+              </DropdownMenuItem>
+            ) : null
+          }
+        />
       )}
+
     </div>
   );
 }

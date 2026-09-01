@@ -16,7 +16,8 @@ export type QuickAddKind =
   | "income"
   | "expense"
   | "scenario"
-  | "import";
+  | "import"
+  | "document";
 
 type Intent = { kind: QuickAddKind; at: number };
 

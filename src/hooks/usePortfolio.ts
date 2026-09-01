@@ -81,7 +81,9 @@ export function usePortfolio() {
           id: account.id,
           currency: account.currency,
           current_balance: Number(account.current_balance),
+          balance_source: account.balance_source,
         })),
+
         toBase,
       ),
     [positions, accountsQuery.data, toBase],
@@ -161,11 +163,13 @@ export function useHouseholdPosition() {
         account_type: account.account_type,
         currency: account.currency,
         current_balance: Number(account.current_balance),
+        balance_source: account.balance_source,
         is_active: account.is_active,
         country: account.country,
         last_balance_update: account.last_balance_update,
         owner_profile_id: account.owner_profile_id,
       })),
+
       assets: (assetsQuery.data ?? []).map((asset) => ({
         id: asset.id,
         name: asset.name,

@@ -13,7 +13,9 @@ import {
   assetClassLabel,
   accountTypeLabel,
 } from "@/lib/format";
+import { balanceKnown, statedBalance } from "@/lib/balances";
 import { computeNetWorth, type NetWorthComputation } from "@/lib/networth";
+
 import {
   POLICY_LIMITS,
   currentTaxYear,
@@ -29,6 +31,8 @@ import {
   type Sleeve,
 } from "@/lib/policy";
 import { sleeveTotals, type Position, type ToBase } from "@/lib/portfolio";
+import { buildDocumentContext, type DocPolicy, type DocTenancy } from "@/lib/documents/context";
+import type { PayslipLike, PersonLike } from "@/lib/documents/analysis";
 
 /** Accounts whose balance is a market value rather than cash. */
 export const INVESTMENT_ACCOUNT_TYPES = ["isa", "gia", "crypto"];
@@ -42,6 +46,8 @@ export type CtxAccount = {
   account_type: string;
   currency: string;
   current_balance: number;
+  /** "unknown" when no balance has been stated; the row is excluded from totals. */
+  balance_source?: string | null;
   is_active: boolean;
   country: string;
   last_balance_update: string | null;
@@ -127,6 +133,8 @@ export type CtxAllowance = {
   lisa_used: number;
   pension_used: number;
   employer_match_secured: boolean;
+  /** Gift Aid donations reduce adjusted net income, so the pay estimate needs them. */
+  gift_aid?: number | null;
 };
 
 export type CtxMember = {
@@ -165,6 +173,12 @@ export type ContextInput = {
   marketDataAvailable: boolean;
   marketDataMessage: string | null;
   toBase: ToBase;
+  /** The paperwork layer: policy schedules, tenancy agreements and payslips. */
+  policies?: DocPolicy[];
+  tenancies?: DocTenancy[];
+  payslips?: PayslipLike[];
+  /** Years of income the household chose to replace on death. */
+  replacementYears?: number;
 };
 
 const round = (value: number | null | undefined, decimals = 0): number | null => {
@@ -230,10 +244,17 @@ export function buildHouseholdContext(input: ContextInput) {
     source: "priced_holdings" | "recorded_balance";
   }[] = [];
 
+  // An account with no stated balance is not worth zero — it is unknown, and
+  // the advisor is told how many there are rather than being handed a total
+  // that quietly leaves them at nil.
+  const accountsAwaitingBalance = activeAccounts.filter((account) => !balanceKnown(account));
+
   for (const account of activeAccounts) {
     if (DEBT_ACCOUNT_TYPES.includes(account.account_type)) continue;
-    const recorded = toBase(Number(account.current_balance), account.currency);
+    const stated = statedBalance(account);
+    const recorded = stated === null ? null : toBase(stated, account.currency);
     if (CASH_ACCOUNT_TYPES.includes(account.account_type)) {
+      if (recorded === null) continue;
       investableTotal += recorded;
       if (account.currency === "GBP") gbpCash += Number(account.current_balance);
       investableAccounts.push({
@@ -247,7 +268,10 @@ export function buildHouseholdContext(input: ContextInput) {
     }
     if (INVESTMENT_ACCOUNT_TYPES.includes(account.account_type)) {
       const priced = pricedByAccount.get(account.id);
+      // Priced holdings can stand in for a balance nobody has stated; nothing
+      // else can.
       const value = priced && priced > 0 ? priced : recorded;
+      if (value === null) continue;
       investableTotal += value;
       investableAccounts.push({
         id: account.id,
@@ -389,7 +413,11 @@ export function buildHouseholdContext(input: ContextInput) {
       endDate: liability.end_date,
     })),
     ...activeAccounts
-      .filter((account) => DEBT_ACCOUNT_TYPES.includes(account.account_type))
+      // A card or overdraft with no stated balance is not a debt of zero; it is
+      // a debt of unknown size, and the advisor is told about it separately.
+      .filter(
+        (account) => DEBT_ACCOUNT_TYPES.includes(account.account_type) && balanceKnown(account),
+      )
       .map((account) => ({
         name: `${account.nickname} (${accountTypeLabel(account.account_type)})`,
         kind: account.account_type,
@@ -504,6 +532,84 @@ export function buildHouseholdContext(input: ContextInput) {
     };
   });
 
+  // ---- The paperwork ------------------------------------------------------
+  // Policies, tenancies and payslips are compressed to their conclusions:
+  // cover against need, the lease decision date, and how close each person is
+  // to £100,000. Nothing is inferred when the paper is absent — the section
+  // says so instead.
+  const documents = (() => {
+    const policies = input.policies ?? [];
+    const tenancies = input.tenancies ?? [];
+    const payslips = input.payslips ?? [];
+    if (!policies.length && !tenancies.length && !payslips.length) {
+      return {
+        note: "No policy schedules, tenancy agreements or payslips have been uploaded. Protection cover, rent commitments and adjusted net income are unknown from paper — do not assume they are nil.",
+      };
+    }
+
+    // Income attributed per person, jointly held income split evenly — the same
+    // split the protection screen shows, so the two never disagree.
+    const annualIncomeFor = (ownerId: string | null) =>
+      input.income
+        .filter((row) => (row.owner_profile_id ?? null) === ownerId)
+        .reduce(
+          (sum, row) =>
+            sum +
+            monthlyEquivalent(toBase(Number(row.gross_amount ?? 0), row.currency), row.frequency) *
+              12,
+          0,
+        );
+    const jointShare = input.members.length ? annualIncomeFor(null) / input.members.length : 0;
+
+    const people: PersonLike[] = input.members.map((member) => ({
+      id: member.id,
+      name: personName(member),
+      annualIncome: annualIncomeFor(member.id) + jointShare,
+    }));
+
+    // Income a payslip never shows, which adjusted net income still counts.
+    const nonEmployment = new Set([
+      "dividend",
+      "rental",
+      "business",
+      "consulting",
+      "distribution",
+      "other",
+    ]);
+
+    return buildDocumentContext({
+      now,
+      base,
+      toBase,
+      people,
+      policies,
+      tenancies,
+      payslips,
+      liabilitiesBase: netWorth.totalLiabilities,
+      replacementYears: input.replacementYears ?? 10,
+      otherIncomeFor: (profileId) =>
+        input.income
+          .filter(
+            (row) =>
+              (row.owner_profile_id ?? null) === profileId && nonEmployment.has(row.income_type),
+          )
+          .reduce(
+            (sum, row) =>
+              sum +
+              monthlyEquivalent(
+                toBase(Number(row.gross_amount ?? 0), row.currency),
+                row.frequency,
+              ) *
+                12,
+            0,
+          ),
+      giftAidFor: (profileId) =>
+        input.allowances
+          .filter((row) => row.tax_year === taxYear.label && (row.profile_id ?? null) === profileId)
+          .reduce((sum, row) => sum + Number(row.gift_aid ?? 0), 0),
+    });
+  })();
+
   const context = {
     as_of: now.toISOString(),
     base_currency: base,
@@ -520,7 +626,16 @@ export function buildHouseholdContext(input: ContextInput) {
       private_company_stake: round(netWorth.privateStakeValue),
       property: round(netWorth.propertyValue),
       pension: round(netWorth.pensionValue),
+      // Every figure above excludes these accounts: they exist, their statements
+      // are imported, but no balance has been stated for them. Say so rather
+      // than reasoning as though they held nothing.
+      accounts_without_a_balance: accountsAwaitingBalance.map((account) => ({
+        label: account.nickname,
+        type: accountTypeLabel(account.account_type),
+        currency: account.currency,
+      })),
     },
+
     investable: {
       total: round(investableTotal),
       note: "Liquid investable assets: cash, ISA, GIA and crypto accounts plus liquid assets. Excludes the private company stake, property, and pensions.",
@@ -663,6 +778,7 @@ export function buildHouseholdContext(input: ContextInput) {
         employer_match_secured: row.employerMatchSecured,
       })),
     },
+    documents,
     stale_records: {
       /** Valuations past their own cadence: 90 days, 180 for private holdings. */
       assets_past_valuation_cadence: staleAssets,

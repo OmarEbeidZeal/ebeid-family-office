@@ -30,6 +30,9 @@ export type Household = {
   partner_display_name: string | null;
   onboarding_step: number;
   onboarding_completed_at: string | null;
+  /** Years of income the household wants replaced when measuring life cover. */
+  income_replacement_years: number;
+
 };
 
 type AuthContextValue = {

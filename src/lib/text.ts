@@ -6,6 +6,54 @@
  * helpers with no transliteration or numeral conversion.
  */
 
+/**
+ * Characters the database refuses to store. Postgres rejects NUL inside `text`
+ * and inside `jsonb` alike — a PDF whose font map leaves glyphs unmapped hands
+ * back exactly that, and the insert fails with "unsupported Unicode escape
+ * sequence" rather than anything a household could act on. The other C0
+ * controls carry no meaning in a statement either; tab, newline and carriage
+ * return are kept because they carry layout.
+ */
+const UNSTORABLE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
+
+/** The same text with every unstorable control character removed. */
+export function scrubText(value: string): string {
+  return value.replace(UNSTORABLE, "");
+}
+
+
+/**
+ * Every string inside a parsed result, scrubbed. Extraction output is written
+ * to `jsonb` columns whole, so one unmapped glyph anywhere in it fails the
+ * write — this runs once at the boundary rather than at every field.
+ */
+export function scrubDeep<T>(value: T): T {
+  if (typeof value === "string") return scrubText(value) as T;
+  if (Array.isArray(value)) return value.map((entry) => scrubDeep(entry)) as T;
+  if (value && typeof value === "object") {
+    const source = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(source)) out[key] = scrubDeep(source[key]);
+    return out as T;
+  }
+  return value;
+}
+
+/**
+ * How much of the text came back as unmapped glyphs, ignoring whitespace.
+ *
+ * Some brokers ship PDFs whose embedded font has no usable character map for
+ * digits: the page looks right on screen and extracts as NUL wherever a number
+ * should be. Nothing in that text can be trusted, so it is caught rather than
+ * guessed at.
+ */
+export function unreadableRatio(text: string): number {
+  const meaningful = text.replace(/\s/g, "");
+  if (!meaningful.length) return 0;
+  const unmapped = meaningful.match(/[\u0000\uFFFD]/g)?.length ?? 0;
+  return unmapped / meaningful.length;
+}
+
 export function normaliseDescription(value: string): string {
   return value
     .toLowerCase()
@@ -13,6 +61,7 @@ export function normaliseDescription(value: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
 
 const NOISE_PATTERNS: RegExp[] = [
   /\b(card|visa|mastercard|maestro)\s*(no\.?|ending|\*+)?\s*[*x\d]{4,}\b/gi,

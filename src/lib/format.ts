@@ -250,7 +250,15 @@ export const VESTING_STATUSES = [
   { value: "not_applicable", label: "Not applicable (founder shares)" },
 ] as const;
 
-export const INCOME_TYPES = ["salary", "bonus", "dividend", "rental", "business", "other"] as const;
+export const INCOME_TYPES = [
+  "salary",
+  "bonus",
+  "dividend",
+  "rental",
+  "business",
+  "distribution",
+  "other",
+] as const;
 
 export const INCOME_TYPE_LABELS: Record<string, string> = {
   salary: "Salary",
@@ -258,8 +266,21 @@ export const INCOME_TYPE_LABELS: Record<string, string> = {
   dividend: "Dividend",
   rental: "Rental",
   business: "Business",
+  distribution: "Distribution",
   other: "Other",
 };
+
+/**
+ * Income that never appears on a UK payslip. Adjusted net income counts it, so
+ * the pay tracker has to add it back by hand.
+ */
+export const NON_EMPLOYMENT_INCOME_TYPES = new Set<string>([
+  "dividend",
+  "rental",
+  "business",
+  "distribution",
+  "other",
+]);
 
 export const FREQUENCIES = ["monthly", "quarterly", "annual", "one_off"] as const;
 

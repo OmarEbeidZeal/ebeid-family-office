@@ -33,7 +33,11 @@ import {
   type NormalisedIdentifier,
 } from "./identity.server";
 import { formatLabel } from "./formats";
+import { chooseProposal } from "./proposal-key";
+import { scrubDeep } from "../text";
 import { failStatement, releaseStatement, type QueuedStatement } from "./queue.server";
+
+
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Client = any;
@@ -59,34 +63,75 @@ function cachePath(filePath: string): string {
   return `${filePath}.extract.json`;
 }
 
+/** Whether a cached reading is worth reusing, or was a misreading. */
+function worthKeeping(list: ExtractionResult[]): boolean {
+  return list.some((entry) => {
+    if (!Array.isArray(entry?.transactions)) return false;
+    if (entry.transactions.length) return true;
+    const meta = entry.meta ?? null;
+    return Boolean(
+      meta &&
+        (meta.identity?.institution ||
+          meta.identity?.account_identifier ||
+          meta.period_start ||
+          meta.period_end ||
+          meta.opening_balance !== null ||
+          meta.closing_balance !== null),
+    );
+  });
+}
+
 /**
  * A file yields a list of statements, not one: a CAMT.053 export routinely
  * carries several accounts, and an MT940 file several periods. The cache holds
  * the whole list so the siblings never re-read the file.
+ *
+ * The cache sits beside the file, in whichever bucket the file was uploaded to.
+ *
+ * A cache that understood nothing is treated as no cache at all. Otherwise a
+ * file the reader could not make sense of once — a format it had not learnt
+ * yet — would keep returning that same emptiness long after the reader could
+ * do better, and "Retry" would be a button that changes nothing.
  */
 async function readCachedExtraction(
   supabase: Client,
+  bucket: string,
   filePath: string,
 ): Promise<ExtractionResult[] | null> {
-  const { data } = await supabase.storage.from("statements").download(cachePath(filePath));
+  const { data } = await supabase.storage.from(bucket).download(cachePath(filePath));
   if (!data) return null;
   try {
-    const parsed = JSON.parse(await data.text()) as ExtractionResult[] | ExtractionResult;
+    const raw = await data.text();
+    // A cache written before the reader learnt to check font maps can carry
+    // characters the database refuses — JSON keeps a NUL byte quite happily,
+    // Postgres does not. That cache came from a PDF whose glyphs never decoded,
+    // so it is not merely unstorable, it is wrong: throw it away and read the
+    // file again, where the unmapped-font check now gives an honest answer.
+    if (raw.includes("\\u0000") || raw.includes("\u0000")) return null;
+    const parsed = JSON.parse(raw) as ExtractionResult[] | ExtractionResult;
     const list = Array.isArray(parsed) ? parsed : [parsed];
     if (!list.length) return null;
-    return list.every((entry) => Array.isArray(entry?.transactions)) ? list : null;
+    if (!list.every((entry) => Array.isArray(entry?.transactions))) return null;
+    if (!worthKeeping(list)) return null;
+    return scrubDeep(list);
   } catch {
     return null;
   }
 }
 
+
 async function writeCachedExtraction(
   supabase: Client,
+  bucket: string,
   filePath: string,
   extractions: ExtractionResult[],
 ): Promise<void> {
+  // Nothing understood is not worth remembering: writing it would freeze the
+  // misreading in place for every later attempt.
+  if (!extractions.length || !worthKeeping(extractions)) return;
+
   await supabase.storage
-    .from("statements")
+    .from(bucket)
     .upload(
       cachePath(filePath),
       new Blob([JSON.stringify(extractions)], { type: "application/json" }),
@@ -97,20 +142,31 @@ async function writeCachedExtraction(
     );
 }
 
-export async function removeCachedExtraction(supabase: Client, filePath: string): Promise<void> {
-  await supabase.storage.from("statements").remove([cachePath(filePath)]);
+
+export async function removeCachedExtraction(
+  supabase: Client,
+  filePath: string,
+  bucket = "statements",
+): Promise<void> {
+  await supabase.storage.from(bucket).remove([cachePath(filePath)]);
 }
+
 
 /* ------------------------------------------------------------- proposals */
 
+/** "Flex" reads as the account the household actually has; "Credit Card" does not. */
+const LEDGER_LABELS: Record<string, string> = { flex: "Flex" };
+
 function suggestNickname(identity: StatementIdentity, mask: string | null): string {
   const bank = findBank(identity.institution)?.name ?? identity.institution ?? "Imported account";
+  const ledger = identity.ledger ? LEDGER_LABELS[identity.ledger.toLowerCase()] : null;
   const type = identity.account_type
     ? identity.account_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
     : null;
   const tail = mask ? mask.replace(/^•+\s*/, "···· ") : null;
-  return [bank, type, tail].filter(Boolean).join(" ").slice(0, 80);
+  return [bank, ledger ?? type, tail].filter(Boolean).join(" ").slice(0, 80);
 }
+
 
 export type ProposalRow = {
   id: string;
@@ -140,35 +196,78 @@ async function upsertProposal(
     identifierHash: input.identifier?.hash ?? null,
     lastFour: input.identifier?.lastFour ?? null,
     currency: input.currency,
+    ledger: input.identity.ledger ?? null,
   });
 
-  const { data: existing } = await supabase
+
+  // Proposals are few — a handful per household — so they are read whole and
+  // matched here, where a file that could not state its currency can still be
+  // recognised as the account it names.
+  const { data: known } = await supabase
     .from("account_proposals")
     .select(
-      "id, status, resolved_account_id, matched_account_id, match_confidence, match_reason, statement_count",
+      "id, fingerprint, currency, institution, institution_domain, holder, identifier_kind, identifier_last4, identifier_hash, country, account_type, suggested_nickname, opening_balance, closing_balance, closing_balance_date, period_start, period_end, status, resolved_account_id, matched_account_id, match_confidence, match_reason, statement_count",
     )
     .eq("household_id", input.householdId)
-    .eq("fingerprint", fingerprint)
-    .maybeSingle();
+    .limit(500);
+
+  const rows = (known ?? []) as Array<Record<string, any>>;
+  const choice = chooseProposal({
+    fingerprint,
+    currency: input.currency,
+    existing: rows.map((row) => ({
+      id: row["id"] as string,
+      fingerprint: row["fingerprint"] as string,
+      currency: (row["currency"] ?? null) as string | null,
+    })),
+  });
+  const existing = choice.match ? (rows.find((row) => row["id"] === choice.match!.id) ?? null) : null;
+
+  // Balances belong to the newest period on file; an older statement joining the
+  // same proposal extends its span without restating what the account holds now.
+  const endsLater =
+    !existing?.["period_end"] || (input.periodEnd ?? "") >= (existing["period_end"] as string);
+  const startsEarlier =
+    !existing?.["period_start"] ||
+    (input.periodStart !== null && input.periodStart < (existing["period_start"] as string));
+
+  const nickname = suggestNickname(input.identity, input.identifier?.mask ?? null);
 
   const payload = {
     household_id: input.householdId,
-    fingerprint,
-    institution: input.identity.institution,
-    institution_domain: bankDomain(input.identity.institution),
-    holder: input.identity.statement_holder,
-    identifier_kind: input.identifier?.kind ?? null,
-    identifier_last4: input.identifier?.lastFour ?? null,
-    identifier_hash: input.identifier?.hash ?? null,
-    currency: input.currency,
-    country: identityCountry(input.identity, input.currency),
-    account_type: input.identity.account_type,
-    suggested_nickname: suggestNickname(input.identity, input.identifier?.mask ?? null),
-    opening_balance: input.openingBalance,
-    closing_balance: input.closingBalance,
-    closing_balance_date: input.periodEnd,
-    period_start: input.periodStart,
-    period_end: input.periodEnd,
+    fingerprint: choice.fingerprint,
+    institution: input.identity.institution ?? existing?.["institution"] ?? null,
+    institution_domain:
+      bankDomain(input.identity.institution) ?? existing?.["institution_domain"] ?? null,
+    holder: input.identity.statement_holder ?? existing?.["holder"] ?? null,
+    identifier_kind: input.identifier?.kind ?? existing?.["identifier_kind"] ?? null,
+    identifier_last4: input.identifier?.lastFour ?? existing?.["identifier_last4"] ?? null,
+    identifier_hash: input.identifier?.hash ?? existing?.["identifier_hash"] ?? null,
+    currency: input.currency ?? existing?.["currency"] ?? null,
+    country:
+      identityCountry(input.identity, input.currency ?? (existing?.["currency"] as string | null)) ??
+      existing?.["country"] ??
+      null,
+    account_type: input.identity.account_type ?? existing?.["account_type"] ?? null,
+    suggested_nickname:
+      input.identity.institution || !existing?.["suggested_nickname"]
+        ? nickname
+        : (existing["suggested_nickname"] as string),
+    opening_balance: startsEarlier
+      ? (input.openingBalance ?? existing?.["opening_balance"] ?? null)
+      : (existing?.["opening_balance"] ?? null),
+    closing_balance: endsLater
+      ? (input.closingBalance ?? existing?.["closing_balance"] ?? null)
+      : (existing?.["closing_balance"] ?? null),
+    closing_balance_date: endsLater
+      ? (input.periodEnd ?? existing?.["closing_balance_date"] ?? null)
+      : (existing?.["closing_balance_date"] ?? null),
+    period_start: startsEarlier
+      ? (input.periodStart ?? existing?.["period_start"] ?? null)
+      : (existing?.["period_start"] ?? null),
+    period_end: endsLater
+      ? (input.periodEnd ?? existing?.["period_end"] ?? null)
+      : (existing?.["period_end"] ?? null),
     matched_account_id: input.match.account_id,
     match_confidence: input.match.confidence,
     match_reason: input.match.reason,
@@ -180,17 +279,16 @@ async function upsertProposal(
       .update({
         ...payload,
         // A decision already taken is never overwritten by a later file.
-        ...(existing.status === "pending"
+        ...(existing["status"] === "pending"
           ? {}
           : {
-              matched_account_id: existing.matched_account_id,
-              match_confidence: existing.match_confidence,
-              match_reason: existing.match_reason,
+              matched_account_id: existing["matched_account_id"],
+              match_confidence: existing["match_confidence"],
+              match_reason: existing["match_reason"],
             }),
-        statement_count: (existing.statement_count ?? 0) + 1,
-        closing_balance_date: input.periodEnd ?? existing["closing_balance_date"],
+        statement_count: ((existing["statement_count"] as number | null) ?? 0) + 1,
       })
-      .eq("id", existing.id)
+      .eq("id", existing["id"])
       .select("id, status, resolved_account_id, matched_account_id, match_confidence, match_reason")
       .maybeSingle();
     return (data ?? existing) as ProposalRow;
@@ -204,6 +302,7 @@ async function upsertProposal(
   if (error) throw new Error(error.message);
   return data as ProposalRow;
 }
+
 
 /* ------------------------------------------------------- multi-statement */
 
@@ -255,9 +354,11 @@ async function fanOutStatements(
     account_id: null,
     import_batch_id: statement["import_batch_id"] ?? null,
     uploaded_by: statement["uploaded_by"] ?? null,
+    storage_bucket: statement["storage_bucket"] ?? "statements",
     file_path: statement["file_path"],
     file_name: statement["file_name"],
     file_size: statement["file_size"] ?? null,
+
     // The hash is copied deliberately: it stops each sibling being read as a
     // duplicate of the row it came from, while a genuine re-upload of the same
     // file still matches.
@@ -325,9 +426,15 @@ export async function processStatement(
         .eq("household_id", statement.household_id)
         .eq("file_hash", fileHash)
         .neq("id", statement.id)
+        // A file holding several statements becomes several rows over the one
+        // stored file. Those are not copies of each other — only a separately
+        // uploaded file, which lands at its own path, counts as the same file
+        // arriving twice.
+        .neq("file_path", statement.file_path)
         .not("status", "in", "(failed,cancelled,duplicate)")
         .limit(1)
         .maybeSingle();
+
 
       if (twin) {
         const message = `This is the same file as ${twin.file_name ?? "one already imported"}, so nothing was read from it again.`;
@@ -348,12 +455,14 @@ export async function processStatement(
     }
 
     /* ------------------------------------------------------ extraction */
-    let results = await readCachedExtraction(supabase, statement.file_path);
+    const bucket: string = statement.storage_bucket ?? "statements";
+    let results = await readCachedExtraction(supabase, bucket, statement.file_path);
     if (!results) {
       file = file ?? (await downloadStatementFile(supabase, statement));
       results = await extractStatementContent(file);
-      await writeCachedExtraction(supabase, statement.file_path, results);
+      await writeCachedExtraction(supabase, bucket, statement.file_path, results);
     }
+
     if (!results.length) {
       throw new StatementFailure(
         "Nothing in this file reads as a bank statement. Check you exported the transaction list from your bank.",
@@ -530,11 +639,19 @@ export async function processStatement(
           ? error.message
           : "The statement could not be read.";
     // A StatementFailure is a verdict about the file: retrying will not change
-    // it, so the row is failed outright rather than parked for another go.
+    // it, so the row is failed outright rather than parked for another go. The
+    // cached reading goes with it — a later attempt, once the reader has learnt
+    // the format, must start from the file rather than from this verdict.
     if (error instanceof StatementFailure) {
+      await removeCachedExtraction(
+        supabase,
+        statement.file_path,
+        statement.storage_bucket ?? "statements",
+      ).catch(() => undefined);
       await failStatement(supabase, statement.id, message);
       return { kind: "failed", message };
     }
+
     throw error;
   }
 }
@@ -558,7 +675,7 @@ async function touchAccountFromStatement(
 
   const { data: account } = await supabase
     .from("accounts")
-    .select("currency, account_type, last_balance_update, current_balance")
+    .select("currency, account_type, last_balance_update, current_balance, balance_source, balance_statement_id")
     .eq("id", accountId)
     .maybeSingle();
   if (!account) return;
@@ -568,7 +685,12 @@ async function touchAccountFromStatement(
   const lastUpdate = account.last_balance_update
     ? new Date(account.last_balance_update).getTime()
     : 0;
-  if (statementTime <= lastUpdate) return;
+  // Reading this same file again may produce a figure the first pass could not
+  // find, and an account with no balance at all takes any figure over none.
+  const correctingOwnFigure = account.balance_statement_id === statementId;
+  const hasNoBalance = account.balance_source === "unknown";
+  if (statementTime <= lastUpdate && !correctingOwnFigure && !hasNoBalance) return;
+
 
   // Debt is held as the amount owed, positive, everywhere in the app: a card
   // statement closing at -1,240.18 is 1,240.18 owed, not a negative asset.

@@ -739,6 +739,144 @@ export type Database = {
           },
         ]
       }
+      documents: {
+        Row: {
+          attempts: number
+          confidence: number | null
+          created_at: string
+          detected_type: string | null
+          doc_type: string | null
+          error_message: string | null
+          extracted: Json | null
+          extracted_at: string | null
+          file_hash: string | null
+          file_name: string | null
+          file_path: string
+          file_size: number | null
+          household_id: string
+          id: string
+          import_batch_id: string | null
+          locked_at: string | null
+          mime_type: string | null
+          next_attempt_at: string | null
+          owner_profile_id: string | null
+          period_end: string | null
+          period_start: string | null
+          record_id: string | null
+          source_format: string | null
+          statement_id: string | null
+          status: string
+          storage_bucket: string
+          type_confidence: number | null
+          type_hint: string | null
+          type_reason: string | null
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          attempts?: number
+          confidence?: number | null
+          created_at?: string
+          detected_type?: string | null
+          doc_type?: string | null
+          error_message?: string | null
+          extracted?: Json | null
+          extracted_at?: string | null
+          file_hash?: string | null
+          file_name?: string | null
+          file_path: string
+          file_size?: number | null
+          household_id: string
+          id?: string
+          import_batch_id?: string | null
+          locked_at?: string | null
+          mime_type?: string | null
+          next_attempt_at?: string | null
+          owner_profile_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          record_id?: string | null
+          source_format?: string | null
+          statement_id?: string | null
+          status?: string
+          storage_bucket?: string
+          type_confidence?: number | null
+          type_hint?: string | null
+          type_reason?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          attempts?: number
+          confidence?: number | null
+          created_at?: string
+          detected_type?: string | null
+          doc_type?: string | null
+          error_message?: string | null
+          extracted?: Json | null
+          extracted_at?: string | null
+          file_hash?: string | null
+          file_name?: string | null
+          file_path?: string
+          file_size?: number | null
+          household_id?: string
+          id?: string
+          import_batch_id?: string | null
+          locked_at?: string | null
+          mime_type?: string | null
+          next_attempt_at?: string | null
+          owner_profile_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          record_id?: string | null
+          source_format?: string | null
+          statement_id?: string | null
+          status?: string
+          storage_bucket?: string
+          type_confidence?: number | null
+          type_hint?: string | null
+          type_reason?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       forecast_expenses: {
         Row: {
           amount: number
@@ -1030,6 +1168,7 @@ export type Database = {
           avg_cost: number | null
           created_at: string
           currency: string
+          discovered_from: string
           exchange: string | null
           falsification: string | null
           household_id: string
@@ -1037,9 +1176,12 @@ export type Database = {
           name: string | null
           notes: string | null
           opened_at: string | null
+          opening_cost: number | null
+          opening_quantity: number
           owner_profile_id: string | null
+          position_evidence: Json | null
           quantity: number
-          realised_pnl: number
+          realised_pnl: number | null
           security_type: string
           sleeve: string
           target_price: number | null
@@ -1052,6 +1194,7 @@ export type Database = {
           avg_cost?: number | null
           created_at?: string
           currency?: string
+          discovered_from?: string
           exchange?: string | null
           falsification?: string | null
           household_id: string
@@ -1059,9 +1202,12 @@ export type Database = {
           name?: string | null
           notes?: string | null
           opened_at?: string | null
+          opening_cost?: number | null
+          opening_quantity?: number
           owner_profile_id?: string | null
+          position_evidence?: Json | null
           quantity?: number
-          realised_pnl?: number
+          realised_pnl?: number | null
           security_type?: string
           sleeve?: string
           target_price?: number | null
@@ -1074,6 +1220,7 @@ export type Database = {
           avg_cost?: number | null
           created_at?: string
           currency?: string
+          discovered_from?: string
           exchange?: string | null
           falsification?: string | null
           household_id?: string
@@ -1081,9 +1228,12 @@ export type Database = {
           name?: string | null
           notes?: string | null
           opened_at?: string | null
+          opening_cost?: number | null
+          opening_quantity?: number
           owner_profile_id?: string | null
+          position_evidence?: Json | null
           quantity?: number
-          realised_pnl?: number
+          realised_pnl?: number | null
           security_type?: string
           sleeve?: string
           target_price?: number | null
@@ -1120,6 +1270,7 @@ export type Database = {
           base_currency: string
           created_at: string
           id: string
+          income_replacement_years: number
           name: string
           onboarding_completed_at: string | null
           onboarding_step: number
@@ -1130,6 +1281,7 @@ export type Database = {
           base_currency?: string
           created_at?: string
           id?: string
+          income_replacement_years?: number
           name?: string
           onboarding_completed_at?: string | null
           onboarding_step?: number
@@ -1140,6 +1292,7 @@ export type Database = {
           base_currency?: string
           created_at?: string
           id?: string
+          income_replacement_years?: number
           name?: string
           onboarding_completed_at?: string | null
           onboarding_step?: number
@@ -1223,6 +1376,7 @@ export type Database = {
       income_streams: {
         Row: {
           annual_growth_rate: number
+          country: string | null
           created_at: string
           currency: string
           end_date: string | null
@@ -1232,13 +1386,18 @@ export type Database = {
           id: string
           income_type: string
           label: string
+          last_observed_at: string | null
           net_amount: number | null
           owner_profile_id: string | null
+          source: string
           start_date: string | null
+          taxed_at_source: boolean
+          uk_self_assessment: boolean
           updated_at: string
         }
         Insert: {
           annual_growth_rate?: number
+          country?: string | null
           created_at?: string
           currency?: string
           end_date?: string | null
@@ -1248,13 +1407,18 @@ export type Database = {
           id?: string
           income_type?: string
           label: string
+          last_observed_at?: string | null
           net_amount?: number | null
           owner_profile_id?: string | null
+          source?: string
           start_date?: string | null
+          taxed_at_source?: boolean
+          uk_self_assessment?: boolean
           updated_at?: string
         }
         Update: {
           annual_growth_rate?: number
+          country?: string | null
           created_at?: string
           currency?: string
           end_date?: string | null
@@ -1264,9 +1428,13 @@ export type Database = {
           id?: string
           income_type?: string
           label?: string
+          last_observed_at?: string | null
           net_amount?: number | null
           owner_profile_id?: string | null
+          source?: string
           start_date?: string | null
+          taxed_at_source?: boolean
+          uk_self_assessment?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -1279,6 +1447,127 @@ export type Database = {
           },
           {
             foreignKeyName: "income_streams_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insurance_policies: {
+        Row: {
+          beneficiaries: string | null
+          benefit_amount: number | null
+          benefit_frequency: string | null
+          benefit_period_months: number | null
+          confidence: number | null
+          created_at: string
+          currency: string
+          deferred_period_weeks: number | null
+          document_id: string | null
+          end_date: string | null
+          exclusions: string | null
+          household_id: string
+          id: string
+          in_trust: boolean | null
+          insured_person: string | null
+          insurer: string
+          insurer_domain: string | null
+          needs_review: boolean
+          notes: string | null
+          owner_profile_id: string | null
+          policy_number_last4: string | null
+          policy_type: string
+          premium_amount: number | null
+          premium_frequency: string
+          renewal_date: string | null
+          source: string
+          start_date: string | null
+          status: string
+          sum_assured: number | null
+          updated_at: string
+        }
+        Insert: {
+          beneficiaries?: string | null
+          benefit_amount?: number | null
+          benefit_frequency?: string | null
+          benefit_period_months?: number | null
+          confidence?: number | null
+          created_at?: string
+          currency?: string
+          deferred_period_weeks?: number | null
+          document_id?: string | null
+          end_date?: string | null
+          exclusions?: string | null
+          household_id: string
+          id?: string
+          in_trust?: boolean | null
+          insured_person?: string | null
+          insurer: string
+          insurer_domain?: string | null
+          needs_review?: boolean
+          notes?: string | null
+          owner_profile_id?: string | null
+          policy_number_last4?: string | null
+          policy_type?: string
+          premium_amount?: number | null
+          premium_frequency?: string
+          renewal_date?: string | null
+          source?: string
+          start_date?: string | null
+          status?: string
+          sum_assured?: number | null
+          updated_at?: string
+        }
+        Update: {
+          beneficiaries?: string | null
+          benefit_amount?: number | null
+          benefit_frequency?: string | null
+          benefit_period_months?: number | null
+          confidence?: number | null
+          created_at?: string
+          currency?: string
+          deferred_period_weeks?: number | null
+          document_id?: string | null
+          end_date?: string | null
+          exclusions?: string | null
+          household_id?: string
+          id?: string
+          in_trust?: boolean | null
+          insured_person?: string | null
+          insurer?: string
+          insurer_domain?: string | null
+          needs_review?: boolean
+          notes?: string | null
+          owner_profile_id?: string | null
+          policy_number_last4?: string | null
+          policy_type?: string
+          premium_amount?: number | null
+          premium_frequency?: string
+          renewal_date?: string | null
+          source?: string
+          start_date?: string | null
+          status?: string
+          sum_assured?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurance_policies_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurance_policies_owner_profile_id_fkey"
             columns: ["owner_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1617,6 +1906,167 @@ export type Database = {
           },
         ]
       }
+      payslips: {
+        Row: {
+          benefits_in_kind: number | null
+          confidence: number | null
+          created_at: string
+          currency: string
+          document_id: string | null
+          employee_name: string | null
+          employee_pension: number | null
+          employer: string | null
+          employer_pension: number | null
+          gross_pay: number | null
+          household_id: string
+          id: string
+          income_tax: number | null
+          matched_transaction_id: string | null
+          national_insurance: number | null
+          needs_review: boolean
+          net_pay: number | null
+          notes: string | null
+          other_deductions: number | null
+          pay_date: string
+          pay_frequency: string | null
+          payroll_ref_last4: string | null
+          period_end: string | null
+          period_start: string | null
+          profile_id: string | null
+          reconciliation: string
+          reconciliation_delta: number | null
+          salary_sacrifice: boolean
+          source: string
+          student_loan: number | null
+          tax_code: string | null
+          tax_year: string | null
+          updated_at: string
+          ytd_benefits_in_kind: number | null
+          ytd_employee_pension: number | null
+          ytd_employer_pension: number | null
+          ytd_gross: number | null
+          ytd_income_tax: number | null
+          ytd_national_insurance: number | null
+          ytd_net_pay: number | null
+          ytd_student_loan: number | null
+        }
+        Insert: {
+          benefits_in_kind?: number | null
+          confidence?: number | null
+          created_at?: string
+          currency?: string
+          document_id?: string | null
+          employee_name?: string | null
+          employee_pension?: number | null
+          employer?: string | null
+          employer_pension?: number | null
+          gross_pay?: number | null
+          household_id: string
+          id?: string
+          income_tax?: number | null
+          matched_transaction_id?: string | null
+          national_insurance?: number | null
+          needs_review?: boolean
+          net_pay?: number | null
+          notes?: string | null
+          other_deductions?: number | null
+          pay_date: string
+          pay_frequency?: string | null
+          payroll_ref_last4?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          profile_id?: string | null
+          reconciliation?: string
+          reconciliation_delta?: number | null
+          salary_sacrifice?: boolean
+          source?: string
+          student_loan?: number | null
+          tax_code?: string | null
+          tax_year?: string | null
+          updated_at?: string
+          ytd_benefits_in_kind?: number | null
+          ytd_employee_pension?: number | null
+          ytd_employer_pension?: number | null
+          ytd_gross?: number | null
+          ytd_income_tax?: number | null
+          ytd_national_insurance?: number | null
+          ytd_net_pay?: number | null
+          ytd_student_loan?: number | null
+        }
+        Update: {
+          benefits_in_kind?: number | null
+          confidence?: number | null
+          created_at?: string
+          currency?: string
+          document_id?: string | null
+          employee_name?: string | null
+          employee_pension?: number | null
+          employer?: string | null
+          employer_pension?: number | null
+          gross_pay?: number | null
+          household_id?: string
+          id?: string
+          income_tax?: number | null
+          matched_transaction_id?: string | null
+          national_insurance?: number | null
+          needs_review?: boolean
+          net_pay?: number | null
+          notes?: string | null
+          other_deductions?: number | null
+          pay_date?: string
+          pay_frequency?: string | null
+          payroll_ref_last4?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          profile_id?: string | null
+          reconciliation?: string
+          reconciliation_delta?: number | null
+          salary_sacrifice?: boolean
+          source?: string
+          student_loan?: number | null
+          tax_code?: string | null
+          tax_year?: string | null
+          updated_at?: string
+          ytd_benefits_in_kind?: number | null
+          ytd_employee_pension?: number | null
+          ytd_employer_pension?: number | null
+          ytd_gross?: number | null
+          ytd_income_tax?: number | null
+          ytd_national_insurance?: number | null
+          ytd_net_pay?: number | null
+          ytd_student_loan?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payslips_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_matched_transaction_id_fkey"
+            columns: ["matched_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payslips_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       price_snapshots: {
         Row: {
           as_of: string
@@ -1876,6 +2326,7 @@ export type Database = {
           statement_count: number
           statement_index: number
           status: string
+          storage_bucket: string
           summary: Json | null
           transaction_count: number | null
           updated_at: string
@@ -1918,6 +2369,7 @@ export type Database = {
           statement_count?: number
           statement_index?: number
           status?: string
+          storage_bucket?: string
           summary?: Json | null
           transaction_count?: number | null
           updated_at?: string
@@ -1960,6 +2412,7 @@ export type Database = {
           statement_count?: number
           statement_index?: number
           status?: string
+          storage_bucket?: string
           summary?: Json | null
           transaction_count?: number | null
           updated_at?: string
@@ -2081,11 +2534,179 @@ export type Database = {
           },
         ]
       }
+      tenancies: {
+        Row: {
+          agent_name: string | null
+          break_clause_date: string | null
+          break_clause_notes: string | null
+          confidence: number | null
+          council_tax_responsibility: string | null
+          created_at: string
+          currency: string
+          deposit_amount: number | null
+          deposit_scheme: string | null
+          document_id: string | null
+          household_id: string
+          id: string
+          landlord_name: string | null
+          linked_asset_id: string | null
+          linked_expense_id: string | null
+          linked_goal_id: string | null
+          linked_income_id: string | null
+          needs_review: boolean
+          notes: string | null
+          notice_period_months: number | null
+          owner_profile_id: string | null
+          permitted_occupiers: string | null
+          property_address: string
+          reference_last4: string | null
+          rent_amount: number | null
+          rent_frequency: string
+          rent_review_terms: string | null
+          repairs_responsibility: string | null
+          role: string
+          source: string
+          status: string
+          tenant_names: string | null
+          term_end: string | null
+          term_start: string | null
+          updated_at: string
+          utilities_responsibility: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          break_clause_date?: string | null
+          break_clause_notes?: string | null
+          confidence?: number | null
+          council_tax_responsibility?: string | null
+          created_at?: string
+          currency?: string
+          deposit_amount?: number | null
+          deposit_scheme?: string | null
+          document_id?: string | null
+          household_id: string
+          id?: string
+          landlord_name?: string | null
+          linked_asset_id?: string | null
+          linked_expense_id?: string | null
+          linked_goal_id?: string | null
+          linked_income_id?: string | null
+          needs_review?: boolean
+          notes?: string | null
+          notice_period_months?: number | null
+          owner_profile_id?: string | null
+          permitted_occupiers?: string | null
+          property_address: string
+          reference_last4?: string | null
+          rent_amount?: number | null
+          rent_frequency?: string
+          rent_review_terms?: string | null
+          repairs_responsibility?: string | null
+          role?: string
+          source?: string
+          status?: string
+          tenant_names?: string | null
+          term_end?: string | null
+          term_start?: string | null
+          updated_at?: string
+          utilities_responsibility?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          break_clause_date?: string | null
+          break_clause_notes?: string | null
+          confidence?: number | null
+          council_tax_responsibility?: string | null
+          created_at?: string
+          currency?: string
+          deposit_amount?: number | null
+          deposit_scheme?: string | null
+          document_id?: string | null
+          household_id?: string
+          id?: string
+          landlord_name?: string | null
+          linked_asset_id?: string | null
+          linked_expense_id?: string | null
+          linked_goal_id?: string | null
+          linked_income_id?: string | null
+          needs_review?: boolean
+          notes?: string | null
+          notice_period_months?: number | null
+          owner_profile_id?: string | null
+          permitted_occupiers?: string | null
+          property_address?: string
+          reference_last4?: string | null
+          rent_amount?: number | null
+          rent_frequency?: string
+          rent_review_terms?: string | null
+          repairs_responsibility?: string | null
+          role?: string
+          source?: string
+          status?: string
+          tenant_names?: string | null
+          term_end?: string | null
+          term_start?: string | null
+          updated_at?: string
+          utilities_responsibility?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenancies_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenancies_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenancies_linked_asset_id_fkey"
+            columns: ["linked_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenancies_linked_expense_id_fkey"
+            columns: ["linked_expense_id"]
+            isOneToOne: false
+            referencedRelation: "forecast_expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenancies_linked_goal_id_fkey"
+            columns: ["linked_goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenancies_linked_income_id_fkey"
+            columns: ["linked_income_id"]
+            isOneToOne: false
+            referencedRelation: "income_streams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenancies_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trades: {
         Row: {
           account_id: string | null
           created_at: string
           currency: string
+          external_ref: string | null
           fees: number
           holding_id: string
           household_id: string
@@ -2101,6 +2722,7 @@ export type Database = {
           account_id?: string | null
           created_at?: string
           currency: string
+          external_ref?: string | null
           fees?: number
           holding_id: string
           household_id: string
@@ -2116,6 +2738,7 @@ export type Database = {
           account_id?: string | null
           created_at?: string
           currency?: string
+          external_ref?: string | null
           fees?: number
           holding_id?: string
           household_id?: string
@@ -2393,6 +3016,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      recalc_holding: { Args: { target: string }; Returns: undefined }
       verify_job_secret: { Args: { token: string }; Returns: boolean }
     }
     Enums: {

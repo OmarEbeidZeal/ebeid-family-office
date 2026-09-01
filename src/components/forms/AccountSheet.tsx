@@ -19,7 +19,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOwners } from "@/hooks/useOwners";
 import { useSaveRow } from "@/hooks/useUpsertRow";
 import type { AccountRow } from "@/hooks/useFinancials";
+import { balanceKnown } from "@/lib/balances";
 import { cn } from "@/lib/utils";
+
 
 const schema = z.object({
   nickname: z.string().min(2, "Give the account a name"),
@@ -27,11 +29,19 @@ const schema = z.object({
   country: z.string().min(2),
   account_type: z.string().min(2),
   currency: z.string().min(3),
-  current_balance: z.coerce.number(),
+  // Kept as text so a blank field stays blank: an account whose balance nobody
+  // knows is not an account holding zero, and coercing would erase the difference.
+  current_balance: z
+    .string()
+    .refine(
+      (value) => value.trim() === "" || Number.isFinite(Number(value)),
+      "Enter a number, or leave it blank",
+    ),
   owner_profile_id: z.string(),
   visibility: z.string(),
   is_active: z.string(),
 });
+
 
 type Values = z.infer<typeof schema>;
 
@@ -65,7 +75,7 @@ export function AccountSheet({
       country: "GB",
       account_type: "current",
       currency: "GBP",
-      current_balance: 0,
+      current_balance: "",
       owner_profile_id: profile?.id ?? "joint",
       visibility: "household",
       is_active: "true",
@@ -81,7 +91,11 @@ export function AccountSheet({
       country: account?.country ?? "GB",
       account_type: account?.account_type ?? "current",
       currency: account?.currency ?? "GBP",
-      current_balance: Number(account?.current_balance ?? 0),
+      // An account with no stated balance opens with an empty field, not a zero
+      // waiting to be accepted.
+      current_balance:
+        account && balanceKnown(account) ? String(Number(account.current_balance)) : "",
+
       owner_profile_id: account?.is_joint
         ? "joint"
         : (account?.owner_profile_id ?? profile?.id ?? "joint"),
@@ -95,11 +109,17 @@ export function AccountSheet({
   const institutionName = form.watch("institution");
 
   const onSubmit = form.handleSubmit(async (values) => {
-    const balance = Math.abs(values.current_balance);
+    const typed = values.current_balance.trim();
+    const stated = typed === "" ? null : Math.abs(Number(typed));
+    const wasKnown = account ? balanceKnown(account) : false;
     // Renaming an account should not claim its balance was typed today: only a
-    // changed figure re-stamps the provenance.
+    // changed figure — or a first figure — re-stamps the provenance.
     const balanceChanged =
-      !account || Math.abs(Number(account.current_balance) - balance) > 0.005;
+      stated !== null &&
+      (!account || !wasKnown || Math.abs(Number(account.current_balance) - stated) > 0.005);
+    // Clearing the field on an account that had a figure withdraws the claim
+    // rather than asserting a balance of zero.
+    const balanceWithdrawn = Boolean(account) && stated === null && wasKnown;
 
     const savedId = await save.mutateAsync({
       id: account?.id,
@@ -112,13 +132,13 @@ export function AccountSheet({
         country: values.country,
         account_type: values.account_type,
         currency: values.currency,
-        current_balance: balance,
         is_joint: values.owner_profile_id === "joint",
         owner_profile_id: values.owner_profile_id === "joint" ? null : values.owner_profile_id,
         // Only a single-owner account can be private; a joint one has nobody
         // to hide it from.
         visibility: values.owner_profile_id === "joint" ? "household" : values.visibility,
         is_active: values.is_active === "true",
+        ...(stated !== null ? { current_balance: stated } : {}),
         ...(balanceChanged
           ? {
               balance_source: "manual",
@@ -126,8 +146,17 @@ export function AccountSheet({
               last_balance_update: new Date().toISOString(),
             }
           : {}),
+        ...(balanceWithdrawn || (!account && stated === null)
+          ? {
+              current_balance: 0,
+              balance_source: "unknown",
+              balance_statement_id: null,
+              last_balance_update: null,
+            }
+          : {}),
       },
     });
+
     if (savedId) onSaved?.(savedId);
     onOpenChange(false);
   });
@@ -230,15 +259,18 @@ export function AccountSheet({
 
       <Field
         label={isDebt ? "Amount owed" : "Current balance"}
+        hint="Leave blank if you don't know it — the account is then left out of every total instead of counted as zero."
         error={form.formState.errors.current_balance?.message}
       >
         <Input
           type="number"
           step="0.01"
           inputMode="decimal"
+          placeholder="Not set"
           {...form.register("current_balance")}
         />
       </Field>
+
 
       {account && (
         <FullRow>

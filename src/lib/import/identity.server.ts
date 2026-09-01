@@ -90,11 +90,21 @@ export function proposalFingerprint(input: {
   identifierHash: string | null;
   lastFour: string | null;
   currency: string | null;
+  /**
+   * A sub-ledger of the same bank, in the same currency, with no account number
+   * on either — Monzo Flex beside a Monzo current account. Without it the two
+   * share a key and pool into one account, and every repayment between them
+   * reads as spending.
+   */
+  ledger?: string | null;
 }): string {
   const institution = (input.institution ?? "unknown").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const identity = input.identifierHash ?? (input.lastFour ? `l4:${input.lastFour}` : "noid");
+  const base = input.identifierHash ?? (input.lastFour ? `l4:${input.lastFour}` : "noid");
+  const ledger = (input.ledger ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const identity = ledger ? `${base}+${ledger}` : base;
   return `${institution}|${identity}|${(input.currency ?? "").toUpperCase()}`;
 }
+
 
 /* ---------------------------------------------------------------- matching */
 

@@ -3,21 +3,26 @@ import {
   Baby,
   Building2,
   CalendarRange,
+  FileStack,
   FileUp,
   GitCompare,
+  Home,
   LayoutDashboard,
   MessageSquareText,
   PiggyBank,
   Receipt,
   Scale,
   Settings,
+  ShieldCheck,
   Target,
+  Wallet,
 } from "lucide-react";
 
 /**
- * Navigation reads as three questions rather than eleven destinations:
- * where do we stand, what is the money doing, and what is the wealth doing.
- * Settings sits apart because it is housekeeping, not a view of the household.
+ * Navigation reads as four questions rather than fifteen destinations: where do
+ * we stand, what is the money doing, what does the paperwork say, and what is
+ * the wealth doing. Settings sits apart because it is housekeeping, not a view
+ * of the household.
  */
 export type NavItem = {
   to: string;
@@ -44,6 +49,15 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/import", label: "Import", icon: FileUp },
       { to: "/transactions", label: "Transactions", icon: Receipt },
       { to: "/spending", label: "Spending", icon: PiggyBank },
+    ],
+  },
+  {
+    label: "Paperwork",
+    items: [
+      { to: "/documents", label: "Documents", icon: FileStack },
+      { to: "/protection", label: "Protection", icon: ShieldCheck },
+      { to: "/pay", label: "Pay & tax", icon: Wallet },
+      { to: "/tenancy", label: "Tenancy", icon: Home },
     ],
   },
   {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Loader2, RotateCcw, X } from "lucide-react";
+import { ArrowLeftRight, Check, Loader2, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 import { BankMark } from "@/components/BankMark";
 import { Button } from "@/components/ui/button";
@@ -11,10 +11,12 @@ import {
   type ImportStatementRow,
   type StatementSummary,
 } from "@/hooks/useImports";
+import { useRefileStatement } from "@/hooks/useAccountRepair";
 import type { AccountRow } from "@/hooks/useFinancials";
 import { formatDate } from "@/lib/format";
 import { formatLabel, formatNote } from "@/lib/import/formats";
 import { cn } from "@/lib/utils";
+
 
 const STATUS: Record<string, { label: string; tone: string; spin?: boolean }> = {
   queued: { label: "Queued", tone: "text-muted-foreground" },
@@ -69,7 +71,11 @@ export function ImportFileRow({
   const retry = useRetryStatement();
   const cancel = useCancelStatement();
   const assign = useAssignStatementAccount();
+  const refile = useRefileStatement();
   const [chosen, setChosen] = useState("");
+  const [moving, setMoving] = useState(false);
+  const [moveTo, setMoveTo] = useState("");
+
 
   const status = STATUS[statement.status] ?? {
     label: statement.status,
@@ -96,14 +102,30 @@ export function ImportFileRow({
 
   const summary = summaryLine(statement, statement.summary);
   const retryable = ["failed", "cancelled"].includes(statement.status);
+  // A file that read fine can still be worth reading again: the reader learns
+  // formats, and a second pass fills in what the first one dropped — a running
+  // balance, a bank the file never named. Lines already imported are recognised
+  // and left alone, so nothing is imported twice.
+  const rereadable = ["imported", "parsed", "needs_review", "duplicate", "awaiting_account"].includes(
+    statement.status,
+  );
   const cancellable = ["queued", "extracting", "awaiting_account", "failed"].includes(
     statement.status,
   );
   const reviewable = ["imported", "parsed", "needs_review"].includes(statement.status);
+
+  // Once a file is filed, it can still be filed wrongly — a statement that names
+  // no bank lands on whatever account the pipeline could match. Moving it takes
+  // its transactions and its closing balance with it.
+  const movable =
+    !!statement.account_id &&
+    ["imported", "parsed", "needs_review", "duplicate"].includes(statement.status) &&
+    accounts.length > 1;
   // A file with no proposal behind it names no bank and carries no account
   // number — QIF, usually. It is answered here, on its own row.
   const needsAccountHere =
     statement.status === "awaiting_account" && !statement.proposal_id && accounts.length > 0;
+
 
   return (
     <li className="border-b border-border px-3 py-2.5 last:border-0">
@@ -163,6 +185,20 @@ export function ImportFileRow({
               Review
             </Button>
           )}
+          {movable && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-[0.7rem] text-muted-foreground"
+              onClick={() => {
+                setMoving((open) => !open);
+                setMoveTo("");
+              }}
+            >
+              <ArrowLeftRight className="size-3" /> Move
+            </Button>
+          )}
+
           {retryable && (
             <Button
               variant="ghost"
@@ -179,6 +215,24 @@ export function ImportFileRow({
               <RotateCcw className="size-3" /> Retry
             </Button>
           )}
+          {rereadable && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-[0.7rem] text-muted-foreground"
+              disabled={retry.isPending}
+              title="Read the file again. Lines already imported are left as they are."
+              onClick={() =>
+                retry
+                  .mutateAsync(statement.id)
+                  .then(() => toast.success("Reading it again", { description: "Lines already imported stay as they are." }))
+                  .catch((error: Error) => toast.error(error.message))
+              }
+            >
+              <RotateCcw className="size-3" /> Read again
+            </Button>
+          )}
+
           {cancellable && (
             <Button
               variant="ghost"
@@ -228,6 +282,66 @@ export function ImportFileRow({
           </Button>
         </div>
       )}
+
+      {movable && moving && (
+        <div className="mt-2 space-y-2 rounded-md border border-border bg-surface-sunken/60 p-2.5 sm:ml-9">
+          <p className="text-[0.7rem] text-muted-foreground">
+            Move this statement, its{" "}
+            <span className="num">{statement.transaction_count ?? 0}</span> transaction
+            {statement.transaction_count === 1 ? "" : "s"} and its closing balance to another
+            account. Transactions the other account already holds are not duplicated, and both
+            balances are worked out again afterwards.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="min-w-48 flex-1">
+              <SelectNative
+                value={moveTo}
+                onChange={setMoveTo}
+                options={[
+                  { value: "", label: "Move to…" },
+                  ...accounts
+                    .filter((row) => row.id !== statement.account_id)
+                    .map((row) => ({
+                      value: row.id,
+                      label: `${row.nickname}${row.institution ? ` · ${row.institution}` : ""} · ${row.currency}`,
+                    })),
+                ]}
+              />
+            </div>
+            <Button
+              size="sm"
+              className="min-h-9"
+              disabled={!moveTo || refile.isPending}
+              onClick={() =>
+                refile
+                  .mutateAsync({ statementId: statement.id, accountId: moveTo })
+                  .then((result) => {
+                    setMoving(false);
+                    setMoveTo("");
+                    toast.success(
+                      `Moved to ${result.accountNickname} — ${result.transactions} transaction${
+                        result.transactions === 1 ? "" : "s"
+                      } refiled` +
+                        (result.duplicatesRemoved
+                          ? `, ${result.duplicatesRemoved} already held there`
+                          : ""),
+                    );
+                  })
+
+                  .catch((error: Error) => toast.error(error.message))
+              }
+            >
+              {refile.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Check className="size-3.5" />
+              )}
+              Move it
+            </Button>
+          </div>
+        </div>
+      )}
+
     </li>
   );
 }

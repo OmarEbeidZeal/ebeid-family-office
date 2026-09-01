@@ -150,20 +150,29 @@ export type BatchProgress = {
 };
 
 const TERMINAL = ["parsed", "needs_review", "failed", "duplicate", "cancelled"];
+const DOC_TERMINAL = ["extracted", "linked", "duplicate", "failed", "cancelled"];
 
 /**
- * Recount a batch from its statements rather than incrementing counters as we
- * go — a counter that drifts is worse than no counter, and a recount is cheap
- * at these volumes.
+ * Recount a batch from what is actually in it, rather than incrementing
+ * counters as we go — a counter that drifts is worse than no counter, and a
+ * recount is cheap at these volumes.
+ *
+ * A batch's members are the documents that were uploaded into it, except that a
+ * document handed to the statement importer is represented by its statement
+ * instead — and by every sibling that statement fanned out into, because a
+ * CAMT.053 export carrying four accounts really is four statements to read.
  */
 export async function refreshBatch(
   supabase: Client,
   batchId: string,
 ): Promise<BatchProgress | null> {
-  const { data: statements } = await supabase
-    .from("statements")
-    .select("status, transaction_count, duplicate_count, proposal_id")
-    .eq("import_batch_id", batchId);
+  const [{ data: statements }, { data: documents }] = await Promise.all([
+    supabase
+      .from("statements")
+      .select("status, transaction_count, duplicate_count, proposal_id")
+      .eq("import_batch_id", batchId),
+    supabase.from("documents").select("status, statement_id").eq("import_batch_id", batchId),
+  ]);
 
   const rows = (statements ?? []) as Array<{
     status: string;
@@ -171,28 +180,48 @@ export async function refreshBatch(
     duplicate_count: number | null;
     proposal_id: string | null;
   }>;
-  if (!rows.length) return null;
 
-  const finished = rows.filter((row) => TERMINAL.includes(row.status)).length;
-  const failed = rows.filter((row) => row.status === "failed").length;
-  const duplicates = rows.filter((row) => row.status === "duplicate").length;
-  const awaiting = rows.filter((row) => row.status === "awaiting_account").length;
+  // Only the documents that never became statements count as members; the rest
+  // would be counted twice.
+  const docs = ((documents ?? []) as Array<{ status: string; statement_id: string | null }>).filter(
+    (row) => !row.statement_id,
+  );
+
+  const members = rows.length + docs.length;
+  if (!members) return null;
+
+  const finished =
+    rows.filter((row) => TERMINAL.includes(row.status)).length +
+    docs.filter((row) => DOC_TERMINAL.includes(row.status)).length;
+  const failed =
+    rows.filter((row) => row.status === "failed").length +
+    docs.filter((row) => row.status === "failed").length;
+  const duplicates =
+    rows.filter((row) => row.status === "duplicate").length +
+    docs.filter((row) => row.status === "duplicate").length;
+  const awaitingAccount = rows.filter((row) => row.status === "awaiting_account").length;
+  const awaitingType = docs.filter((row) => row.status === "needs_type").length;
+  const awaiting = awaitingAccount + awaitingType;
   const imported = rows.reduce((sum, row) => sum + (row.transaction_count ?? 0), 0);
   const skipped = rows.reduce((sum, row) => sum + (row.duplicate_count ?? 0), 0);
   const proposals = new Set(rows.map((row) => row.proposal_id).filter(Boolean)).size;
+  const read = docs.filter((row) => row.status === "linked" || row.status === "extracted").length;
 
-  const settled = finished + awaiting === rows.length;
-  const status = !settled ? "running" : failed === rows.length ? "failed" : "completed";
+  const settled = finished + awaiting === members;
+  const status = !settled ? "running" : failed === members ? "failed" : "completed";
 
   const parts: string[] = [];
   if (imported) parts.push(`${imported} transaction${imported === 1 ? "" : "s"} imported`);
   if (skipped) parts.push(`${skipped} already on file`);
-  if (awaiting) parts.push(`${awaiting} waiting on an account`);
+  if (read) parts.push(`${read} document${read === 1 ? "" : "s"} read`);
+  if (awaitingAccount) parts.push(`${awaitingAccount} waiting on an account`);
+  if (awaitingType) parts.push(`${awaitingType} waiting on a type`);
   if (duplicates) parts.push(`${duplicates} duplicate file${duplicates === 1 ? "" : "s"}`);
   if (failed) parts.push(`${failed} failed`);
 
   const update = {
     status,
+    total_files: members,
     finished_files: finished,
     failed_files: failed,
     duplicate_files: duplicates,
@@ -214,6 +243,7 @@ export async function refreshBatch(
 
   return (data as BatchProgress | null) ?? null;
 }
+
 
 /** Every batch that still has work in it, so a sweep knows what to recount. */
 export async function activeBatchIds(

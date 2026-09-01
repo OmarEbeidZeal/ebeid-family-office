@@ -306,6 +306,259 @@ function fromCurrency(context: HouseholdContext): Signal[] {
   ];
 }
 
+/** A person's name reduced to something safe to put in a signal id. */
+const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/**
+ * What the paperwork says that the balance sheet cannot.
+ *
+ * Policies, tenancy agreements and payslips each carry a dated consequence: a
+ * cover shortfall, a notice deadline, or an income figure closing on £100,000.
+ * Nothing here fires from an absence of paper — an unuploaded policy is unknown
+ * cover, not nil cover, and the one signal about missing paper says exactly that.
+ */
+function fromDocuments(context: HouseholdContext, base: string): Signal[] {
+  const documents = context.documents;
+  if (!("protection" in documents)) return [];
+  const { protection, housing, pay } = documents;
+  const signals: Signal[] = [];
+
+  /* ------------------------------------------------------------ protection */
+
+  if (protection.policies_on_file === 0) {
+    signals.push({
+      id: "protection-no-policies",
+      kind: "briefing",
+      severity: "info",
+      summary: `No insurance policy schedules are on file, so life, critical illness and income protection cover is unknown rather than nil. The household owes ${money(
+        protection.liabilities_base,
+        base,
+      )} and has chosen ${protection.replacement_years} years of income replacement, which is what any cover would have to meet.`,
+      fingerprint: "protection:none-on-file",
+    });
+  } else if ((protection.shortfall_base ?? 0) > 0) {
+    const shortfall = protection.shortfall_base ?? 0;
+    const need = protection.need_base ?? 0;
+    signals.push({
+      id: "protection-shortfall",
+      kind: "risk",
+      // Uncovered more than half the need is a foundation problem, not a tidy-up.
+      severity: need > 0 && shortfall / need >= 0.5 ? "urgent" : "action",
+      summary: `Life cover on file is ${money(protection.life_cover_base, base)} against a need of ${money(
+        need,
+        base,
+      )} — ${money(shortfall, base)} uncovered. The need is ${money(
+        protection.liabilities_base,
+        base,
+      )} of liabilities plus ${protection.replacement_years} years of income at ${money(
+        protection.income_replacement_base,
+        base,
+      )}.${
+        protection.people_without_life_cover.length
+          ? ` No life policy is on file for ${protection.people_without_life_cover.join(" or ")}.`
+          : ""
+      }`,
+      fingerprint: `protection:shortfall:${bucket(shortfall, 50_000)}`,
+    });
+  }
+
+  for (const person of protection.people_without_income_protection) {
+    const cover = protection.cover_by_person.find((row) => row.person === person);
+    if (!cover?.annual_income_base) continue;
+    signals.push({
+      id: `protection-ip-${slug(person)}`,
+      kind: "risk",
+      severity: "info",
+      summary: `${person} earns ${money(
+        cover.annual_income_base,
+        base,
+      )} a year with no income protection policy on file. Long-term illness would stop that income while the household's fixed commitments continue.`,
+      fingerprint: `protection:ip:${person}`,
+    });
+  }
+
+  for (const policy of protection.life_policies_not_in_trust) {
+    signals.push({
+      id: `protection-trust-${slug(policy.insurer)}`,
+      kind: "recommendation",
+      severity: "action",
+      summary: `The ${policy.insurer} life policy (${money(
+        policy.sum_assured_base,
+        base,
+      )}) is not written in trust. ${policy.note} Writing it in trust is paperwork with the insurer, not a new premium.`,
+      fingerprint: `protection:trust:${policy.insurer}`,
+    });
+  }
+
+  for (const renewal of protection.renewals_within_60_days) {
+    signals.push({
+      id: `protection-renewal-${slug(renewal.insurer)}-${slug(renewal.type)}`,
+      kind: "alert",
+      severity: renewal.days_away <= 30 ? "urgent" : "action",
+      summary: `The ${renewal.insurer} ${renewal.type.replace(/_/g, " ")} policy renews on ${
+        renewal.date
+      }, ${renewal.days_away} days away, at ${money(
+        renewal.premium_base,
+        base,
+      )}. Auto-renewal quotes are usually above the market — this is the window to re-quote.`,
+      fingerprint: `protection:renewal:${renewal.insurer}:${renewal.date}`,
+    });
+  }
+
+  /* --------------------------------------------------------------- housing */
+
+  for (const tenancy of housing.agreements) {
+    if (tenancy.status === "ended") continue;
+
+    if (tenancy.days_to_decision !== null && tenancy.days_to_decision <= 120) {
+      signals.push({
+        id: `tenancy-decision-${slug(tenancy.address)}`,
+        kind: "alert",
+        severity: tenancy.days_to_decision <= 30 ? "urgent" : "action",
+        summary: `${tenancy.address}: ${
+          tenancy.decision ?? "the tenancy decision"
+        } falls on ${tenancy.decision_date}, ${tenancy.days_to_decision} days away${
+          tenancy.notice_months ? `, with ${tenancy.notice_months} months' notice required` : ""
+        }. Rent is ${money(tenancy.monthly_rent_base, base)} a month${
+          tenancy.term_end ? ` and the term ends ${tenancy.term_end}` : ""
+        }.`,
+        fingerprint: `tenancy:decision:${tenancy.address}:${tenancy.decision_date}`,
+      });
+    }
+
+    if (
+      tenancy.role === "tenant" &&
+      tenancy.status === "current" &&
+      (tenancy.monthly_rent_base ?? 0) > 0 &&
+      !tenancy.rent_in_forecast
+    ) {
+      signals.push({
+        id: `tenancy-forecast-${slug(tenancy.address)}`,
+        kind: "briefing",
+        severity: "action",
+        summary: `Rent of ${money(
+          tenancy.monthly_rent_base,
+          base,
+        )} a month on ${tenancy.address} is not in the forecast, so every projection and scenario understates committed spending by ${money(
+          (tenancy.monthly_rent_base ?? 0) * 12,
+          base,
+        )} a year.`,
+        fingerprint: `tenancy:forecast:${tenancy.address}`,
+      });
+    }
+
+    if (
+      tenancy.role === "tenant" &&
+      (tenancy.deposit_base ?? 0) > 0 &&
+      !tenancy.deposit_on_balance_sheet
+    ) {
+      signals.push({
+        id: `tenancy-deposit-${slug(tenancy.address)}`,
+        kind: "briefing",
+        severity: "info",
+        summary: `A deposit of ${money(
+          tenancy.deposit_base,
+          base,
+        )} on ${tenancy.address} is recoverable at the end of the tenancy but is not on the balance sheet, so net worth and any deposit-funded purchase are understated by that amount.`,
+        fingerprint: `tenancy:deposit:${tenancy.address}`,
+      });
+    }
+  }
+
+  /* ------------------------------------------------------------------- pay */
+
+  for (const person of pay.people) {
+    if (person.ani_status === "over" || person.ani_status === "close") {
+      const over = person.ani_status === "over";
+      signals.push({
+        id: `pay-ani-${slug(person.person)}`,
+        kind: over ? "alert" : "recommendation",
+        severity: over ? "urgent" : "action",
+        summary: `${person.person}'s adjusted net income for ${pay.tax_year} projects to ${money(
+          person.ani_estimate_base,
+          base,
+        )} against the ${money(pay.cliff, base)} cliff — ${
+          over
+            ? `${money(Math.abs(person.headroom_to_100k_base ?? 0), base)} over`
+            : `${money(person.headroom_to_100k_base, base)} of headroom`
+        }. Above £100,000 the personal allowance tapers at 60% marginal rate and both the 30 funded childcare hours and Tax-Free Childcare are withdrawn entirely.${
+          person.pension_contribution_to_clear_base
+            ? ` A pension contribution of ${money(
+                person.pension_contribution_to_clear_base,
+                base,
+              )} before 5 April brings it back under.`
+            : ""
+        } Projected from ${person.payslips_in_year} payslip${
+          person.payslips_in_year === 1 ? "" : "s"
+        } this year, so it moves with each new one.`,
+        fingerprint: `pay:ani:${person.person}:${pay.tax_year}:${person.ani_status}:${bucket(
+          person.ani_estimate_base,
+          2500,
+        )}`,
+      });
+    }
+
+    const allowance = person.pension_allowance;
+    if (allowance && (allowance.headroom_base ?? 0) < 0) {
+      signals.push({
+        id: `pay-pension-over-${slug(person.person)}`,
+        kind: "alert",
+        severity: "urgent",
+        summary: `${person.person}'s projected pension contributions for ${pay.tax_year} are ${money(
+          allowance.projected_total_base,
+          base,
+        )} against an annual allowance of ${money(allowance.allowance_base, base)}${
+          allowance.taper_likely ? " (tapered by adjusted income)" : ""
+        } — ${money(
+          Math.abs(allowance.headroom_base ?? 0),
+          base,
+        )} over. The excess is charged at the marginal rate unless carry-forward from the three previous years covers it.`,
+        fingerprint: `pay:pension-over:${person.person}:${pay.tax_year}:${bucket(
+          allowance.headroom_base,
+          2500,
+        )}`,
+      });
+    }
+
+    // Every historical code change is on the record; only the most recent one is
+    // news, and a wrong code today matters whatever happened last year.
+    const changes = person.tax_code_flags.filter((flag) => flag.kind === "changed");
+    const codeFlags = [
+      ...person.tax_code_flags.filter((flag) => flag.kind !== "changed"),
+      ...(changes.length ? [changes[changes.length - 1]!] : []),
+    ];
+
+    for (const flag of codeFlags) {
+      signals.push({
+        id: `pay-taxcode-${flag.kind}-${slug(person.person)}`,
+        kind: "alert",
+        severity: flag.kind === "changed" ? "info" : "action",
+        summary: `${person.person}'s tax code is ${flag.code}${
+          flag.previous ? `, changed from ${flag.previous}` : ""
+        } as of the payslip dated ${flag.since}. ${flag.note}`,
+        fingerprint: `pay:taxcode:${person.person}:${flag.kind}:${flag.code}:${flag.since}`,
+      });
+    }
+  }
+
+  for (const gap of pay.months_missing) {
+    if (gap.missing.length < 2) continue;
+    signals.push({
+      id: `pay-missing-${slug(gap.employer)}`,
+      kind: "briefing",
+      severity: "info",
+      summary: `${gap.missing.length} of ${gap.expected} expected payslips from ${
+        gap.employer
+      } are not on file (${gap.seen} uploaded; missing ${gap.missing
+        .slice(0, 6)
+        .join(", ")}). The adjusted net income estimate runs off year-to-date figures, so it survives the gap, but net-pay reconciliation against the bank does not.`,
+      fingerprint: `pay:missing:${gap.employer}:${gap.missing.join("|")}`,
+    });
+  }
+
+  return signals;
+}
+
 export function detectSignals(input: {
   context: HouseholdContext;
   findings: PolicyFinding[];
@@ -321,6 +574,7 @@ export function detectSignals(input: {
     ...fromHoldings(context, base),
     ...fromSpending(context, base),
     ...fromCurrency(context),
+    ...fromDocuments(context, base),
     ...fromStaleRecords(context),
   ];
 }

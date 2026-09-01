@@ -18,30 +18,41 @@ import {
   type CategoryRule,
 } from "./categorise.server";
 import { CATEGORISATION_MODEL } from "./ai/models";
+import { importBrokerLedger } from "./import/broker-import.server";
 import { parseCamt053 } from "./import/camt053.server";
 import { StatementFailure } from "./import/failure";
+
 import { EXACT_BALANCE_FORMATS, formatLabel, type SourceFormat } from "./import/formats";
 import { parseMt940 } from "./import/mt940.server";
 import { parseQif } from "./import/qif.server";
+import { detectProvider, type DetectedProvider } from "./import/providers";
 import { sniffFormat } from "./import/sniff.server";
+import { looksLikeTrading212, parseTrading212 } from "./import/trading212.server";
+import { looksLikeMonzo, parseMonzo } from "./import/monzo.server";
+
 import {
   applyMapping,
   extractFromPdfText,
   inferColumnMapping,
+  EMPTY_IDENTITY,
   type ExtractionResult,
 } from "./statement-extract.server";
 
+
 import {
   SCANNED_PDF_MESSAGE,
+  UNMAPPED_PDF_MESSAGE,
   decodeText,
   extractPdfText,
   fingerprintOf,
   looksScanned,
+  looksUnmapped,
   parseDelimitedRows,
   parseWorkbookRows,
   type RawTransaction,
 } from "./statement-parse.server";
-import { similarity } from "./text";
+import { scrubDeep, similarity } from "./text";
+
 
 type Client = any;
 
@@ -57,6 +68,10 @@ export type ImportResult = {
 
 const INSERT_BATCH = 400;
 const UPDATE_BATCH = 200;
+// Balances are written one row at a time, so these go in small waves rather
+// than hundreds of requests at once.
+const FILL_BATCH = 25;
+
 
 /* --------------------------------------------------------------- FX at date */
 
@@ -130,13 +145,18 @@ export function convertToBase(
 /* ------------------------------------------------------------- duplicates */
 
 type ExistingRow = {
+  id: string;
   booked_date: string;
   amount: number;
   direction: string;
   description: string | null;
   import_fingerprint: string | null;
   bank_reference?: string | null;
+  balance_after?: number | null;
+  is_transfer?: boolean | null;
 };
+
+
 
 function bucketKey(date: string, amount: number, direction: string) {
   return `${date}|${Math.round(Math.abs(amount) * 100)}|${direction}`;
@@ -194,11 +214,14 @@ export type LoadedStatementFile = {
 
 export async function downloadStatementFile(
   supabase: Client,
-  statement: { file_path: string; file_name?: string | null },
+  statement: { file_path: string; file_name?: string | null; storage_bucket?: string | null },
 ): Promise<LoadedStatementFile> {
+  // Files uploaded through the documents surface live in `documents`; the ones
+  // imported before it existed stay in `statements`.
   const { data: file, error } = await supabase.storage
-    .from("statements")
+    .from(statement.storage_bucket ?? "statements")
     .download(statement.file_path);
+
   if (error || !file) {
     throw new StatementFailure(
       "The uploaded file could not be read back from storage. Upload it again.",
@@ -232,6 +255,13 @@ export async function downloadStatementFile(
 export async function extractStatementContent(
   file: LoadedStatementFile,
 ): Promise<ExtractionResult[]> {
+  // Nothing that leaves this function reaches the database with a character the
+  // database cannot store — a broken PDF font map is caught below, and the
+  // scrub is the backstop for everything else.
+  return scrubDeep(await readStatementContent(file));
+}
+
+async function readStatementContent(file: LoadedStatementFile): Promise<ExtractionResult[]> {
   const body = () => file.text ?? decodeText(file.bytes);
 
   switch (file.format) {
@@ -244,6 +274,7 @@ export async function extractStatementContent(
     case "pdf": {
       const pdf = await extractPdfText(file.bytes);
       if (looksScanned(pdf)) throw new StatementFailure(SCANNED_PDF_MESSAGE);
+      if (looksUnmapped(pdf)) throw new StatementFailure(UNMAPPED_PDF_MESSAGE);
       return [tag(await extractFromPdfText(pdf.text), "pdf")];
     }
     default: {
@@ -257,11 +288,76 @@ export async function extractStatementContent(
           "This file has no readable rows. Check you exported the transaction list rather than a summary.",
         );
       }
-      const mapping = await inferColumnMapping(rows);
-      return [tag(applyMapping(rows, mapping), file.format)];
+
+      // A broker's activity ledger is not a bank statement with unusual
+      // headings: half its rows are orders, not spending. It is read by its own
+      // parser so the cash side lands on the account and the securities side
+      // lands on holdings, rather than a share purchase being filed as an
+      // expense.
+      const provider = detectProvider(rows);
+      if (looksLikeTrading212(rows)) {
+        return [withProvider(parseTrading212(rows), provider)];
+      }
+
+      // Monzo prints its current account and its Flex credit line in the same
+      // eighteen columns and names neither, so the two are told apart by their
+      // contents. Read by the shared mapping they pool into one account, and
+      // every repayment between them is counted as spending.
+      if (looksLikeMonzo(rows)) {
+        return [withProvider(parseMonzo(rows), provider)];
+      }
+
+
+
+      // A recognised export is read by its own headings. Only an unfamiliar
+      // layout — or a familiar one missing the columns it should have — is sent
+      // to a model, and even then the export's own name is kept.
+      const mapping = provider?.mapping ?? (await inferColumnMapping(rows));
+      const result = applyMapping(rows, mapping);
+      return [tag(withProvider(result, provider), file.format)];
+
     }
   }
 }
+
+/**
+ * What the header row proved, laid over what the mapping read.
+ *
+ * The file's own words win where it has any: a statement that prints its bank
+ * is not overruled by a signature. Everything the file left blank — most often
+ * the bank itself, on a Monzo or Trading 212 export — is filled in here, which
+ * is what stops two nameless exports being filed as one account.
+ */
+function withProvider(
+  result: ExtractionResult,
+  provider: DetectedProvider | null,
+): ExtractionResult {
+  if (!provider) return result;
+
+  const identity = result.meta.identity ?? EMPTY_IDENTITY;
+  const notes = result.notes.includes(provider.note)
+    ? result.notes
+    : [provider.note, ...result.notes];
+
+  return {
+    ...result,
+    notes,
+    meta: {
+      ...result.meta,
+      currency: result.meta.currency ?? provider.currency,
+      identity: {
+        ...identity,
+        institution: identity.institution ?? provider.institution,
+        account_type: identity.account_type ?? provider.accountType,
+        country: identity.country ?? provider.country,
+        account_identifier: identity.account_identifier ?? provider.accountIdentifier,
+        identifier_kind: identity.identifier_kind ?? provider.identifierKind,
+      },
+    },
+  };
+}
+
+
 
 /** The inferred formats state what they are and what they could not promise. */
 function tag(result: ExtractionResult, format: SourceFormat): ExtractionResult {
@@ -391,14 +487,17 @@ export async function importExtracted(
     /* -------------------------------------------------------- deduplicate */
     const { data: existingRows } = await supabase
       .from("transactions")
-      .select("booked_date, amount, direction, description, import_fingerprint, bank_reference")
+      .select(
+        "id, booked_date, amount, direction, description, import_fingerprint, bank_reference, balance_after, is_transfer",
+      )
+
       .eq("account_id", statement.account_id)
       .gte("booked_date", firstDate)
       .lte("booked_date", lastDate);
 
     const existingByBucket = new Map<string, ExistingRow[]>();
     const fingerprintCounts = new Map<string, number>();
-    const heldReferences = new Set<string>();
+    const heldReferences = new Map<string, ExistingRow>();
     for (const row of (existingRows ?? []) as ExistingRow[]) {
       const key = bucketKey(row.booked_date, Number(row.amount), row.direction);
       const bucket = existingByBucket.get(key) ?? [];
@@ -409,20 +508,38 @@ export async function importExtracted(
       if (base) fingerprintCounts.set(base, (fingerprintCounts.get(base) ?? 0) + 1);
 
       const reference = referenceKey(row.bank_reference, row.booked_date, Number(row.amount));
-      if (reference) heldReferences.add(reference);
+      if (reference && !heldReferences.has(reference)) heldReferences.set(reference, row);
     }
 
     const consumed = new Set<ExistingRow>();
     const occurrence = new Map<string, number>();
     const fresh: Array<RawTransaction & { fingerprint: string }> = [];
+    // A line already stored keeps its category and its review state when the
+    // file is read again — but a running balance the first reading dropped is
+    // filled in, because that figure is what gives the account a balance.
+    const fills: Array<{ id: string; balance_after: number }> = [];
+    // The one exception to leaving stored lines alone: a share purchase an
+    // earlier, weaker reading filed as household spending. That is not a
+    // preference to preserve, it is a wrong number in the spending totals, so a
+    // reading that now recognises the line as an internal move corrects it.
+    const settles: string[] = [];
     let duplicates = 0;
+
+    const fillFrom = (held: ExistingRow, row: RawTransaction) => {
+      if (row.internal && !held.is_transfer) settles.push(held.id);
+      if (held.balance_after !== null && held.balance_after !== undefined) return;
+      if (typeof row.balance_after !== "number" || !Number.isFinite(row.balance_after)) return;
+      fills.push({ id: held.id, balance_after: Number(row.balance_after.toFixed(2)) });
+    };
 
     for (const row of parsed) {
       // The bank's own reference is the one exact answer to "have we already
       // got this?" — it survives a description the bank chose to word
       // differently in a later export.
       const reference = referenceKey(row.bank_reference ?? null, row.booked_date, row.amount);
-      if (reference && heldReferences.has(reference)) {
+      const held = reference ? heldReferences.get(reference) : undefined;
+      if (held) {
+        fillFrom(held, row);
         duplicates += 1;
         continue;
       }
@@ -436,9 +553,11 @@ export async function importExtracted(
       );
       if (match) {
         consumed.add(match);
+        fillFrom(match, row);
         duplicates += 1;
         continue;
       }
+
 
       const base = fingerprintOf({
         booked_date: row.booked_date,
@@ -451,6 +570,7 @@ export async function importExtracted(
       fresh.push({ ...row, fingerprint: `${base}#${seen}` });
     }
 
+
     /* --------------------------------------------------------- categorise */
     type Assignment = {
       category_id: string | null;
@@ -458,16 +578,31 @@ export async function importExtracted(
       is_reviewed: boolean;
       ruleId: string | null;
     };
+
+    // A category the household already chose in its banking app beats anything
+    // a model can infer from the merchant name, and costs nothing to read. A
+    // rule the household wrote here still wins over it.
+    const byName = new Map(categories.map((category) => [category.name.toLowerCase(), category.id]));
     const assignments: Array<Assignment | null> = fresh.map((row) => {
       const rule = matchRule(row.description, rules);
-      return rule
-        ? { category_id: rule.category_id, ai_confidence: 1, is_reviewed: true, ruleId: rule.id }
+      if (rule) {
+        return { category_id: rule.category_id, ai_confidence: 1, is_reviewed: true, ruleId: rule.id };
+      }
+      const hinted = row.category_hint ? byName.get(row.category_hint.toLowerCase()) : undefined;
+      return hinted
+        ? { category_id: hinted, ai_confidence: 1, is_reviewed: true, ruleId: null }
         : null;
     });
 
+
     const needsAi = fresh
       .map((row, index) => ({ row, index }))
-      .filter((entry) => !assignments[entry.index]);
+      // Cash paid into a broker, and that same cash turning into shares, is the
+      // household moving its own money. There is no category to find, and
+      // asking a model to name one is how a share purchase ends up counted as
+      // spending.
+      .filter((entry) => !assignments[entry.index] && !entry.row.internal);
+
 
     let aiNote: string | null = null;
     let categorisedByModel: string | null = null;
@@ -537,11 +672,17 @@ export async function importExtracted(
         bank_tx_code: row.bank_tx_code ?? null,
         ...original,
         import_fingerprint: row.fingerprint,
+        notes: row.notes ?? null,
         category_id: assignment?.category_id ?? null,
         ai_confidence: assignment?.ai_confidence ?? null,
-        is_reviewed: assignment?.is_reviewed ?? false,
+
+        // Internal movement is settled the moment it is read: it is a transfer,
+        // it never reaches the review queue, and it never reaches spending.
+        is_transfer: row.internal === true,
+        is_reviewed: row.internal === true || (assignment?.is_reviewed ?? false),
       };
     });
+
 
     const insertedIds: string[] = [];
     for (let start = 0; start < payload.length; start += INSERT_BATCH) {
@@ -554,12 +695,56 @@ export async function importExtracted(
       for (const row of inserted ?? []) insertedIds.push(row.id as string);
     }
 
+    // Running balances the earlier reading missed, written back onto the rows
+    // that are already here. Nothing else about those rows is touched.
+    let filled = 0;
+    for (let start = 0; start < fills.length; start += FILL_BATCH) {
+      const batch = fills.slice(start, start + FILL_BATCH);
+
+      const done = await Promise.all(
+        batch.map(async (fill) => {
+          const { error } = await supabase
+            .from("transactions")
+            .update({ balance_after: fill.balance_after })
+            .eq("id", fill.id);
+          return error ? 0 : 1;
+        }),
+      );
+      filled += done.reduce((sum: number, one: number) => sum + one, 0);
+    }
+    if (filled) {
+      notes.push(
+        filled === 1
+          ? "One line already imported gained the running balance this reading found."
+          : `${filled} lines already imported gained the running balance this reading found.`,
+      );
+    }
+
+    // Share purchases and other internal moves that an earlier reading left in
+    // the spending totals. Category is cleared with the flag: a "Shopping" tag
+    // on a share purchase is worse than no tag at all.
+    if (settles.length) {
+      const unique = Array.from(new Set(settles));
+      await updateIn(supabase, unique, {
+        is_transfer: true,
+        is_reviewed: true,
+        category_id: null,
+      });
+      notes.push(
+        unique.length === 1
+          ? "One line already imported was moved out of spending — it is money moving inside your own accounts, not an expense."
+          : `${unique.length} lines already imported were moved out of spending — they are money moving inside your own accounts, not expenses.`,
+      );
+    }
+
+
     if (fx.usedDistantRate) {
       notes.push(
         "Some conversions used the nearest exchange rate on record rather than the rate on the day.",
       );
     }
     if (aiNote) notes.push(aiNote);
+
 
     /* ------------------------------------- rule counters, transfers, recurring */
     const ruleHits = new Map<string, number>();
@@ -583,6 +768,31 @@ export async function importExtracted(
 
     await flagTransfers(supabase, statement.household_id, firstDate, lastDate);
     await flagRecurring(supabase, statement.household_id, lastDate);
+
+    /* ------------------------------------------------- the securities side */
+    // A broker export carries two halves. The cash half is written above like
+    // any statement; the orders become trades against holdings here. A failure
+    // on this side must not lose the cash side, so it is reported rather than
+    // thrown.
+    let brokerNote: string | null = null;
+    if (extraction.broker && statement.account_id) {
+      try {
+        const broker = await importBrokerLedger(supabase, {
+          householdId: statement.household_id,
+          accountId: statement.account_id,
+          ledger: extraction.broker,
+        });
+        notes.push(...broker.notes);
+      } catch (error) {
+        brokerNote =
+          error instanceof Error
+            ? `The cash movements were imported, but the orders in this export were not: ${error.message}`
+            : "The cash movements were imported, but the orders in this export were not.";
+        notes.push(brokerNote);
+      }
+    }
+
+
 
     /* ---------------------------------------------------------- validate */
     let opening = extraction.meta.opening_balance;
@@ -614,7 +824,9 @@ export async function importExtracted(
       (discrepancy !== null && discrepancy !== 0) ||
       extraction.skippedRows > 0 ||
       aiNote !== null ||
+      brokerNote !== null ||
       payload.some((row) => row.amount_base === null && row.currency !== baseCurrency);
+
 
     const message = buildMessage({
       inserted: insertedIds.length,
