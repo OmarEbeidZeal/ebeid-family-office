@@ -1,28 +1,32 @@
 # Roadmap
 
-## Now — the broker export the importer read as spending
+## Now — the household actions the new readers unlock
 
-- [ ] A Trading 212 activity export is not a bank statement: read it as trades and cash, so share purchases build the portfolio's cost basis instead of landing in the spending analytics
-- [ ] An export that starts mid-life sells shares it never shows being bought: say so on the holding rather than showing an average cost computed from half the story
-- [ ] Name the file when a PDF's text layer is unreadable — Trading 212 and Interactive Brokers each get the export that works, not a generic apology
-- [ ] Monzo Flex is a credit line, not the current account: keep the two exports apart instead of pooling them
+- [ ] Publish first: the queue sweep runs every five minutes against the published build, so a file re-queued before publishing is read again by the old parser
+- [ ] Then start the Monzo Flex export over, so its 1,403 lines leave the investment account and land on a Flex credit line of their own
+- [ ] Re-download the two Trading 212 PDFs as CSV — the PDFs carry no readable digits, and the CSV brings the orders with it
 
 ## Ready next
 
 - [ ] Imported holdings sit in the core sleeve until the household places them: prompt for the classification rather than assuming it
-- [ ] Trades follow a statement when it is refiled to another account
 - [ ] Document-derived net-worth inputs (deposit asset, protection sum assured) surfaced on the balance sheet
 - [ ] Rent-versus-buy comparison on the property goal using the rent trajectory
 - [ ] Net-pay reconciliation against matched bank credits shown on the payslip row, not just the stored verdict
 
 ## Done
 
+- [x] A Trading 212 activity export read as trades and cash, so share purchases build the portfolio's cost basis instead of landing in the spending analytics
+- [x] An export that starts mid-life says the cost basis is unknown on that holding, and keeps it out of profit and loss, rather than averaging half the story
+- [x] Monzo Flex kept apart from the current account, with its internal repayments out of the spending totals
+- [x] An unreadable PDF names its exporter and the two taps that produce a file with real figures
+- [x] Starting a file over: its transactions, trades and discovered positions come back out and the file re-queues as if it had never arrived
+- [x] Trades follow a statement when it is refiled to another account
 - [x] Running balances derived from the rows when a PDF prints none, and backfilled onto lines already imported when a file is read again
 - [x] "Read again" on an imported statement, so a better reader can improve a file that is already in
 - [x] Accounts split across two rows, or pooled into one, can be merged and refiled with their transactions
 - [x] Exporters that name no bank — Monzo, Trading 212, Revolut, Starling, Wise — recognised from their header signature
 - [x] Proposals tolerate an unstated currency, so one account stops forking into two
-- [x] PDFs whose text layer leaves digits unmapped strip NUL and control characters at the storage boundary and fail once with a message naming the CSV route
+- [x] PDFs whose text layer leaves digits unmapped strip NUL and control characters at the storage boundary and fail once, cleanly
 - [x] Documents rows report the statement's real outcome — failed, waiting for an account, duplicate — with its reason and a retry
 - [x] Accounts with no stated balance carry an explicit unknown balance, stay out of every total, chart and advisor context, and offer one tap to set it
 - [x] The two Wise CAMT.053 exports re-read under the version-agnostic parser: 823 GBP and 460 USD entries, both reconciling to the penny
