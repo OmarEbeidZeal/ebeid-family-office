@@ -80,13 +80,23 @@ export function median(values: number[]) {
 export type MonthTotals = {
   month: string;
   label: string;
+  /** True income: what arrived from outside the household. */
   income: number;
+  /** True spending: what left the household for good. */
   expenses: number;
   essential: number;
   lifestyle: number;
   uncategorised: number;
   /** Money moved to the household's own savings or investment pots. */
   moved: number;
+  /**
+   * Every debit and every credit, internal moves and financing included — what
+   * the bank statements add up to before anything is netted off. Kept beside
+   * the true figures because a household that moves £90k between its own
+   * accounts should be able to see both, and confuse neither for the other.
+   */
+  grossOut: number;
+  grossIn: number;
   net: number;
   savingsRate: number | null;
   count: number;
@@ -115,6 +125,8 @@ export function monthlyTotals(
         lifestyle: 0,
         uncategorised: 0,
         moved: 0,
+        grossOut: 0,
+        grossIn: 0,
         net: 0,
         savingsRate: null,
         count: 0,
@@ -127,6 +139,9 @@ export function monthlyTotals(
     const entry = totals.get(monthKeyOf(row.booked_date));
     if (!entry) continue;
     const value = baseValue(row, toBase);
+
+    if (row.direction === "credit") entry.grossIn += value;
+    else entry.grossOut += value;
 
     if (isMovement(row, transferIds)) {
       entry.moved += row.direction === "debit" ? value : -value;

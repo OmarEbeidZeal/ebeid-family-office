@@ -23,6 +23,12 @@ import {
 import { useAuth } from "./useAuth";
 
 /** What the reader recorded about a file once it had been through the pipeline. */
+export type StatementConflict = {
+  kind?: string | null;
+  message?: string | null;
+  sources?: string[] | null;
+};
+
 export type StatementSummary = {
   inserted?: number | null;
   duplicates?: number | null;
@@ -30,8 +36,11 @@ export type StatementSummary = {
   notes?: string[] | null;
   extraction_notes?: string[] | null;
   format?: string | null;
+  /** Where this file's figures disagree with another document. */
+  conflicts?: StatementConflict[] | null;
   categorised_by?: { model?: string | null } | null;
 };
+
 
 export type ImportStatementRow = {
   id: string;

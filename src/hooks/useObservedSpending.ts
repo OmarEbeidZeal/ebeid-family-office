@@ -62,6 +62,9 @@ export function useObservedSpending(monthsBack = SPENDING_MONTHS) {
       uncategorisedBaseline: baselineFrom(totals, (month) => month.uncategorised),
       /** Typical monthly move into the household's own savings or investment pots. */
       movedBaseline: baselineFrom(totals, (month) => month.moved),
+      /** Everything the statements show leaving and arriving, nothing netted off. */
+      grossOutBaseline: baselineFrom(totals, (month) => month.grossOut),
+      grossInBaseline: baselineFrom(totals, (month) => month.grossIn),
       categories24: categories,
       breakdown: (currentKey: string, previousKey: string) =>
         categorySpend(rows, categories, toBase, currentKey, previousKey),

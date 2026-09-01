@@ -19,6 +19,7 @@
  * be traced back to its source later.
  */
 import { XMLParser } from "fast-xml-parser";
+import { compositeAccountKey } from "./identity.server";
 import { bankFromBic } from "../ai/banks";
 import type { ExtractionResult, StatementIdentity } from "../statement-extract.server";
 import type { RawTransaction } from "../statement-parse.server";
@@ -223,21 +224,33 @@ function readIdentity(stmt: Unknown): {
   const bic = text(at(servicer, "BICFI")) ?? text(at(servicer, "BIC"));
   const servicerName = text(at(servicer, "Nm")) ?? (bic ? bankFromBic(bic) : null);
 
-  const identifier = iban ?? other;
+  const currency = text(at(account, "Ccy"));
+  const holder = partyName(at(account, "Ownr")) ?? text(at(account, "Nm"));
+
+  // The ladder: IBAN, then whatever the bank put in Othr/Id, then a composite
+  // of who services the account, in what currency, for whom. Wise issues
+  // CAMT.053 with no IBAN at all on its non-euro balances, and without the
+  // third rung every export from those accounts arrives unrecognisable.
+  const printed = iban ?? other;
+  const composite = printed
+    ? null
+    : compositeAccountKey([servicerName ?? bic, currency, holder]);
+
+  const identifier = printed ?? composite;
   const kind: StatementIdentity["identifier_kind"] = iban
     ? "iban"
-    : identifier
+    : printed
       ? scheme.includes("CARD")
         ? "card"
         : "account_number"
-      : null;
+      : composite
+        ? "reference"
+        : null;
 
   const country =
     (iban && /^[A-Z]{2}/.test(iban) ? iban.slice(0, 2) : null) ??
     text(at(servicer, "PstlAdr", "Ctry")) ??
     (bic && bic.length >= 6 ? bic.slice(4, 6) : null);
-
-  const holder = partyName(at(account, "Ownr")) ?? text(at(account, "Nm"));
 
   return {
     identity: {
@@ -248,9 +261,10 @@ function readIdentity(stmt: Unknown): {
       account_type: accountType(account),
       country: country && /^[A-Za-z]{2}$/.test(country) ? country.toUpperCase() : null,
     },
-    currency: text(at(account, "Ccy")),
+    currency,
   };
 }
+
 
 /* --------------------------------------------------------------- balances */
 

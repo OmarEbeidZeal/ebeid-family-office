@@ -336,3 +336,15 @@ export const applyCategoryRule = createServerFn({ method: "POST" })
     const updated = await applyRuleToExisting(context.supabase, householdId, data.ruleId);
     return { updated };
   });
+
+/**
+ * Re-reads the whole ledger for internal movement. Offered after a name or an
+ * account is confirmed, when detection can now see what it could not before.
+ */
+export const rescanTransfers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { rescanTransfers: run } = await import("./statement-import.server");
+    const { householdId } = await viewerOf(context.supabase, context.userId);
+    return run(context.supabase, householdId);
+  });

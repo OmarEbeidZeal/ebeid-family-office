@@ -8,6 +8,7 @@ import { IncomeExpenseChart } from "@/components/charts/IncomeExpenseChart";
 import { SavingsTrendChart } from "@/components/charts/SavingsTrendChart";
 import { CategoryBreakdown } from "@/components/spending/CategoryBreakdown";
 import { EssentialSplitPanel } from "@/components/spending/EssentialSplitPanel";
+import { GrossFlowsPanel } from "@/components/spending/GrossFlowsPanel";
 import { MerchantsPanel } from "@/components/spending/MerchantsPanel";
 import { RecurringPanel } from "@/components/spending/RecurringPanel";
 import { useObservedSpending } from "@/hooks/useObservedSpending";
@@ -74,6 +75,7 @@ function SpendingPage() {
       ) : (
         <div className="space-y-4">
           <EssentialSplitPanel spending={spending} />
+          <GrossFlowsPanel spending={spending} />
 
           <section className="hairline rounded-lg bg-surface p-5">
             <SectionHeader

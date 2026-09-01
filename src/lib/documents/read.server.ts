@@ -8,11 +8,12 @@
  */
 import { StatementFailure } from "../import/failure";
 import type { SourceFormat } from "../import/formats";
-import { unreadablePdfMessage } from "../import/pdf-guidance";
+import { digitsLostPdfMessage, unreadablePdfMessage } from "../import/pdf-guidance";
 import { sniffFormat } from "../import/sniff.server";
 import {
   SCANNED_PDF_MESSAGE,
   decodeText,
+  digitsLost,
   extractPdfText,
   looksScanned,
   looksUnmapped,
@@ -94,10 +95,12 @@ export async function documentText(file: LoadedDocument): Promise<string> {
     case "pdf": {
       const pdf = await extractPdfText(file.bytes);
       if (looksScanned(pdf)) throw new StatementFailure(SCANNED_PDF_MESSAGE);
+      if (digitsLost(pdf)) throw new StatementFailure(digitsLostPdfMessage(pdf.text, "document"));
       if (looksUnmapped(pdf)) throw new StatementFailure(unreadablePdfMessage(pdf.text, "document"));
       body = pdf.text;
       break;
     }
+
 
     case "xlsx": {
       const rows = await parseWorkbookRows(file.bytes);

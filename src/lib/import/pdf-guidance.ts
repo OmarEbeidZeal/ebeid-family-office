@@ -87,6 +87,23 @@ const DOCUMENT_OPENING =
   "This PDF's text layer does not map its own characters — the words come out blank, so nothing in it can be read honestly.";
 
 /**
+ * The exact words a household sees when a PDF's numerals did not survive.
+ * Said first, and plainly: the file is not being imported.
+ */
+export const DIGITS_LOST_MESSAGE =
+  "This PDF's text could not be read reliably — export CSV or XML from your bank instead.";
+
+function exporterRoute(text: string): string[] {
+  const exporter = detectPdfExporter(text);
+  if (!exporter) return [];
+  return [
+    `${exporter.name} exports every PDF this way.`,
+    `Download the same period from ${exporter.route} and upload that instead.`,
+    exporter.extra ?? "",
+  ].filter(Boolean);
+}
+
+/**
  * The failure a household reads. Where the exporter is known, it ends with the
  * two or three taps that produce a file this can read.
  */
@@ -95,17 +112,29 @@ export function unreadablePdfMessage(text: string, kind: PdfKind = "statement"):
     return `${DOCUMENT_OPENING} Ask whoever issued it for a copy you can select text in, or add the details by hand.`;
   }
 
-  const exporter = detectPdfExporter(text);
-  if (!exporter) {
+  const route = exporterRoute(text);
+  if (!route.length) {
     return `${OPENING} Some brokers and app-only banks export PDFs like this; download the CSV or Excel version of the same statement instead.`;
   }
 
-  return [
-    OPENING,
-    `${exporter.name} exports every PDF this way.`,
-    `Download the same period from ${exporter.route} and upload that instead.`,
-    exporter.extra,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  return [OPENING, ...route].join(" ");
 }
+
+/**
+ * A file whose words came through and whose figures did not. The opening
+ * sentence is fixed; the exporter's own export route is added when the
+ * surviving words name it.
+ */
+export function digitsLostPdfMessage(text: string, kind: PdfKind = "statement"): string {
+  if (kind === "document") {
+    return `${DIGITS_LOST_MESSAGE} If it is not a bank document, ask whoever issued it for a copy you can select the figures in, or add the details by hand.`;
+  }
+
+  const route = exporterRoute(text);
+  if (!route.length) {
+    return `${DIGITS_LOST_MESSAGE} Every figure on the page came back blank, so importing it would mean inventing the numbers.`;
+  }
+
+  return [DIGITS_LOST_MESSAGE, ...route].join(" ");
+}
+

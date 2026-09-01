@@ -19,9 +19,12 @@ import {
 } from "./categorise.server";
 import { CATEGORISATION_MODEL } from "./ai/models";
 import { importBrokerLedger } from "./import/broker-import.server";
+import { detectBalanceConflicts, type Conflict } from "./import/conflicts";
+
 import { parseCamt053 } from "./import/camt053.server";
+import { loadPeopleIndex } from "./people.server";
 import { StatementFailure } from "./import/failure";
-import { unreadablePdfMessage } from "./import/pdf-guidance";
+import { digitsLostPdfMessage, unreadablePdfMessage } from "./import/pdf-guidance";
 
 import { EXACT_BALANCE_FORMATS, formatLabel, type SourceFormat } from "./import/formats";
 import { parseMt940 } from "./import/mt940.server";
@@ -43,6 +46,7 @@ import {
 import {
   SCANNED_PDF_MESSAGE,
   decodeText,
+  digitsLost,
   extractPdfText,
   fingerprintOf,
   looksScanned,
@@ -274,9 +278,13 @@ async function readStatementContent(file: LoadedStatementFile): Promise<Extracti
     case "pdf": {
       const pdf = await extractPdfText(file.bytes);
       if (looksScanned(pdf)) throw new StatementFailure(SCANNED_PDF_MESSAGE);
+      // The digits are checked before the glyphs: a file that kept its words
+      // and lost its numbers reads as a clean import and holds no money.
+      if (digitsLost(pdf)) throw new StatementFailure(digitsLostPdfMessage(pdf.text));
       if (looksUnmapped(pdf)) throw new StatementFailure(unreadablePdfMessage(pdf.text));
       return [tag(await extractFromPdfText(pdf.text), "pdf")];
     }
+
     default: {
       const rawRows =
         file.format === "csv"
@@ -775,15 +783,18 @@ export async function importExtracted(
     // on this side must not lose the cash side, so it is reported rather than
     // thrown.
     let brokerNote: string | null = null;
+    const conflicts: Conflict[] = [];
     if (extraction.broker && statement.account_id) {
       try {
         const broker = await importBrokerLedger(supabase, {
           householdId: statement.household_id,
           accountId: statement.account_id,
           statementId: statement.id,
+          fileName: (statement["file_name"] as string | null) ?? null,
           ledger: extraction.broker,
         });
         notes.push(...broker.notes);
+        conflicts.push(...broker.conflicts);
       } catch (error) {
         brokerNote =
           error instanceof Error
@@ -792,6 +803,7 @@ export async function importExtracted(
         notes.push(brokerNote);
       }
     }
+
 
 
 
@@ -821,12 +833,57 @@ export async function importExtracted(
       );
     }
 
+    /* -------------------------------- where this file contradicts an earlier one */
+    // Two exports of the same weeks can disagree. Whichever was read last would
+    // otherwise become the truth in silence, so the disagreement is named and
+    // the statement is held for review instead.
+    if (statement.account_id) {
+      const { data: siblings } = await supabase
+        .from("statements")
+        .select("id, file_name, period_start, period_end, opening_balance, closing_balance, currency")
+        .eq("household_id", statement.household_id)
+        .eq("account_id", statement.account_id)
+        .neq("id", statementId)
+        .in("status", ["parsed", "needs_review"])
+        .order("period_end", { ascending: false })
+        .limit(120);
+
+      const balanceClashes = detectBalanceConflicts(
+        {
+          id: statementId,
+          fileName: (statement["file_name"] as string | null) ?? null,
+          periodStart: extraction.meta.period_start ?? firstDate,
+          periodEnd: extraction.meta.period_end ?? lastDate,
+          openingBalance: opening,
+          closingBalance: closing,
+          currency: statementCurrency,
+        },
+        ((siblings ?? []) as Array<Record<string, unknown>>).map((row) => ({
+          id: String(row["id"]),
+          fileName: (row["file_name"] as string | null) ?? null,
+          periodStart: (row["period_start"] as string | null) ?? null,
+          periodEnd: (row["period_end"] as string | null) ?? null,
+          openingBalance: row["opening_balance"] === null ? null : Number(row["opening_balance"]),
+          closingBalance: row["closing_balance"] === null ? null : Number(row["closing_balance"]),
+          currency: (row["currency"] as string | null) ?? null,
+        })),
+      );
+
+      for (const clash of balanceClashes) {
+        conflicts.push(clash);
+        notes.push(clash.message);
+      }
+    }
+
     const needsReview =
       (discrepancy !== null && discrepancy !== 0) ||
       extraction.skippedRows > 0 ||
       aiNote !== null ||
       brokerNote !== null ||
+      conflicts.length > 0 ||
       payload.some((row) => row.amount_base === null && row.currency !== baseCurrency);
+
+
 
 
     const message = buildMessage({
@@ -836,6 +893,7 @@ export async function importExtracted(
       discrepancy,
       currency: statementCurrency,
       exact: exactFormat,
+      conflicts: conflicts.length,
     });
 
     // Count what this file actually accounts for rather than what this run
@@ -867,10 +925,12 @@ export async function importExtracted(
           skipped_rows: extraction.skippedRows,
           notes,
           format,
+          conflicts,
           categorised_by: categorisedByModel ? { model: categorisedByModel } : null,
         },
       })
       .eq("id", statementId);
+
 
     return {
       status: needsReview ? "needs_review" : "parsed",
@@ -895,6 +955,7 @@ function buildMessage(input: {
   discrepancy: number | null;
   currency: string;
   exact: boolean;
+  conflicts: number;
 }) {
   const parts = [`${input.inserted} new`];
   if (input.duplicates) parts.push(`${input.duplicates} already imported`);
@@ -907,8 +968,16 @@ function buildMessage(input: {
         : `balance out by ${amount}`,
     );
   }
+  if (input.conflicts) {
+    parts.push(
+      input.conflicts === 1
+        ? "one figure here disagrees with another document"
+        : `${input.conflicts} figures here disagree with other documents`,
+    );
+  }
   return parts.join(", ");
 }
+
 
 /* ------------------------------------------------- post-import enrichment */
 
@@ -921,13 +990,18 @@ async function flagTransfers(
   const from = new Date(new Date(firstDate).getTime() - 4 * 86_400_000).toISOString().slice(0, 10);
   const to = new Date(new Date(lastDate).getTime() + 4 * 86_400_000).toISOString().slice(0, 10);
 
-  const { data } = await supabase
-    .from("transactions")
-    .select("id, account_id, booked_date, amount, amount_base, direction, is_transfer")
-    .eq("household_id", householdId)
-    .gte("booked_date", from)
-    .lte("booked_date", to)
-    .limit(8000);
+  const [{ data }, people] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select(
+        "id, account_id, booked_date, amount, amount_base, direction, is_transfer, merchant, description",
+      )
+      .eq("household_id", householdId)
+      .gte("booked_date", from)
+      .lte("booked_date", to)
+      .limit(8000),
+    loadPeopleIndex(supabase, householdId).catch(() => []),
+  ]);
 
   const rows = (data ?? []) as Array<{
     id: string;
@@ -937,13 +1011,16 @@ async function flagTransfers(
     amount_base: number | null;
     direction: string;
     is_transfer: boolean;
+    merchant: string | null;
+    description: string | null;
   }>;
   if (rows.length < 2) return;
 
-  const transferIds = detectTransfers(rows);
+  const transferIds = detectTransfers(rows, people);
   const toFlag = rows.filter((row) => transferIds.has(row.id) && !row.is_transfer).map((r) => r.id);
   await updateIn(supabase, toFlag, { is_transfer: true });
 }
+
 
 async function flagRecurring(supabase: Client, householdId: string, lastDate: string) {
   const from = new Date(new Date(lastDate).getTime() - 550 * 86_400_000).toISOString().slice(0, 10);
@@ -991,6 +1068,62 @@ async function updateIn(supabase: Client, ids: string[], values: Record<string, 
     const { error } = await supabase.from("transactions").update(values).in("id", batch);
     if (error) throw new Error(error.message);
   }
+}
+
+/* --------------------------------------------- transfers, on demand */
+
+/**
+ * Re-reads every transaction the household holds and marks the internal moves.
+ *
+ * Import-time detection only sees a four-day window around the file it just
+ * read, so a rule learned later — a name confirmed on an account, a second
+ * account finally imported — never reaches what came before. This does.
+ *
+ * It only ever adds the flag. A row somebody marked internal by hand stays
+ * internal: the household's own judgement outranks a heuristic.
+ */
+export async function rescanTransfers(
+  supabase: Client,
+  householdId: string,
+): Promise<{ scanned: number; flagged: number }> {
+  const people = await loadPeopleIndex(supabase, householdId).catch(() => []);
+
+  const rows: Array<{
+    id: string;
+    account_id: string | null;
+    booked_date: string;
+    amount: number;
+    amount_base: number | null;
+    direction: string;
+    is_transfer: boolean;
+    merchant: string | null;
+    description: string | null;
+  }> = [];
+
+  const PAGE = 1000;
+  for (let start = 0; start < 60_000; start += PAGE) {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select(
+        "id, account_id, booked_date, amount, amount_base, direction, is_transfer, merchant, description",
+      )
+      .eq("household_id", householdId)
+      .order("booked_date", { ascending: true })
+      .order("id", { ascending: true })
+      .range(start, start + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as typeof rows;
+    rows.push(...page);
+    if (page.length < PAGE) break;
+  }
+
+  if (rows.length < 1) return { scanned: 0, flagged: 0 };
+
+  const transferIds = detectTransfers(rows, people);
+  const toFlag = rows.filter((row) => transferIds.has(row.id) && !row.is_transfer).map((r) => r.id);
+  await updateIn(supabase, toFlag, { is_transfer: true });
+
+  return { scanned: rows.length, flagged: toFlag.length };
 }
 
 /* --------------------------------------------------- rules applied later */

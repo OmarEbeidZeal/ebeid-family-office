@@ -7,6 +7,7 @@
  * queue.
  */
 import { completeJson } from "./ai/gateway.server";
+import { ownNameHit, type PersonNameIndex } from "./people";
 import { normaliseDescription, similarity } from "./text";
 
 export type CategoryRef = {
@@ -169,49 +170,90 @@ export type TransferCandidate = {
   amount_base: number | null;
   direction: string;
   is_transfer: boolean;
+  /** The counterparty as the bank printed it, for the own-name rung. */
+  merchant?: string | null;
+  description?: string | null;
 };
 
-const THREE_DAYS = 3 * 86_400_000;
+const DAY = 86_400_000;
+const WINDOW_DAYS = 3;
+
+const dayKey = (date: string) => Math.floor(new Date(date).getTime() / DAY);
 
 /**
- * A payment out of one household account matched by a payment into another,
- * within three days, is an internal move — not spending. Counting these would
- * inflate expenses every time money is swept into savings.
+ * Internal moves, found two ways.
+ *
+ * The first is pairing: a payment out of one household account matched by a
+ * payment into another within three days. That only works when both sides were
+ * imported. Credits are bucketed by day so a whole history can be rescanned
+ * without the comparison turning quadratic.
+ *
+ * The second is the counterparty's name. The largest single credit in this
+ * household's Monzo data is Omar paying himself, from an account that was never
+ * imported — nothing pairs with it, and counted as income it inflates every
+ * savings rate and every forecast built on one. Reading the name catches it.
+ * The name rung is strict (see `ownNameHit`): a salary narrative that happens
+ * to carry the employee's name must not disappear from income.
  */
-export function detectTransfers(candidates: TransferCandidate[]): Set<string> {
+export function detectTransfers(
+  candidates: TransferCandidate[],
+  people: PersonNameIndex[] = [],
+): Set<string> {
   const matched = new Set<string>();
   const debits = candidates.filter((row) => row.direction === "debit");
-  const credits = candidates.filter((row) => row.direction === "credit");
   const usedCredits = new Set<string>();
 
+  const byDay = new Map<number, TransferCandidate[]>();
+  for (const row of candidates) {
+    if (row.direction !== "credit") continue;
+    const key = dayKey(row.booked_date);
+    if (!Number.isFinite(key)) continue;
+    const bucket = byDay.get(key);
+    if (bucket) bucket.push(row);
+    else byDay.set(key, [row]);
+  }
+
   for (const debit of debits) {
+    if (!debit.account_id) continue;
     const debitValue = Math.abs(Number(debit.amount_base ?? debit.amount));
     if (debitValue <= 0) continue;
-    const debitTime = new Date(debit.booked_date).getTime();
+    const debitDay = dayKey(debit.booked_date);
+    if (!Number.isFinite(debitDay)) continue;
 
-    for (const credit of credits) {
-      if (usedCredits.has(credit.id)) continue;
-      if (!credit.account_id || !debit.account_id) continue;
-      if (credit.account_id === debit.account_id) continue;
+    let paired = false;
+    for (let offset = -WINDOW_DAYS; offset <= WINDOW_DAYS && !paired; offset += 1) {
+      for (const credit of byDay.get(debitDay + offset) ?? []) {
+        if (usedCredits.has(credit.id)) continue;
+        if (!credit.account_id || credit.account_id === debit.account_id) continue;
 
-      const gap = Math.abs(new Date(credit.booked_date).getTime() - debitTime);
-      if (gap > THREE_DAYS) continue;
+        const creditValue = Math.abs(Number(credit.amount_base ?? credit.amount));
+        if (creditValue <= 0) continue;
+        const drift = Math.abs(creditValue - debitValue) / Math.max(creditValue, debitValue);
+        // Cross-currency moves lose a little to the spread, so allow 1.5%.
+        if (drift > 0.015) continue;
 
-      const creditValue = Math.abs(Number(credit.amount_base ?? credit.amount));
-      if (creditValue <= 0) continue;
-      const drift = Math.abs(creditValue - debitValue) / Math.max(creditValue, debitValue);
-      // Cross-currency moves lose a little to the spread, so allow 1.5%.
-      if (drift > 0.015) continue;
+        usedCredits.add(credit.id);
+        matched.add(debit.id);
+        matched.add(credit.id);
+        paired = true;
+        break;
+      }
+    }
+  }
 
-      usedCredits.add(credit.id);
-      matched.add(debit.id);
-      matched.add(credit.id);
-      break;
+
+  if (people.length) {
+    for (const row of candidates) {
+      if (matched.has(row.id)) continue;
+      if (ownNameHit(row.merchant, people) || ownNameHit(row.description, people)) {
+        matched.add(row.id);
+      }
     }
   }
 
   return matched;
 }
+
 
 /* ------------------------------------------------------------- recurring */
 

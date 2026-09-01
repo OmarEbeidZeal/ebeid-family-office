@@ -253,3 +253,98 @@ describe("parseMonzo — the Flex credit line", () => {
     expect(purchase?.notes).toBe("Paid for by Flex");
   });
 });
+
+describe("parseMonzo — Flex is financing, not a shop", () => {
+  it("marks a drawdown onto the credit line as financing even when it names a merchant", () => {
+    const drawdown = parseMonzo([
+      HEADER,
+      row({
+        id: "tx_current_drawdown",
+        date: "20/02/2026",
+        type: "Flex",
+        name: "Apple",
+        category: "Shopping",
+        amount: "499.00",
+      }),
+      row({
+        id: "tx_current_shop",
+        date: "21/02/2026",
+        type: "Card payment",
+        name: "Tesco",
+        category: "Groceries",
+        amount: "-42.10",
+      }),
+      row({
+        id: "tx_current_dd",
+        date: "22/02/2026",
+        type: "Direct Debit",
+        name: "Thames Water",
+        category: "Bills",
+        amount: "-38.00",
+      }),
+    ]);
+    expect(drawdown.meta.identity.ledger ?? null).toBeNull();
+    const byRef = (ref: string) =>
+      drawdown.transactions.find((t) => t.bank_reference === ref);
+    // The purchase itself already sits on the Flex ledger. Counting the money
+    // arriving back in the current account as income would invent £499.
+    expect(byRef("tx_current_drawdown")).toMatchObject({ direction: "credit", internal: true });
+    expect(byRef("tx_current_shop")?.internal).toBeFalsy();
+  });
+
+  it("keeps a purchase that happens to sit on the Flex line as real spending", () => {
+    const onFlex = parseMonzo([
+      HEADER,
+      row({
+        id: "tx_flex_apple",
+        date: "20/02/2026",
+        type: "Flex",
+        name: "Apple",
+        category: "Shopping",
+        amount: "-499.00",
+      }),
+      row({
+        id: "tx_flex_instalment",
+        date: "05/03/2026",
+        type: "Flex",
+        category: "Transfers",
+        amount: "120.00",
+      }),
+      row({
+        id: "tx_flex_named_repay",
+        date: "05/04/2026",
+        type: "Flex",
+        name: "Monzo Flex",
+        category: "Transfers",
+        amount: "120.00",
+      }),
+    ]);
+    const byRef = (ref: string) => onFlex.transactions.find((t) => t.bank_reference === ref);
+    expect(byRef("tx_flex_apple")?.internal).toBeFalsy();
+    expect(byRef("tx_flex_apple")?.merchant).toBe("Apple");
+    expect(byRef("tx_flex_instalment")?.internal).toBe(true);
+    expect(byRef("tx_flex_named_repay")?.internal).toBe(true);
+  });
+
+  it("says in the notes that the purchases on the line are still counted once", () => {
+    const onFlex = parseMonzo([
+      HEADER,
+      row({
+        id: "tx_flex_apple",
+        date: "20/02/2026",
+        type: "Flex",
+        name: "Apple",
+        category: "Shopping",
+        amount: "-499.00",
+      }),
+      row({
+        id: "tx_flex_instalment",
+        date: "05/03/2026",
+        type: "Flex",
+        category: "Transfers",
+        amount: "120.00",
+      }),
+    ]);
+    expect(onFlex.notes.join(" ")).toContain("count as spending, once");
+  });
+});

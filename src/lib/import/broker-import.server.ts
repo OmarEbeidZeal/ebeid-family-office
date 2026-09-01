@@ -31,6 +31,12 @@ import {
   type PartialPosition,
   type TradeLike,
 } from "./broker";
+import {
+  detectPositionConflict,
+  detectSnapshotConflict,
+  positionAt,
+  type Conflict,
+} from "./conflicts";
 
 type Client = any;
 
@@ -39,6 +45,8 @@ export type BrokerImportResult = {
   tradesHeld: number;
   holdingsTouched: number;
   notes: string[];
+  /** Where this export and an earlier one from the same broker disagree. */
+  conflicts: Conflict[];
 };
 
 type HoldingRow = {
@@ -52,9 +60,10 @@ type HoldingRow = {
   opened_at: string | null;
   opening_quantity: number | null;
   opening_cost: number | null;
-  position_evidence: { as_of?: string; shares?: number } | null;
+  position_evidence: { as_of?: string; shares?: number; file?: string | null } | null;
   discovered_from: string | null;
 };
+
 
 type ExistingTrade = {
   id: string;
@@ -85,7 +94,16 @@ type Instrument = {
  * the household to re-sleeve deliberately rather than quietly treating a
  * concentrated position as core.
  */
+/** The same calendar day, some weeks earlier, as an ISO date. */
+function weeksBefore(date: string, weeks: number): string {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  parsed.setUTCDate(parsed.getUTCDate() - weeks * 7);
+  return parsed.toISOString().slice(0, 10);
+}
+
 function sleeveFor(securityType: string): string {
+
   return securityType === "etf" ? "core" : "satellite";
 }
 
@@ -127,16 +145,21 @@ export async function importBrokerLedger(
     ledger: BrokerLedger;
     /** The file these orders were read from, so they can be undone with it. */
     statementId?: string | null;
+    /** What that file is called, so a disagreement can name both documents. */
+    fileName?: string | null;
   },
 ): Promise<BrokerImportResult> {
   const { householdId, accountId, ledger } = input;
   const statementId = input.statementId ?? null;
+  const fileName = input.fileName ?? null;
   const instruments = group(ledger);
   const notes: string[] = [];
+  const conflicts: Conflict[] = [];
 
   if (!instruments.length) {
-    return { tradesInserted: 0, tradesHeld: 0, holdingsTouched: 0, notes };
+    return { tradesInserted: 0, tradesHeld: 0, holdingsTouched: 0, notes, conflicts };
   }
+
 
   const { data: account } = await supabase
     .from("accounts")
@@ -296,18 +319,26 @@ export async function importBrokerLedger(
 
     const { data: tradeRows } = await supabase
       .from("trades")
-      .select("side, trade_date, quantity")
+      .select("side, trade_date, quantity, account_id")
       .eq("holding_id", holdingId)
       .order("trade_date", { ascending: true });
 
-    const trades = ((tradeRows ?? []) as Array<{
+    const allTrades = ((tradeRows ?? []) as Array<{
       side: string;
       trade_date: string;
       quantity: number;
-    }>).map<TradeLike>((row) => ({
-      side: row.side === "sell" ? "sell" : "buy",
+      account_id: string | null;
+    }>).map((row) => ({
+      side: (row.side === "sell" ? "sell" : "buy") as TradeLike["side"],
       trade_date: row.trade_date,
       quantity: Number(row.quantity),
+      account_id: row.account_id,
+    }));
+
+    const trades: TradeLike[] = allTrades.map(({ side, trade_date, quantity }) => ({
+      side,
+      trade_date,
+      quantity,
     }));
 
     // Evidence already on the holding is kept: it came from a file that may not
@@ -322,8 +353,50 @@ export async function importBrokerLedger(
           ? { asOf: String(storedEvidence.as_of), shares: Number(storedEvidence.shares) }
           : null;
 
+    /* ------------------------------------- where the broker contradicts itself */
+    const institution = brokerLabel(ledger.broker) ?? "The broker";
+    const storedSource = storedEvidence?.file ? String(storedEvidence.file) : null;
+
+    if (fileEvidence && storedEvidence?.shares != null && storedEvidence.as_of) {
+      const clash =
+        String(storedEvidence.as_of) === fileEvidence.asOf
+          ? detectSnapshotConflict({
+              ticker: instrument.brokerTicker,
+              asOf: fileEvidence.asOf,
+              institution,
+              held: { shares: Number(storedEvidence.shares), source: storedSource },
+              incoming: { shares: fileEvidence.shares, source: fileName },
+            })
+          : null;
+      if (clash) conflicts.push(clash);
+    }
+
+    // Only this account's orders can contradict this account's snapshot — the
+    // same ticker held at another broker is a second position, not a discrepancy.
+    if (evidence) {
+      const sameAccount = allTrades
+        .filter((row) => !row.account_id || row.account_id === accountId)
+        .map<TradeLike>(({ side, trade_date, quantity }) => ({ side, trade_date, quantity }));
+      const evidenceSource = evidence === fileEvidence ? fileName : storedSource;
+      const clash = detectPositionConflict({
+        ticker: instrument.brokerTicker,
+        asOf: evidence.asOf,
+        statedShares: evidence.shares,
+        derivedShares: positionAt(sameAccount, evidence.asOf),
+        derivedSharesEarlier: positionAt(sameAccount, weeksBefore(evidence.asOf, 3)),
+        institution,
+        statedSource: evidenceSource,
+        derivedSource:
+          evidenceSource && fileName && evidenceSource !== fileName
+            ? fileName
+            : "the orders already recorded",
+      });
+      if (clash) conflicts.push(clash);
+    }
+
     const opening = openingPosition(trades, evidence);
     const hadOpening = Number(existing?.opening_quantity ?? 0) > 0;
+
 
     await supabase
       .from("holdings")
@@ -333,8 +406,15 @@ export async function importBrokerLedger(
         // the household has given us. Null is the only true answer.
         opening_cost: opening.quantity > 0 ? (existing?.opening_cost ?? null) : null,
         position_evidence: evidence
-          ? { as_of: evidence.asOf, shares: evidence.shares, source: ledger.broker }
+          ? {
+              as_of: evidence.asOf,
+              shares: evidence.shares,
+              source: ledger.broker,
+              // The file is kept so a later export that disagrees can name it.
+              file: evidence === fileEvidence ? fileName : (storedSource ?? null),
+            }
           : null,
+
       })
       .eq("id", holdingId);
 
@@ -366,6 +446,8 @@ export async function importBrokerLedger(
       `The missing purchases behind ${resolved.join(", ")} are now accounted for, so ${resolved.length === 1 ? "that position has" : "those positions have"} a full cost basis.`,
     );
   }
+  for (const conflict of conflicts) notes.push(conflict.message);
 
-  return { tradesInserted, tradesHeld, holdingsTouched, notes };
+  return { tradesInserted, tradesHeld, holdingsTouched, notes, conflicts };
+
 }

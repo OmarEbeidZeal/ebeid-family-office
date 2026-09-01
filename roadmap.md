@@ -6,6 +6,16 @@
 - [ ] Then start the Monzo Flex export over, so its 1,403 lines leave the investment account and land on a Flex credit line of their own
 - [ ] Re-download the two Trading 212 PDFs as CSV — the PDFs carry no readable digits, and the CSV brings the orders with it
 
+## Field fixes from Omar's real files
+
+- [x] 1. PDF text through poppler-grade extraction, with a digits-lost guard that refuses a file rather than importing it wrong
+- [x] 2. CAMT.053 accounts with no IBAN: `Othr/Id`, then a composite of servicer, currency and holder
+- [x] 3. Self-transfers and Monzo Flex kept out of spending and income; gross flows and true spending shown separately
+- [x] 4. NatWest PDFs: infer each row's year from the statement period, and split description from transaction type
+- [x] 5. Statement holder drives owner assignment on the proposals screen — never the uploader
+- [x] 6. Two statements from the same broker that disagree: raise a `needs_review` conflict naming both figures and both files
+
+
 ## Ready next
 
 - [ ] Imported holdings sit in the core sleeve until the household places them: prompt for the classification rather than assuming it

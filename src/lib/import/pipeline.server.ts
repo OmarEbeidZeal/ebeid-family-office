@@ -157,14 +157,21 @@ export async function removeCachedExtraction(
 /** "Flex" reads as the account the household actually has; "Credit Card" does not. */
 const LEDGER_LABELS: Record<string, string> = { flex: "Flex" };
 
-function suggestNickname(identity: StatementIdentity, mask: string | null): string {
+function suggestNickname(
+  identity: StatementIdentity,
+  mask: string | null,
+  currency: string | null,
+): string {
   const bank = findBank(identity.institution)?.name ?? identity.institution ?? "Imported account";
   const ledger = identity.ledger ? LEDGER_LABELS[identity.ledger.toLowerCase()] : null;
   const type = identity.account_type
     ? identity.account_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
     : null;
   const tail = mask ? mask.replace(/^•+\s*/, "···· ") : null;
-  return [bank, ledger ?? type, tail].filter(Boolean).join(" ").slice(0, 80);
+  // With no number printed, the currency is what separates one Wise balance
+  // from the next — "Wise USD" beats two accounts both called "Wise".
+  const distinguisher = tail ?? (currency ? currency.toUpperCase() : null);
+  return [bank, ledger ?? type, distinguisher].filter(Boolean).join(" ").slice(0, 80);
 }
 
 
@@ -231,7 +238,7 @@ async function upsertProposal(
     !existing?.["period_start"] ||
     (input.periodStart !== null && input.periodStart < (existing["period_start"] as string));
 
-  const nickname = suggestNickname(input.identity, input.identifier?.mask ?? null);
+  const nickname = suggestNickname(input.identity, input.identifier?.mask ?? null, input.currency);
 
   const payload = {
     household_id: input.householdId,
@@ -521,6 +528,7 @@ export async function processStatement(
           {
             institution: identity.institution,
             identifierHash: identifier?.hash ?? null,
+            identifierKind: identifier?.kind ?? null,
             lastFourHashes: candidateLastFourHashes(identifier?.lastFour ?? null),
             lastFour: identifier?.lastFour ?? null,
             currency,

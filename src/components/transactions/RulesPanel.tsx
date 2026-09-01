@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Plus, Trash2, Wand2 } from "lucide-react";
+import { ArrowLeftRight, Loader2, Plus, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +17,11 @@ import {
   useCategoryRules,
   useCreateCategoryRule,
   useDeleteCategoryRule,
+  useRescanTransfers,
 } from "@/hooks/useTransactions";
 import type { CategoryRow } from "@/hooks/useFinancials";
 import { formatDate } from "@/lib/format";
+
 
 const MATCH_LABELS: Record<string, string> = {
   contains: "contains",
@@ -35,6 +37,7 @@ export function RulesPanel({ categories }: { categories: CategoryRow[] }) {
   const { data: rules = [], isLoading } = useCategoryRules();
   const createRule = useCreateCategoryRule();
   const deleteRule = useDeleteCategoryRule();
+  const rescan = useRescanTransfers();
 
   const [pattern, setPattern] = useState("");
   const [matchType, setMatchType] = useState("contains");
@@ -64,6 +67,19 @@ export function RulesPanel({ categories }: { categories: CategoryRow[] }) {
     }
   };
 
+  const recheckMovement = async () => {
+    try {
+      const { scanned, flagged } = await rescan.mutateAsync();
+      toast.success(
+        flagged
+          ? `${flagged} transaction${flagged === 1 ? "" : "s"} reclassified as internal movement`
+          : `Nothing new — all ${scanned.toLocaleString("en-GB")} transactions already read correctly`,
+      );
+    } catch {
+      toast.error("Could not re-check internal movement.");
+    }
+  };
+
   const remove = async (id: string, label: string) => {
     if (!window.confirm(`Stop applying the rule for “${label}”?`)) return;
     try {
@@ -76,6 +92,31 @@ export function RulesPanel({ categories }: { categories: CategoryRow[] }) {
 
   return (
     <div className="space-y-4">
+      <div className="hairline flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface p-4">
+        <div className="min-w-[16rem] flex-1">
+          <p className="text-sm">Internal movement</p>
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+            Money between your own accounts is neither income nor spending. Each import only checks
+            the days around itself — re-check the whole ledger after confirming an account or a
+            name, and anything paying one of you by name is caught too.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9"
+          disabled={rescan.isPending}
+          onClick={() => void recheckMovement()}
+        >
+          {rescan.isPending ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <ArrowLeftRight className="size-3.5" />
+          )}
+          Re-check the ledger
+        </Button>
+      </div>
+
       <div className="hairline space-y-3 rounded-lg bg-surface p-4">
         <div>
           <p className="text-sm">Write a rule</p>

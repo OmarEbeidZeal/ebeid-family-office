@@ -16,6 +16,8 @@
 import { completeJson } from "./ai/gateway.server";
 import type { BrokerLedger } from "./import/broker";
 import type { SourceFormat } from "./import/formats";
+import { resolveStatementDate, type StatementPeriod } from "./import/statement-dates.server";
+import { splitDescriptionAndType } from "./import/uk-tx-types";
 import {
   inferDateOrder,
   guessMerchant,
@@ -38,7 +40,7 @@ export type StatementIdentity = {
    * is never written to the database.
    */
   account_identifier: string | null;
-  identifier_kind: "account_number" | "iban" | "card" | null;
+  identifier_kind: "account_number" | "iban" | "card" | "reference" | null;
   account_type: string | null;
   country: string | null;
   /**
@@ -479,10 +481,11 @@ const PDF_SYSTEM = `You read the text layer of an English-language bank statemen
 Absolute rules:
 - Never invent, estimate or complete a transaction. If a line is unreadable, leave it out.
 - amount is always a positive number. direction is "debit" for money leaving the account and "credit" for money arriving.
-- date must be ISO yyyy-mm-dd. Use the statement's own date convention; UK, Egyptian and Jordanian statements are day-first unless the text clearly shows otherwise.
-- description is the merchant or narrative text as printed, without the amount or balance.
+- date: copy what the line prints. If the line prints a full date, return it as ISO yyyy-mm-dd, reading UK, Egyptian and Jordanian statements as day-first unless the text clearly shows otherwise. If the line prints only a day and a month — "26 Aug", "26/08" — return exactly those characters and nothing else. Never add a year the line does not print; the year is worked out afterwards from the statement period.
+- description is the narrative as printed, in full. NatWest and some others run the transaction type onto the end of the merchant with no space ("TESCO STORES 3241Debit Card Transaction") — copy it exactly as it appears, including the type. Do not split it, reorder it or tidy it. Leave out only the amount and the balance.
 - balance_after is the running balance printed on that line, as plain digits, or "" when the statement does not print one.
 - Ignore summary blocks, interest-rate tables, page headers, footers and marketing text.`;
+
 
 const CHUNK_SIZE = 9000;
 const MAX_CHUNKS = 24;
@@ -529,7 +532,21 @@ ${IDENTITY_RULES}`,
     maxTokens: 3000,
   }).catch(() => null);
 
-  const results: RawTransaction[] = [];
+  /**
+   * Rows are held with their date exactly as the page printed it. NatWest
+   * prints `26 Aug` and states the year once, in the header — so nothing can
+   * be dated until the header has been read, and the header is still in
+   * flight while the pages are being read.
+   */
+  type PendingRow = {
+    printed: string;
+    description: string;
+    amount: number;
+    direction: "debit" | "credit";
+    balance_after: number | null;
+  };
+
+  const pending: PendingRow[] = [];
   const CONCURRENCY = 3;
 
   for (let start = 0; start < chunks.length; start += CONCURRENCY) {
@@ -556,29 +573,96 @@ ${IDENTITY_RULES}`,
 
     for (const page of parsed) {
       for (const row of page.transactions ?? []) {
-        const bookedDate = parseDateCell(row.date, "YMD") ?? parseDateCell(row.date, "auto");
         const amount = Math.abs(Number(row.amount));
-        if (!bookedDate || !Number.isFinite(amount) || amount === 0) continue;
-        const description = (row.description ?? "").trim() || "Unlabelled transaction";
+        const printed = typeof row.date === "string" ? row.date.trim() : "";
+        if (!printed || !Number.isFinite(amount) || amount === 0) continue;
         const balance = parseAmountCell(row.balance_after);
-        results.push({
-          booked_date: bookedDate,
-          description,
-          raw_description: description.slice(0, 500),
-          merchant: guessMerchant(description),
+        pending.push({
+          printed,
+          description: (row.description ?? "").trim(),
           amount,
           direction: row.direction === "credit" ? "credit" : "debit",
           balance_after: balance ? balance.value : null,
-          currency: null,
         });
       }
     }
   }
 
   const meta = await metaPromise;
-  const sorted = [...results].sort((a, b) => a.booked_date.localeCompare(b.booked_date));
   const opening = meta?.opening_balance ? parseAmountCell(meta.opening_balance) : null;
   const closing = meta?.closing_balance ? parseAmountCell(meta.closing_balance) : null;
+
+  /**
+   * The period the year is inferred from: the header's own dates when it
+   * states them, otherwise the span of whatever rows did print a full date.
+   * A statement that gives neither cannot place a year-less row at all.
+   */
+  const headerStart = meta?.period_start ? parseDateCell(meta.period_start, "YMD") : null;
+  const headerEnd = meta?.period_end ? parseDateCell(meta.period_end, "YMD") : null;
+  const fullyPrinted = pending
+    .map((row) => resolveStatementDate(row.printed, { start: null, end: null }))
+    .filter((resolved) => resolved.reason === "printed")
+    .map((resolved) => resolved.date!)
+    .sort();
+  const period: StatementPeriod = {
+    start: headerStart ?? fullyPrinted[0] ?? null,
+    end: headerEnd ?? fullyPrinted[fullyPrinted.length - 1] ?? null,
+  };
+
+  const results: RawTransaction[] = [];
+  let inferredYears = 0;
+  let outsidePeriod = 0;
+  let undatable = 0;
+
+  for (const row of pending) {
+    const resolved = resolveStatementDate(row.printed, period);
+    if (!resolved.date) {
+      if (resolved.reason === "outside_period") outsidePeriod += 1;
+      else undatable += 1;
+      continue;
+    }
+    if (resolved.inferred) inferredYears += 1;
+
+    // NatWest runs the transaction type onto the merchant with no space. Left
+    // joined, every Tesco visit files under a different payee.
+    const split = splitDescriptionAndType(row.description);
+    const description = split.description || "Unlabelled transaction";
+    results.push({
+      booked_date: resolved.date,
+      description,
+      raw_description: (row.description || description).slice(0, 500),
+      merchant: guessMerchant(description),
+      amount: row.amount,
+      direction: row.direction,
+      balance_after: row.balance_after,
+      currency: null,
+      bank_tx_code: split.type,
+    });
+  }
+
+  if (pending.length > 0 && results.length === 0) {
+    throw new Error(
+      "This statement's rows print no year and the reader could not find the statement period to date them from. Download the CSV or XML export from your bank instead.",
+    );
+  }
+
+  if (inferredYears > 0 && period.end) {
+    notes.push(
+      `${inferredYears} ${inferredYears === 1 ? "row printed" : "rows printed"} no year; dated from the statement period ${period.start ?? "?"} to ${period.end}.`,
+    );
+  }
+  if (outsidePeriod > 0) {
+    notes.push(
+      `${outsidePeriod} ${outsidePeriod === 1 ? "row fell" : "rows fell"} outside the statement period once dated and was left out rather than filed to a guessed year.`,
+    );
+  }
+  if (undatable > 0) {
+    notes.push(
+      `${undatable} ${undatable === 1 ? "row carried" : "rows carried"} a date this reader could not read and was left out.`,
+    );
+  }
+
+  const sorted = [...results].sort((a, b) => a.booked_date.localeCompare(b.booked_date));
 
   // Most PDF statements print a running balance on every line and state no
   // closing figure in the header the reader can find. The last line is that
@@ -592,20 +676,14 @@ ${IDENTITY_RULES}`,
 
   const firstDate = sorted[0]?.booked_date ?? null;
   const lastDate = sorted[sorted.length - 1]?.booked_date ?? null;
-  const periodStart = meta?.period_start
-    ? (parseDateCell(meta.period_start, "YMD") ?? firstDate)
-    : firstDate;
-  const periodEnd = meta?.period_end
-    ? (parseDateCell(meta.period_end, "YMD") ?? lastDate)
-    : lastDate;
 
   return {
     transactions: results,
-    skippedRows: 0,
+    skippedRows: outsidePeriod + undatable,
     notes,
     meta: {
-      period_start: periodStart,
-      period_end: periodEnd,
+      period_start: headerStart ?? firstDate,
+      period_end: headerEnd ?? lastDate,
       opening_balance: balances.opening,
       closing_balance: balances.closing,
       currency: /^[A-Za-z]{3}$/.test(meta?.currency ?? "")
@@ -614,5 +692,5 @@ ${IDENTITY_RULES}`,
       identity: cleanIdentity(meta),
     },
   };
-
 }
+

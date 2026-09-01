@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Check, ChevronDown, Link2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ChevronDown, Link2, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { BankMark } from "@/components/BankMark";
 import { Money } from "@/components/Money";
@@ -17,6 +17,7 @@ import {
   formatDate,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
 
 function typeFor(detected: string | null): string {
   const value = (detected ?? "").toLowerCase();
@@ -48,25 +49,38 @@ export function ProposalCard({
   const [accountType, setAccountType] = useState(typeFor(proposal.account_type));
   const [currency, setCurrency] = useState((proposal.currency ?? "GBP").toUpperCase());
   const [country, setCountry] = useState((proposal.country ?? "GB").toUpperCase());
-  // Deliberately empty. Whoever uploaded the file has no bearing on whose
-  // account this is, so there is nothing sensible to pre-select.
+  // The name on the statement decides this, never whoever uploaded the file.
   const [owner, setOwner] = useState("");
+  const chosen = useRef(false);
   const [linkTo, setLinkTo] = useState(proposal.matched_account_id ?? accounts[0]?.id ?? "");
 
   const mask = proposal.identifier_last4
     ? `${proposal.identifier_kind === "iban" ? "IBAN" : proposal.identifier_kind === "card" ? "Card" : "••••"} ${proposal.identifier_last4}`
     : null;
 
-  // The statement's own holder name is the clue, shown rather than acted on.
+  /**
+   * `Acct/Ownr/Nm` on a CAMT.053, the holder line on a PDF. It is the only
+   * evidence of whose account this is, so it is shown on its own line and
+   * used to fill the owner in — the household still confirms it.
+   */
   const likely = matchHolder(proposal.holder);
-  const holderHint = proposal.holder
-    ? `Statement is in the name of ${proposal.holder}${likely ? ` — that looks like ${memberName(likely)}` : ""}.`
-    : null;
+
+  useEffect(() => {
+    if (chosen.current || !likely) return;
+    setOwner(likely.id);
+  }, [likely]);
+
+  const ownerHint = likely
+    ? `Filled in from the name on the statement — ${proposal.holder}. Change it if that is not right.`
+    : proposal.holder
+      ? `The statement is in the name of ${proposal.holder}, which matches nobody in the household yet. Say who it belongs to.`
+      : "Uploading someone else's statement does not make it yours — say who it belongs to.";
 
   const period =
     proposal.period_start && proposal.period_end
       ? `${formatDate(proposal.period_start)} – ${formatDate(proposal.period_end)}`
       : null;
+
 
   const submit = async (action: "create" | "link" | "reject") => {
     try {
@@ -117,7 +131,6 @@ export function ProposalCard({
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {[
-              proposal.holder,
               (proposal.currency ?? "").toUpperCase() || null,
               period,
               `${proposal.statement_count} file${proposal.statement_count === 1 ? "" : "s"} waiting`,
@@ -126,9 +139,22 @@ export function ProposalCard({
               .join(" · ")}
           </p>
 
+          {proposal.holder && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground">
+              <User className="size-3 shrink-0 text-muted-foreground" strokeWidth={1.6} />
+              <span className="truncate">
+                In the name of <span className="font-medium">{proposal.holder}</span>
+                {likely && (
+                  <span className="text-muted-foreground"> · {memberName(likely)}</span>
+                )}
+              </span>
+            </p>
+          )}
+
           {proposal.reason && (
             <p className="mt-1 text-[0.7rem] text-muted-foreground">{proposal.reason}</p>
           )}
+
         </div>
         {proposal.closing_balance !== null && (
           <div className="hidden text-right sm:block">
@@ -192,19 +218,17 @@ export function ProposalCard({
             </Field>
           </div>
 
-          <Field
-            label="Whose account is this?"
-            hint={
-              holderHint ??
-              "Uploading someone else's statement does not make it yours — say who it belongs to."
-            }
-          >
+          <Field label="Whose account is this?" hint={ownerHint}>
             <SelectNative
               value={owner}
-              onChange={setOwner}
+              onChange={(value) => {
+                chosen.current = true;
+                setOwner(value);
+              }}
               options={[{ value: "", label: "Choose a person…" }, ...ownerOptions]}
             />
           </Field>
+
 
           <button
             type="button"

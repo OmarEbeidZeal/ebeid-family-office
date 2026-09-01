@@ -16,16 +16,20 @@ import { bankDomain } from "../ai/banks";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Client = any;
 
-export type IdentifierKind = "account_number" | "iban" | "card";
+export type IdentifierKind = "account_number" | "iban" | "card" | "reference";
 
 export type NormalisedIdentifier = {
   kind: IdentifierKind;
   /** Digits and letters only, upper case — what gets hashed. */
   normalised: string;
-  lastFour: string;
+  /**
+   * Null for a `reference`: a composite key has no printed digits to show, and
+   * inventing four would put a number on screen the bank never printed.
+   */
+  lastFour: string | null;
   hash: string;
-  /** "•••• 4821" — safe to render anywhere. */
-  mask: string;
+  /** "•••• 4821" — safe to render anywhere. Null when there is nothing to mask. */
+  mask: string | null;
 };
 
 function salt(): string {
@@ -44,6 +48,25 @@ export function maskIdentifier(lastFour: string, kind: IdentifierKind): string {
 }
 
 /**
+ * The last rung of the identity ladder: no IBAN, no account number, nothing
+ * printed to recognise. A CAMT.053 file from Wise is like this — it names the
+ * servicing institution, the currency and the account owner, and that trio is
+ * stable across every export from the same account.
+ *
+ * It is a weaker key than an account number and it is treated as one: it never
+ * auto-links, it only proposes. Returns null when too little was named for the
+ * key to mean anything.
+ */
+export function compositeAccountKey(parts: Array<string | null | undefined>): string | null {
+  const cleaned = parts
+    .map((part) => (part ?? "").toUpperCase().replace(/[^A-Z0-9]/g, ""))
+    .filter((part) => part.length > 0);
+  if (cleaned.length < 2) return null;
+  const key = cleaned.join("|");
+  return key.replace(/\|/g, "").length >= 6 ? key : null;
+}
+
+/**
  * Reduce a printed identifier to something matchable. Returns null when what
  * was printed carries too little signal to be worth matching on — a bank that
  * prints only "****" tells us nothing.
@@ -53,6 +76,18 @@ export function normaliseIdentifier(
   hint: IdentifierKind | null,
 ): NormalisedIdentifier | null {
   if (!raw) return null;
+
+  if (hint === "reference") {
+    const key = raw.toUpperCase().replace(/[^A-Z0-9|]/g, "");
+    if (key.replace(/\|/g, "").length < 6) return null;
+    return {
+      kind: "reference",
+      normalised: key,
+      lastFour: null,
+      hash: createHmac("sha256", salt()).update(`reference:${key}`).digest("hex"),
+      mask: null,
+    };
+  }
 
   const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (cleaned.length < 4) return null;
@@ -147,6 +182,7 @@ export function matchAccount(
   identity: {
     institution: string | null;
     identifierHash: string | null;
+    identifierKind?: IdentifierKind | null;
     lastFourHashes: string[];
     lastFour: string | null;
     currency: string | null;
@@ -161,10 +197,16 @@ export function matchAccount(
       account.identifiers.some((entry) => entry.hash === identity.identifierHash),
     );
     if (exact) {
+      // A composite key is a strong hint, not a certainty: it says the bank,
+      // the currency and the account holder all agree. It stops short of an
+      // automatic link, because two sub-accounts could share all three.
+      const composite = identity.identifierKind === "reference";
       return {
         account_id: exact.id,
-        confidence: 1,
-        reason: `The account number on this statement matches ${exact.nickname}.`,
+        confidence: composite ? 0.95 : 1,
+        reason: composite
+          ? `No account number on this file — the bank, currency and account holder all match ${exact.nickname}.`
+          : `The account number on this statement matches ${exact.nickname}.`,
       };
     }
   }
@@ -301,15 +343,19 @@ export async function rememberIdentifier(
       last4: input.identifier.lastFour,
       source: input.source,
     },
-    {
+  ];
+
+  // A composite key has no last four, so there is no masked row to add.
+  if (input.identifier.lastFour) {
+    rows.push({
       household_id: input.householdId,
       account_id: input.accountId,
       kind: input.identifier.kind,
       identifier_hash: lastFourHash(input.identifier.lastFour, input.identifier.kind),
       last4: input.identifier.lastFour,
       source: input.source,
-    },
-  ];
+    });
+  }
 
   await supabase
     .from("account_identifiers")
