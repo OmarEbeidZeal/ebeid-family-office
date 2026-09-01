@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { indexPersonNames, suggestPerson, type PersonNameIndex } from "@/lib/people";
 import { useAuth, type Profile } from "./useAuth";
 
 /** What to call a member, shortest form first. */
@@ -16,7 +17,12 @@ export type OwnerOption = { value: string; label: string };
 /**
  * The owner choices offered anywhere something can belong to someone: each
  * household member — including anyone invited but not yet signed in — plus
- * Joint. Never pre-selected on discovery; ownership is a decision.
+ * Joint.
+ *
+ * Ownership is never taken from whoever uploaded the file. It comes from the
+ * name printed on the statement, matched by the same routine the import
+ * pipeline uses, and a person is only ever suggested — the answer is still
+ * confirmed by hand.
  */
 export function useOwners() {
   const { members, profile } = useAuth();
@@ -45,34 +51,34 @@ export function useOwners() {
   );
 
   /**
-   * Does the statement's holder name look like this member? Used only to
-   * point at the likely answer, never to choose it.
+   * Every spelling of every member's name, indexed once. `full_name` is what
+   * a bank prints; `display_name` is what the household types.
+   */
+  const index = useMemo<PersonNameIndex[]>(
+    () =>
+      members.map((member) =>
+        indexPersonNames({
+          id: member.id,
+          names: [member.full_name, member.display_name],
+        }),
+      ),
+    [members],
+  );
+
+  /**
+   * Which member the statement is in the name of — `Acct/Ownr/Nm` on a
+   * CAMT.053, the holder line on a PDF. Withheld when two members fit, so a
+   * suggestion is either right or absent.
    */
   const matchHolder = useCallback(
     (holder: string | null | undefined): Profile | null => {
-      const value = (holder ?? "").toLowerCase().replace(/[^a-z\s]/g, " ").trim();
-      if (!value) return null;
-      const words = value.split(/\s+/).filter(Boolean);
-      if (!words.length) return null;
-      const surname = words[words.length - 1]!;
-
-      for (const member of members) {
-        const parts = (member.full_name ?? memberName(member))
-          .toLowerCase()
-          .split(/\s+/)
-          .filter(Boolean);
-        if (!parts.length) continue;
-        const memberSurname = parts[parts.length - 1]!;
-        if (memberSurname !== surname) continue;
-        // "H Abdin" against "Haya Abdin": the initial has to agree too.
-        const first = words.length > 1 ? words[0]! : null;
-        const memberFirst = parts[0]!;
-        if (!first || first[0] === memberFirst[0]) return member;
-      }
-      return null;
+      const hit = suggestPerson(holder, index);
+      if (!hit) return null;
+      return members.find((member) => member.id === hit.id) ?? null;
     },
-    [members],
+    [index, members],
   );
 
   return { options, nameOf, matchHolder, members };
 }
+
