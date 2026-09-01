@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth, type Profile } from "./useAuth";
+import { personLabel } from "@/lib/people";
 
 /** "household" or a profile id. */
 export type Scope = string;
@@ -35,7 +36,12 @@ const ScopeContext = createContext<ScopeContextValue | null>(null);
 const STORAGE_KEY = "efo.scope";
 
 function personName(profile: Profile) {
-  return profile.display_name ?? profile.full_name ?? profile.email.split("@")[0] ?? "Member";
+  return (
+    personLabel(profile.display_name) ||
+    personLabel(profile.full_name) ||
+    personLabel(profile.email.split("@")[0]) ||
+    "Member"
+  );
 }
 
 export function ScopeProvider({ children }: { children: ReactNode }) {
@@ -68,14 +74,16 @@ export function ScopeProvider({ children }: { children: ReactNode }) {
     // Named during onboarding and never invited: show the tab so the household
     // reads correctly, but make clear it needs an invitation.
     if (!partners.length && household?.partner_display_name) {
+      const partnerName = personLabel(household.partner_display_name);
       list.push({
         id: "partner-pending",
-        label: household.partner_display_name,
-        short: household.partner_display_name.split(" ")[0] ?? household.partner_display_name,
+        label: partnerName,
+        short: partnerName.split(" ")[0] ?? partnerName,
         disabled: true,
-        hint: `Invite ${household.partner_display_name} from Settings to track her side separately.`,
+        hint: `Invite ${partnerName} from Settings to track her side separately.`,
       });
     }
+
 
     return list;
   }, [profile, members, household?.partner_display_name]);

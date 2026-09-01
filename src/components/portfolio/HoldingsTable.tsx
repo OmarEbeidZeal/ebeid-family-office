@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { Money } from "@/components/Money";
 import { RowActions } from "@/components/RowActions";
+import { ShariahBadge, ShariahControl } from "@/components/portfolio/ShariahBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -12,8 +13,14 @@ import {
   formatSignedPercent,
   relativeTime,
 } from "@/lib/format";
+import {
+  normaliseShariahStatus,
+  type MandateEvaluation,
+  type ShariahStatus,
+} from "@/lib/mandates";
 import { SLEEVE_LABELS } from "@/lib/policy";
 import type { Position } from "@/lib/portfolio";
+
 
 type SortKey =
   | "ticker"
@@ -137,6 +144,9 @@ export function HoldingsTable({
   onDelete,
   onTrade,
   onSelect,
+  mandateByPosition,
+  onShariah,
+  shariahPending,
 }: {
   positions: Position[];
   base: string;
@@ -145,11 +155,28 @@ export function HoldingsTable({
   onDelete: (position: Position) => void;
   onTrade: (position: Position) => void;
   onSelect: (position: Position) => void;
+  /** Which mandate judges each row — only a Shariah mandate asks for a screen. */
+  mandateByPosition?: Map<string, MandateEvaluation>;
+  onShariah?: (position: Position, status: ShariahStatus) => void;
+  shariahPending?: boolean;
 }) {
   const [sort, setSort] = useState<{ key: SortKey; direction: "asc" | "desc" }>({
     key: "value",
     direction: "desc",
   });
+
+  const screening = useMemo(() => {
+    const map = new Map<string, { status: ShariahStatus; show: boolean }>();
+    for (const position of positions) {
+      const status = normaliseShariahStatus(position.holding.shariah_status);
+      const required = mandateByPosition?.get(position.id)?.type === "shariah";
+      // Show the control where a mandate asks for it, and keep showing a
+      // determination someone already made even if the mandate later changes.
+      map.set(position.id, { status, show: Boolean(required) || status !== "unscreened" });
+    }
+    return map;
+  }, [positions, mandateByPosition]);
+
 
   const rows = useMemo(() => {
     const copy = [...positions];
@@ -281,9 +308,23 @@ export function HoldingsTable({
                       {position.name ?? SLEEVE_LABELS[position.sleeve]}
                     </span>
                   </button>
-                  <span className="mt-1 inline-block rounded-sm border border-border-strong bg-surface-raised px-1.5 py-0.5 text-[0.58rem] uppercase tracking-[0.1em] text-muted-foreground">
-                    {SLEEVE_LABELS[position.sleeve]}
-                  </span>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span className="inline-block rounded-sm border border-border-strong bg-surface-raised px-1.5 py-0.5 text-[0.58rem] uppercase tracking-[0.1em] text-muted-foreground">
+                      {SLEEVE_LABELS[position.sleeve]}
+                    </span>
+                    {screening.get(position.id)?.show &&
+                      (onShariah ? (
+                        <ShariahControl
+                          status={screening.get(position.id)!.status}
+                          ticker={position.ticker}
+                          pending={shariahPending ?? false}
+                          onChange={(status) => onShariah(position, status)}
+                        />
+                      ) : (
+                        <ShariahBadge status={screening.get(position.id)!.status} />
+                      ))}
+                  </div>
+
                 </td>
 
                 <td className="num px-3 py-3 text-right text-foreground/85">
@@ -438,6 +479,19 @@ export function HoldingsTable({
                   {position.name ?? SLEEVE_LABELS[position.sleeve]}
                 </p>
               </button>
+              {screening.get(position.id)?.show &&
+                (onShariah ? (
+                  <ShariahControl
+                    status={screening.get(position.id)!.status}
+                    ticker={position.ticker}
+                    pending={shariahPending ?? false}
+                    onChange={(status) => onShariah(position, status)}
+                    className="ml-auto"
+                  />
+                ) : (
+                  <ShariahBadge status={screening.get(position.id)!.status} className="ml-auto" />
+                ))}
+
               <RowActions
                 label={position.ticker}
                 onEdit={() => onEdit(position)}

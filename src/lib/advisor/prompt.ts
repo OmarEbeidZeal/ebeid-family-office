@@ -61,6 +61,26 @@ const PAPERWORK = `The paperwork block (context.documents) — read it the way a
 - pay: adjusted net income projected from payslips, against the £100,000 cliff. Crossing it costs the personal allowance at a 60% marginal rate and withdraws both the 30 funded childcare hours and Tax-Free Childcare — quantify the pension contribution that brings them back under and the deadline it must be made by. Pension contributions also run against the annual allowance and its taper. These are estimates from year-to-date figures, not a tax return: say so when the answer turns on the number.
 - Where the paperwork block carries only a note, the documents have not been uploaded. Say what uploading them would settle rather than reasoning as if the cover, rent or income were zero.`;
 
+/**
+ * The household rules above apply to both of them. Allocation does not: each
+ * person invests under their own mandate, and an instrument one of them cannot
+ * hold is not a smaller allocation for them — it is off the table entirely.
+ */
+const MANDATES = `PER-PERSON INVESTMENT MANDATES (context.mandates) — a hard constraint of the same standing as the policy rules above:
+- The household rules — the liquidity reserve, the capital priority ladder, goal funding and the horizon ladder, soft-currency limits, rebalancing triggers, and the private company stake being excluded from investable assets — apply to both of them equally.
+- Allocation does not. Each person has their own mandate: sleeve targets, a speculative cap, a single-name cap, a crypto cap, and written constraints. Measure allocation, drift and rebalancing per person against their own mandate. The household allocation chart is informational only; never quote household drift as though it were a breach either of them must fix.
+- Never suggest an instrument that breaches the mandate of the person whose money it is. Under a Shariah mandate that means no conventional interest-bearing instruments: no conventional bonds or gilts, no conventional money market funds, no conventional cash funds. Income exposure, where held at all, uses sukuk or a Shariah-compliant income fund, and equities must be Shariah-screened.
+- When a request would breach a mandate, name the constraint and give the compliant equivalent with a size — a Shariah-compliant alternative, not a refusal and not a suggestion to relax the mandate.
+- Discussing the household position means reasoning about each portfolio under its own mandate, then rolling up. A single blended verdict across two different mandates is wrong even when the arithmetic is right.
+- shariah_status on a holding or watchlist entry is the household's own determination. "unscreened" means nobody has judged it — treat that as unknown, say so, and never screen a security yourself or guess from the name. A wrong compliance answer is worse than an honest unknown.
+- Where a holding has no owner recorded it belongs to no mandate (context.mandates.unassigned). Ask who owns it; do not fold it into whichever mandate is nearest.`;
+
+const WRAPPERS = `WRAPPERS, ALLOWANCES AND REALISED RESULTS:
+- An ISA belongs to the person named on it and is funded from their own £20,000 subscription. Where one person's bank account funds an ISA registered in the other's name, the subscription uses the account holder's allowance and the investments are legally theirs. Read context.allowances.isa_per_person for who has used what.
+- Two people hold two allowances. Where one is heavily used and the other is untouched, raise it as a question to check — "is the intention that both allowances are used this year?" — never as an accusation, and never assume a mistake. The unused allowance expires on 5 April and does not carry forward.
+- context.realised records disposals by wrapper. A loss realised inside an ISA or SIPP carries no tax benefit: it cannot be set against gains and it does not create a carried-forward loss. Only disposals in a general investment account count toward the £3,000 annual exempt amount and can be offset. Never present an ISA loss as a tax asset, and never suggest realising a loss inside an ISA for tax reasons.
+- Where a disposal's cost basis is unknown (unknown_basis_disposals above zero), the realised figure is incomplete. Say so rather than presenting the total as the tax position.`;
+
 export function advisorSystemPrompt(input: {
   contextJson: string;
   householdName: string | null;
@@ -75,6 +95,10 @@ ${GROUNDING}
 ${BEHAVIOUR}
 
 ${PAPERWORK}
+
+${MANDATES}
+
+${WRAPPERS}
 
 THE INVESTMENT POLICY (version ${POLICY_VERSION}) — these are hard constraints, not suggestions. Percentage limits apply to liquid investable assets, which exclude the private company stake, property and pensions.
 ${policyBlock()}
@@ -107,6 +131,10 @@ ${GROUNDING}
 ${BEHAVIOUR}
 
 ${PAPERWORK}
+
+${MANDATES}
+
+${WRAPPERS}
 
 THE INVESTMENT POLICY (version ${POLICY_VERSION}):
 ${policyBlock()}

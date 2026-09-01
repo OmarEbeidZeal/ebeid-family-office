@@ -1183,6 +1183,8 @@ export type Database = {
           quantity: number
           realised_pnl: number | null
           security_type: string
+          shariah_note: string | null
+          shariah_status: string
           sleeve: string
           target_price: number | null
           thesis: string | null
@@ -1209,6 +1211,8 @@ export type Database = {
           quantity?: number
           realised_pnl?: number | null
           security_type?: string
+          shariah_note?: string | null
+          shariah_status?: string
           sleeve?: string
           target_price?: number | null
           thesis?: string | null
@@ -1235,6 +1239,8 @@ export type Database = {
           quantity?: number
           realised_pnl?: number | null
           security_type?: string
+          shariah_note?: string | null
+          shariah_status?: string
           sleeve?: string
           target_price?: number | null
           thesis?: string | null
@@ -1570,6 +1576,75 @@ export type Database = {
             foreignKeyName: "insurance_policies_owner_profile_id_fkey"
             columns: ["owner_profile_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      investment_mandates: {
+        Row: {
+          additional_constraints: string | null
+          created_at: string
+          crypto_cap_pct: number
+          household_id: string
+          id: string
+          mandate_type: string
+          notes: string | null
+          profile_id: string
+          single_name_cap_pct: number
+          speculative_cap_pct: number
+          target_core_pct: number
+          target_income_pct: number
+          target_satellite_pct: number
+          target_thematic_pct: number
+          updated_at: string
+        }
+        Insert: {
+          additional_constraints?: string | null
+          created_at?: string
+          crypto_cap_pct?: number
+          household_id: string
+          id?: string
+          mandate_type?: string
+          notes?: string | null
+          profile_id: string
+          single_name_cap_pct?: number
+          speculative_cap_pct?: number
+          target_core_pct?: number
+          target_income_pct?: number
+          target_satellite_pct?: number
+          target_thematic_pct?: number
+          updated_at?: string
+        }
+        Update: {
+          additional_constraints?: string | null
+          created_at?: string
+          crypto_cap_pct?: number
+          household_id?: string
+          id?: string
+          mandate_type?: string
+          notes?: string | null
+          profile_id?: string
+          single_name_cap_pct?: number
+          speculative_cap_pct?: number
+          target_core_pct?: number
+          target_income_pct?: number
+          target_satellite_pct?: number
+          target_thematic_pct?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investment_mandates_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investment_mandates_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2971,6 +3046,8 @@ export type Database = {
           id: string
           name: string | null
           security_type: string | null
+          shariah_note: string | null
+          shariah_status: string
           target_price: number | null
           thesis: string
           ticker: string
@@ -2985,6 +3062,8 @@ export type Database = {
           id?: string
           name?: string | null
           security_type?: string | null
+          shariah_note?: string | null
+          shariah_status?: string
           target_price?: number | null
           thesis: string
           ticker: string
@@ -2999,6 +3078,8 @@ export type Database = {
           id?: string
           name?: string | null
           security_type?: string | null
+          shariah_note?: string | null
+          shariah_status?: string
           target_price?: number | null
           thesis?: string
           ticker?: string

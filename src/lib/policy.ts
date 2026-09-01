@@ -10,7 +10,9 @@
  * missing, the finding comes back `unknown` and says what is missing.
  */
 
-export const POLICY_VERSION = "April 2026";
+import type { MandateEvaluation } from "@/lib/mandates";
+
+export const POLICY_VERSION = "September 2026";
 
 export type Sleeve = "core" | "bond" | "thematic" | "satellite" | "crypto";
 
@@ -87,6 +89,8 @@ export const POLICY_LIMITS = {
   jisaAllowance: 9_000,
   lisaAllowance: 4_000,
   pensionAllowance: 60_000,
+  /** Capital gains annual exempt amount — general investment accounts only. */
+  cgtAnnualExempt: 3_000,
 } as const;
 
 export type PolicyRule = { n: number; title: string; text: string };
@@ -119,13 +123,13 @@ export const POLICY_RULES: PolicyRule[] = [
   },
   {
     n: 6,
-    title: "Target allocation",
-    text: "Liquid investable assets target 60% core equity, 15% bonds, 15% thematic, 10% satellite/speculative. Crypto counts inside the satellite sleeve and is capped at 5%.",
+    title: "Allocation is set by each person's own mandate",
+    text: "Target allocation across core, income, thematic and satellite is set per person by their own investment mandate, and drift is measured against that mandate — never against a household average. The household allocation chart is a picture of the whole book, not a target to rebalance toward. Crypto counts inside the satellite sleeve and against the mandate's own crypto cap.",
   },
   {
     n: 7,
-    title: "Speculative sleeve ≤ 10%",
-    text: "Total speculative sleeve ≤ 10% of liquid investable assets, at cost and at market. No single speculative name above 3%; trim back to 3% when it exceeds 4%.",
+    title: "Speculative sleeve within the personal cap",
+    text: "Each person's speculative sleeve stays within their mandate's cap — 10% of their liquid investable assets on the conventional mandate, nil where the mandate excludes it — at cost and at market. No single speculative name above the mandate's single-name cap (3% on the conventional mandate); trim back to the cap once it exceeds it by a percentage point.",
   },
   {
     n: 8,
@@ -150,7 +154,12 @@ export const POLICY_RULES: PolicyRule[] = [
   {
     n: 12,
     title: "Rebalance discipline",
-    text: "Rebalance annually in April, or whenever a sleeve drifts 5 percentage points from target.",
+    text: "Rebalance annually in April, or whenever a sleeve drifts 5 percentage points from its owner's mandate target.",
+  },
+  {
+    n: 13,
+    title: "Nothing that breaches the owner's mandate",
+    text: "No instrument may be held, bought or recommended that breaches the mandate of the person whose money it is. A Shariah mandate excludes conventional interest-bearing instruments — conventional bonds, gilts and money market funds — and requires equities to be Shariah-screened; where income is held at all it is sukuk or a Shariah-compliant income fund. A security nobody has screened is recorded as unscreened, which is an unknown and never an assumption of compliance.",
   },
 ];
 
@@ -165,7 +174,7 @@ export type PolicyFinding = {
   headline: string;
   value: number | null;
   limit: number | null;
-  unit: "pct" | "months" | "currency" | "none";
+  unit: "pct" | "months" | "currency" | "count" | "none";
 };
 
 export type PolicyPosition = {
@@ -227,6 +236,12 @@ export type PolicyInput = {
   goals: PolicyGoal[];
   allowances: PolicyAllowance[];
   daysToTaxYearEnd: number;
+  /**
+   * One evaluation per person, each against their own mandate. Where these are
+   * present they are what rules 6, 7, 12 and 13 are measured on; the household
+   * sleeve totals stay for the whole-book picture.
+   */
+  mandates?: MandateEvaluation[];
   now?: string;
 };
 
@@ -310,6 +325,16 @@ export function capStatus(
   if (value > cap + 1e-9) return "breach";
   if (value >= approach) return "watch";
   return "ok";
+}
+
+/**
+ * A household verdict cannot average away one person's breach, so the roll-up
+ * takes the worst reading rather than a mean.
+ */
+export function worstOf(statuses: PolicyStatus[]): PolicyStatus {
+  const order: PolicyStatus[] = ["breach", "watch", "unknown", "ok", "not_applicable"];
+  for (const status of order) if (statuses.includes(status)) return status;
+  return "not_applicable";
 }
 
 const pct = (value: number | null, decimals = 1) =>
@@ -453,30 +478,61 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     unit: "none",
   });
 
-  // Rule 6 — target allocation, and crypto inside the satellite sleeve.
+  // Rule 6 — allocation, measured against each person's own mandate.
   // Sleeve weights are only meaningful once every recorded holding has a price;
   // an unpriced book reads as 0% in every sleeve, which is an absence of data,
-  // not an allocation to report.
+  // not an allocation to report. And a household average is not a target: a
+  // 15% income target is meaningless to someone whose mandate excludes
+  // conventional interest-bearing instruments entirely.
   const allocation = allocationRows(sleeveValues, investableTotal);
   const allocationMeasurable = positions.length === 0 || input.unpricedCount === 0;
-  const worstDrift = allocation.reduce(
+  const mandates = input.mandates ?? [];
+  const measuredMandates = mandates.filter((m) => m.investableBase > 0);
+  const useMandates = measuredMandates.length > 0;
+  const unrecordedMandates = mandates.filter((m) => !m.recorded);
+
+  const householdDrift = allocation.reduce(
     (worst, row) =>
       row.targetPct !== null && row.driftPp !== null && Math.abs(row.driftPp) > Math.abs(worst)
         ? row.driftPp
         : worst,
     0,
   );
+  const worstMandate = measuredMandates.reduce<MandateEvaluation | null>((worst, mandate) => {
+    if (mandate.worstDriftPp === null) return worst;
+    if (worst === null || Math.abs(mandate.worstDriftPp) > Math.abs(worst.worstDriftPp ?? 0)) {
+      return mandate;
+    }
+    return worst;
+  }, null);
+  // Drift belongs to a person once mandates exist. Without them the household
+  // reading is all there is to report.
+  const worstDrift = useMandates ? (worstMandate?.worstDriftPp ?? 0) : householdDrift;
+  const driftMeasurable = useMandates
+    ? measuredMandates.every((m) => m.measurable)
+    : allocationMeasurable;
+
   const cryptoPct = share(sleeveValues.crypto, investableTotal);
   const cryptoStatus = capStatus(cryptoPct, POLICY_LIMITS.cryptoCapPct);
   const unpricedNote = `${input.unpricedCount} of ${positions.length} holding${
     positions.length === 1 ? "" : "s"
   } ${input.unpricedCount === 1 ? "has" : "have"} no price`;
+  const unrecordedNote = unrecordedMandates.length
+    ? ` ${unrecordedMandates.map((m) => m.person).join(" and ")} ${
+        unrecordedMandates.length === 1 ? "has" : "have"
+      } no mandate on file — the conventional default is being assumed until one is recorded.`
+    : "";
+
   findings.push({
     rule: 6,
     id: "target-allocation",
     label: "Target allocation",
-    status:
-      investableTotal <= 0
+    status: useMandates
+      ? worstOf([
+          ...measuredMandates.map((m) => m.allocationStatus),
+          ...(cryptoStatus === "breach" ? (["breach"] as PolicyStatus[]) : []),
+        ])
+      : investableTotal <= 0
         ? "not_applicable"
         : !allocationMeasurable
           ? "unknown"
@@ -485,21 +541,24 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
             : Math.abs(worstDrift) >= POLICY_LIMITS.driftPct
               ? "watch"
               : "ok",
-    headline:
-      investableTotal <= 0
-        ? "No liquid investable assets recorded yet."
-        : !allocationMeasurable
-          ? `Allocation cannot be measured: ${unpricedNote}, so every sleeve reads 0% whatever is actually held.`
-          : `${allocation
-              .filter((row) => row.targetPct !== null)
-              .map((row) => `${row.label} ${pct(row.actualPct, 0)}/${row.targetPct}%`)
-              .join(" · ")}. Crypto ${pct(cryptoPct)} of a ${POLICY_LIMITS.cryptoCapPct}% cap.`,
-    value: allocationMeasurable ? worstDrift : null,
+    headline: useMandates
+      ? `${measuredMandates.map((m) => m.allocationHeadline).join(" ")}${unrecordedNote}`
+      : mandates.length
+        ? `No investable assets are attributed to a person yet, so no mandate can be measured. Allocation only becomes meaningful once holdings carry an owner.${unrecordedNote}`
+        : investableTotal <= 0
+          ? "No liquid investable assets recorded yet."
+          : !allocationMeasurable
+            ? `Allocation cannot be measured: ${unpricedNote}, so every sleeve reads 0% whatever is actually held.`
+            : `${allocation
+                .filter((row) => row.targetPct !== null)
+                .map((row) => `${row.label} ${pct(row.actualPct, 0)}/${row.targetPct}%`)
+                .join(" · ")}. Crypto ${pct(cryptoPct)} of a ${POLICY_LIMITS.cryptoCapPct}% cap. No per-person mandate is recorded, so these are household defaults.`,
+    value: driftMeasurable ? worstDrift : null,
     limit: POLICY_LIMITS.driftPct,
     unit: "pct",
   });
 
-  // Rule 7 — the speculative sleeve, in aggregate and name by name.
+  // Rule 7 — the speculative sleeve, against each owner's cap, name by name.
   const specValue = sleeveValues.satellite + sleeveValues.crypto;
   const specPct = share(specValue, investableTotal);
   const specCost = speculativePositions.reduce((sum, p) => sum + p.costBase, 0);
@@ -518,8 +577,9 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     rule: 7,
     id: "speculative-sleeve",
     label: "Speculative sleeve",
-    status:
-      investableTotal <= 0
+    status: useMandates
+      ? worstOf(measuredMandates.map((m) => m.speculativeStatus))
+      : investableTotal <= 0
         ? "not_applicable"
         : oversized.length
           ? "breach"
@@ -530,8 +590,15 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
               : specUnpriced.length
                 ? "unknown"
                 : "ok",
-    headline:
-      investableTotal <= 0
+    headline: useMandates
+      ? `${measuredMandates.map((m) => m.speculativeHeadline).join(" ")}${
+          specUnpriced.length
+            ? ` ${specUnpriced.map((p) => p.ticker).join(", ")} ${
+                specUnpriced.length === 1 ? "has" : "have"
+              } no price, so these weights are incomplete.`
+            : ""
+        } Across the household the sleeve is ${pct(specPct)} of investable assets.`
+      : investableTotal <= 0
         ? "No liquid investable assets recorded yet."
         : oversized.length
           ? `${oversized.map((p) => `${p.ticker} at ${pct(p.weightPct)}`).join(", ")} is past the 4% trim trigger — trim back to ${POLICY_LIMITS.singleSpeculativeCapPct}%. Sleeve total ${pct(specPct)} of a ${POLICY_LIMITS.speculativeSleeveCapPct}% cap.`
@@ -608,8 +675,10 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
 
   // Rule 12 — rebalance discipline. A drift figure built on unpriced holdings
   // would trigger a rebalance nobody can size, so it stays unknown until the
-  // whole book is priced.
+  // whole book is priced. Where mandates exist, the drift that matters is the
+  // worst one inside a single person's portfolio.
   const isApril = new Date(input.now ?? Date.now()).getUTCMonth() === 3;
+  const driftOwner = useMandates && worstMandate ? `${worstMandate.person}'s ` : "";
   findings.push({
     rule: 12,
     id: "rebalance",
@@ -617,7 +686,7 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     status:
       investableTotal <= 0
         ? "not_applicable"
-        : !allocationMeasurable
+        : !driftMeasurable
           ? "unknown"
           : Math.abs(worstDrift) >= POLICY_LIMITS.driftPct
             ? "watch"
@@ -627,16 +696,53 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     headline:
       investableTotal <= 0
         ? "Nothing to rebalance yet."
-        : !allocationMeasurable
+        : !driftMeasurable
           ? `Drift cannot be measured while ${unpricedNote}; a rebalance cannot be sized from unpriced holdings.`
           : Math.abs(worstDrift) >= POLICY_LIMITS.driftPct
-            ? `Largest sleeve drift is ${worstDrift > 0 ? "+" : "−"}${Math.abs(worstDrift).toFixed(1)}pp, past the ${POLICY_LIMITS.driftPct}pp trigger.`
+            ? `Largest ${driftOwner}sleeve drift is ${worstDrift > 0 ? "+" : "−"}${Math.abs(worstDrift).toFixed(1)}pp against ${useMandates ? "their own mandate" : "target"}, past the ${POLICY_LIMITS.driftPct}pp trigger.`
             : isApril
-              ? `April: the annual rebalance window is open. Largest drift is ${Math.abs(worstDrift).toFixed(1)}pp.`
-              : `Largest sleeve drift is ${Math.abs(worstDrift).toFixed(1)}pp, inside the ${POLICY_LIMITS.driftPct}pp trigger.`,
-    value: allocationMeasurable ? worstDrift : null,
+              ? `April: the annual rebalance window is open. Largest ${driftOwner}drift is ${Math.abs(worstDrift).toFixed(1)}pp.`
+              : `Largest ${driftOwner}sleeve drift is ${Math.abs(worstDrift).toFixed(1)}pp, inside the ${POLICY_LIMITS.driftPct}pp trigger.`,
+    value: driftMeasurable ? worstDrift : null,
     limit: POLICY_LIMITS.driftPct,
     unit: "pct",
+  });
+
+  // Rule 13 — the mandate is a hard constraint on whoever owns the money.
+  // Screening is a determination someone records, never something inferred:
+  // "unscreened" is reported as the unknown it is.
+  const shariahMandates = mandates.filter((m) => m.type === "shariah");
+  const nonCompliantNames = shariahMandates.flatMap((m) =>
+    m.compliance.nonCompliant.map((entry) => `${entry.ticker} (${m.person})`),
+  );
+  const unscreenedNames = shariahMandates.flatMap((m) =>
+    m.compliance.unscreened.map((entry) => `${entry.ticker} (${m.person})`),
+  );
+  findings.push({
+    rule: 13,
+    id: "mandate-compliance",
+    label: "Mandate compliance",
+    status: !mandates.length
+      ? "unknown"
+      : shariahMandates.length
+        ? worstOf(shariahMandates.map((m) => m.compliance.status))
+        : unrecordedMandates.length
+          ? "unknown"
+          : "not_applicable",
+    headline: !mandates.length
+      ? "No investment mandate is recorded for anyone, so nothing can be checked against one. Record a mandate per person in Settings."
+      : nonCompliantNames.length
+        ? `${nonCompliantNames.join(", ")} ${nonCompliantNames.length === 1 ? "is" : "are"} recorded as not Shariah-compliant inside a portfolio whose mandate excludes ${nonCompliantNames.length === 1 ? "it" : "them"}.${unrecordedNote}`
+        : unscreenedNames.length
+          ? `${unscreenedNames.join(", ")} ${unscreenedNames.length === 1 ? "has" : "have"} no Shariah determination on file. Unscreened is an unknown, not a pass — record the determination against each holding.${unrecordedNote}`
+          : shariahMandates.length
+            ? `Every holding under a Shariah mandate is recorded as compliant.${unrecordedNote}`
+            : `${mandates
+                .map((m) => `${m.person}: ${m.type}`)
+                .join("; ")}. No Shariah screen applies.${unrecordedNote}`,
+    value: nonCompliantNames.length,
+    limit: 0,
+    unit: "count",
   });
 
   return findings;
@@ -802,7 +908,7 @@ export type ConcentrationRow = {
   sublabel: string;
   value: number | null;
   limit: number | null;
-  unit: "pct" | "months";
+  unit: "pct" | "months" | "count";
   status: PolicyStatus;
   rule: number;
   detail: string;
@@ -813,10 +919,53 @@ export function concentrationRows(input: PolicyInput): ConcentrationRow[] {
   const rows: ConcentrationRow[] = [];
   const { investableTotal } = input;
 
+  // Caps belong to the person who owns the position, so a single name is
+  // measured against its owner's mandate rather than a household average.
+  const mandates = input.mandates ?? [];
+  const measuredMandates = mandates.filter((m) => m.investableBase > 0);
+  const useMandates = measuredMandates.length > 0;
+  const ownedNames = new Map<
+    string,
+    { person: string; cap: number; pct: number | null; status: PolicyStatus }
+  >();
+  for (const mandate of measuredMandates) {
+    for (const entry of mandate.singleNames) {
+      ownedNames.set(entry.id, {
+        person: mandate.person,
+        cap: mandate.mandate.singleNameCapPct,
+        pct: entry.pct,
+        status: entry.status,
+      });
+    }
+  }
+
   for (const position of input.positions) {
     const speculative = isSpeculative(position.sleeve);
     const weight = position.weightPct;
-    if (speculative) {
+    const owned = ownedNames.get(position.id);
+    if (speculative && owned) {
+      const cap = owned.cap;
+      rows.push({
+        key: position.id,
+        label: position.ticker,
+        sublabel: `${owned.person} · ${position.name ?? SLEEVE_LABELS[position.sleeve] ?? position.sleeve}`,
+        value: owned.pct,
+        limit: cap > 0 ? cap : null,
+        unit: "pct",
+        status: owned.status,
+        rule: 7,
+        detail:
+          cap <= 0
+            ? `${owned.person}'s mandate holds no speculative sleeve, so this position sits outside it entirely.`
+            : owned.pct === null
+              ? `No live price, so the position cannot be weighed against ${owned.person}'s ${cap}% single-name limit.`
+              : owned.pct > cap + 1
+                ? `Past ${owned.person}'s ${cap + 1}% trim trigger — trim back to ${cap}% of their investable assets.`
+                : owned.pct > cap
+                  ? `Above ${owned.person}'s ${cap}% single-name limit but below the ${cap + 1}% trim trigger.`
+                  : `Within ${owned.person}'s ${cap}% single-name speculative limit.`,
+      });
+    } else if (speculative) {
       const status: PolicyStatus =
         weight === null
           ? "unknown"
@@ -871,38 +1020,96 @@ export function concentrationRows(input: PolicyInput): ConcentrationRow[] {
     input.positions.length === 1 ? "" : "s"
   } ${input.unpricedCount === 1 ? "has" : "have"} no price, so this cannot be measured today.`;
 
-  const specValue = input.sleeveValues.satellite + input.sleeveValues.crypto;
-  rows.push({
-    key: "sleeve-speculative",
-    label: "Speculative sleeve",
-    sublabel: "Satellite and crypto combined",
-    value: bookUnpriced ? null : share(specValue, investableTotal),
-    limit: POLICY_LIMITS.speculativeSleeveCapPct,
-    unit: "pct",
-    status: bookUnpriced
-      ? "unknown"
-      : capStatus(share(specValue, investableTotal), POLICY_LIMITS.speculativeSleeveCapPct),
-    rule: 7,
-    detail:
-      "Rule 7: total speculative sleeve stays at or below 10% of liquid investable assets." +
-      (bookUnpriced ? unpricedDetail : ""),
-  });
+  if (useMandates) {
+    // One sleeve row per person, against their own cap. A household speculative
+    // percentage would let one person's headroom absorb the other's breach.
+    for (const mandate of measuredMandates) {
+      rows.push({
+        key: `sleeve-speculative-${mandate.profileId}`,
+        label: `Speculative sleeve — ${mandate.person}`,
+        sublabel:
+          mandate.speculative.capPct > 0
+            ? "Satellite and crypto, against their mandate"
+            : "Excluded by their mandate",
+        value: mandate.speculative.pct,
+        limit: mandate.speculative.capPct > 0 ? mandate.speculative.capPct : null,
+        unit: "pct",
+        status: mandate.speculative.status,
+        rule: 7,
+        detail: mandate.speculativeHeadline + (mandate.measurable ? "" : unpricedDetail),
+      });
+      if (mandate.crypto.valueBase > 0 || mandate.crypto.capPct > 0) {
+        rows.push({
+          key: `sleeve-crypto-${mandate.profileId}`,
+          label: `Crypto — ${mandate.person}`,
+          sublabel: "Inside their satellite sleeve",
+          value: mandate.crypto.pct,
+          limit: mandate.crypto.capPct > 0 ? mandate.crypto.capPct : null,
+          unit: "pct",
+          status: mandate.crypto.status,
+          rule: 6,
+          detail:
+            mandate.crypto.capPct > 0
+              ? `Rule 6: crypto counts inside ${mandate.person}'s satellite sleeve and is capped at ${mandate.crypto.capPct}% of their investable assets.`
+              : `${mandate.person}'s mandate permits no crypto.`,
+        });
+      }
+    }
 
-  rows.push({
-    key: "sleeve-crypto",
-    label: "Crypto",
-    sublabel: "Inside the satellite sleeve",
-    value: bookUnpriced ? null : share(input.sleeveValues.crypto, investableTotal),
-    limit: POLICY_LIMITS.cryptoCapPct,
-    unit: "pct",
-    status: bookUnpriced
-      ? "unknown"
-      : capStatus(share(input.sleeveValues.crypto, investableTotal), POLICY_LIMITS.cryptoCapPct),
-    rule: 6,
-    detail:
-      "Rule 6: crypto counts inside the satellite sleeve and is capped at 5% on its own." +
-      (bookUnpriced ? unpricedDetail : ""),
-  });
+    // A mandate that excludes an instrument is a hard limit, so a breach of it
+    // belongs beside the percentage limits rather than in a separate panel.
+    for (const mandate of measuredMandates.filter((m) => m.type === "shariah")) {
+      for (const flag of [...mandate.compliance.nonCompliant, ...mandate.compliance.unscreened]) {
+        const nonCompliant = flag.status === "non_compliant";
+        rows.push({
+          key: `compliance-${flag.id}`,
+          label: flag.ticker,
+          sublabel: `${mandate.person} · ${nonCompliant ? "not Shariah-compliant" : "no Shariah screen on file"}`,
+          value: flag.pct,
+          limit: null,
+          unit: "pct",
+          status: nonCompliant ? "breach" : "unknown",
+          rule: 13,
+          detail: nonCompliant
+            ? `Recorded as not compliant, inside a portfolio whose mandate excludes it. Rule 13: nothing may be held that breaches the owner's mandate.`
+            : `Nobody has recorded a determination for this holding. Unscreened is an unknown, not a pass — record it against the holding.`,
+        });
+      }
+    }
+  } else {
+    const specValue = input.sleeveValues.satellite + input.sleeveValues.crypto;
+    rows.push({
+      key: "sleeve-speculative",
+      label: "Speculative sleeve",
+      sublabel: "Satellite and crypto combined",
+      value: bookUnpriced ? null : share(specValue, investableTotal),
+      limit: POLICY_LIMITS.speculativeSleeveCapPct,
+      unit: "pct",
+      status: bookUnpriced
+        ? "unknown"
+        : capStatus(share(specValue, investableTotal), POLICY_LIMITS.speculativeSleeveCapPct),
+      rule: 7,
+      detail:
+        "Rule 7: total speculative sleeve stays at or below 10% of liquid investable assets." +
+        (bookUnpriced ? unpricedDetail : ""),
+    });
+
+    rows.push({
+      key: "sleeve-crypto",
+      label: "Crypto",
+      sublabel: "Inside the satellite sleeve",
+      value: bookUnpriced ? null : share(input.sleeveValues.crypto, investableTotal),
+      limit: POLICY_LIMITS.cryptoCapPct,
+      unit: "pct",
+      status: bookUnpriced
+        ? "unknown"
+        : capStatus(share(input.sleeveValues.crypto, investableTotal), POLICY_LIMITS.cryptoCapPct),
+      rule: 6,
+      detail:
+        "Rule 6: crypto counts inside the satellite sleeve and is capped at 5% on its own." +
+        (bookUnpriced ? unpricedDetail : ""),
+    });
+  }
 
   const techValue = input.positions
     .filter((p) => p.priced && isTechnology(p) === true)

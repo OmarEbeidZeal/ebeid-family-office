@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { detectTransfers } from "./categorise.server";
-import { indexPersonNames, ownNameHit, suggestPerson } from "./people";
+import { indexPersonNames, ownNameHit, personLabel, suggestPerson } from "./people";
 
 const OMAR = indexPersonNames({
   id: "p-omar",
@@ -181,5 +181,27 @@ describe("detectTransfers — the counterparty's own name", () => {
       tx({ id: "self", direction: "credit", amount: 40_000, merchant: "OMAR EBEID" }),
     ]);
     expect(found.size).toBe(0);
+  });
+});
+
+describe("personLabel", () => {
+  it("capitalises a name typed in lower case, because that is a keyboard artefact", () => {
+    expect(personLabel("omar")).toBe("Omar");
+    expect(personLabel("haya abdin")).toBe("Haya Abdin");
+  });
+
+  it("leaves deliberate casing exactly as the household wrote it", () => {
+    expect(personLabel("de Souza")).toBe("de Souza");
+    expect(personLabel("McKay")).toBe("McKay");
+    expect(personLabel("HAYA")).toBe("HAYA");
+  });
+
+  it("handles hyphens and apostrophes without swallowing them", () => {
+    expect(personLabel("mary-jane o'brien")).toBe("Mary-Jane O'Brien");
+  });
+
+  it("returns an empty string for nothing on file, so callers can fall through", () => {
+    expect(personLabel(null)).toBe("");
+    expect(personLabel("   ")).toBe("");
   });
 });

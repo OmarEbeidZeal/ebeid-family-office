@@ -93,7 +93,23 @@ const NOISE = new Set([
   "and",
 ]);
 
+/**
+ * A person's name as it should read on screen.
+ *
+ * A name typed entirely in lower case — "omar" — is a keyboard artefact, not a
+ * choice, and reads badly as the heading of a mandate or an allowance. Any
+ * name carrying deliberate casing is left exactly as the household wrote it,
+ * so "de Souza", "McKay" and "HAYA" all survive untouched.
+ */
+export function personLabel(raw: string | null | undefined): string {
+  const name = (raw ?? "").trim();
+  if (!name) return "";
+  if (name !== name.toLowerCase()) return name;
+  return name.replace(/(^|[\s'’-])([a-z])/g, (_match, lead: string, letter: string) => lead + letter.toUpperCase());
+}
+
 /** Lower-case alphabetic words. Anything carrying a digit is a reference. */
+
 export function nameTokens(raw: string | null | undefined): string[] {
   return (raw ?? "")
     .toLowerCase()

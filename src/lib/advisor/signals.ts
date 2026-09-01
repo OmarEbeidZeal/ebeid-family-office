@@ -152,6 +152,210 @@ function fromAllowances(context: HouseholdContext, base: string): Signal[] {
   return signals;
 }
 
+/**
+ * Two people hold two ISA allowances. One heavily used while the other sits
+ * untouched is worth a question — the second allowance expires on 5 April and
+ * does not carry forward — but it is a question, not a finding of error.
+ */
+function fromIsaAsymmetry(context: HouseholdContext, base: string): Signal[] {
+  const isa = context.allowances.isa_per_person;
+  if (!isa?.asymmetry) return [];
+  const days = context.allowances.days_to_5_april;
+  return [
+    {
+      id: "isa-asymmetry",
+      kind: "recommendation",
+      severity: days <= 60 ? "urgent" : "action",
+      summary: `${isa.asymmetry} Household ISA capacity is ${money(
+        isa.household_capacity,
+        base,
+      )} across both people, of which ${money(isa.household_used, base)} is used and ${money(
+        isa.household_remaining,
+        base,
+      )} remains with ${days} days of the year left. Raise it as a question about intent, not as a mistake.`,
+      fingerprint: `isa:asymmetry:${context.allowances.tax_year}:${bucket(
+        isa.household_remaining,
+        2500,
+      )}`,
+    },
+  ];
+}
+
+/**
+ * Each person's own mandate. A drifted sleeve is a rebalancing question; a
+ * holding that breaches a Shariah mandate is a compliance problem for the
+ * person whose money it is, and belongs in the briefing every time.
+ */
+function fromMandates(context: HouseholdContext, base: string): Signal[] {
+  const signals: Signal[] = [];
+  const mandates = context.mandates;
+  if (!mandates) return signals;
+
+  for (const person of mandates.per_person) {
+    if (!person.measurable) continue;
+
+    if (person.mandate_type === "shariah" && person.shariah.non_compliant.length) {
+      signals.push({
+        id: `mandate-noncompliant-${person.person}`,
+        kind: "alert",
+        severity: "urgent",
+        summary: `${person.person} invests under a Shariah mandate, and ${person.shariah.non_compliant.join(
+          ", ",
+        )} ${person.shariah.non_compliant.length === 1 ? "is" : "are"} recorded as non-compliant. Name the compliant equivalent and the size, not a bare instruction to sell.`,
+        fingerprint: `mandate:${person.person}:noncompliant:${person.shariah.non_compliant
+          .slice()
+          .sort()
+          .join("|")}`,
+        ...(person.shariah.non_compliant[0]
+          ? { relatedTicker: person.shariah.non_compliant[0] }
+          : {}),
+      });
+    }
+
+    if (person.mandate_type === "shariah" && person.shariah.unscreened.length) {
+      signals.push({
+        id: `mandate-unscreened-${person.person}`,
+        kind: "briefing",
+        severity: "info",
+        summary: `${person.person} holds ${person.shariah.unscreened.length} position${
+          person.shariah.unscreened.length === 1 ? "" : "s"
+        } nobody has screened for Shariah compliance (${person.shariah.unscreened.join(
+          ", ",
+        )}). Unscreened means unknown — the household records its own determination; the app never guesses one.`,
+        fingerprint: `mandate:${person.person}:unscreened:${person.shariah.unscreened
+          .slice()
+          .sort()
+          .join("|")}`,
+      });
+    }
+
+    const speculativeOver =
+      person.speculative_actual_pct !== null &&
+      person.speculative_actual_pct > person.speculative_cap_pct;
+    if (speculativeOver) {
+      signals.push({
+        id: `mandate-speculative-${person.person}`,
+        kind: "risk",
+        severity: "urgent",
+        summary: `${person.person}'s speculative sleeve is ${person.speculative_actual_pct}% of ${money(
+          person.investable_base,
+          base,
+        )} investable against their own ${person.speculative_cap_pct}% cap. This is their mandate, not the household average.`,
+        fingerprint: `mandate:${person.person}:speculative:${bucket(
+          person.speculative_actual_pct,
+          2,
+        )}`,
+      });
+    }
+
+    const drifted = person.targets.filter(
+      (row) => row.status === "breach" && row.drift_pp !== null,
+    );
+    if (drifted.length) {
+      const worst = drifted.reduce((a, b) =>
+        Math.abs(b.drift_pp ?? 0) > Math.abs(a.drift_pp ?? 0) ? b : a,
+      );
+      signals.push({
+        id: `mandate-drift-${person.person}`,
+        kind: "recommendation",
+        severity: "action",
+        summary: `${person.person}'s ${worst.label} sleeve is ${worst.actual_pct}% against their ${worst.target_pct}% mandate target, ${Math.abs(
+          worst.drift_pp ?? 0,
+        )}pp adrift. Rebalance within their mandate — ${
+          person.mandate_type === "shariah"
+            ? "Shariah-compliant instruments only, no conventional bonds or money market funds"
+            : "conventional instruments are available to them"
+        }.`,
+        fingerprint: `mandate:${person.person}:drift:${worst.sleeve}:${bucket(worst.drift_pp, 3)}`,
+      });
+    }
+  }
+
+  if (mandates.unassigned.holdings.length) {
+    signals.push({
+      id: "mandate-unassigned",
+      kind: "briefing",
+      severity: "info",
+      summary: `${money(mandates.unassigned.investable_base, base)} of holdings have no owner recorded (${mandates.unassigned.holdings.join(
+        ", ",
+      )}), so they sit under no mandate and are excluded from every per-person allocation figure. Ask whose they are.`,
+      fingerprint: `mandate:unassigned:${mandates.unassigned.holdings.slice().sort().join("|")}`,
+    });
+  }
+
+  return signals;
+}
+
+/**
+ * Realised results, and whether the tax system cares. An ISA loss is not a tax
+ * asset; only a general investment account disposal reaches the exempt amount.
+ */
+function fromRealised(context: HouseholdContext, base: string): Signal[] {
+  const realised = context.realised;
+  if (!realised) return [];
+  const signals: Signal[] = [];
+  const cgt = realised.cgt_general_investment_accounts;
+  const days = context.allowances.days_to_5_april;
+
+  // "watch" is the summariser's word for a net gain above the exempt amount.
+  if (cgt.status === "watch" && (cgt.taxable ?? 0) > 0) {
+    signals.push({
+      id: "cgt-over-exemption",
+      kind: "alert",
+      severity: "urgent",
+      summary: `Realised gains in general investment accounts are ${money(
+        cgt.net,
+        base,
+      )} for ${realised.tax_year}, above the ${money(
+        cgt.exempt_amount,
+        base,
+      )} annual exempt amount — ${money(cgt.taxable, base)} is taxable at 18% or 24%. ${
+        cgt.unknown_basis_disposals
+          ? `${cgt.unknown_basis_disposals} disposals have no recorded cost, so the true figure is higher.`
+          : ""
+      }`,
+      fingerprint: `cgt:${realised.tax_year}:over:${bucket(cgt.taxable, 1000)}`,
+    });
+  } else if (cgt.headroom !== null && cgt.headroom > 500 && days <= 90 && (cgt.net ?? 0) !== 0) {
+    signals.push({
+      id: "cgt-headroom",
+      kind: "recommendation",
+      severity: "action",
+      summary: `${money(cgt.headroom, base)} of the ${money(
+        cgt.exempt_amount,
+        base,
+      )} CGT exemption is unused with ${days} days of ${realised.tax_year} left, and it does not carry forward. It applies only to general investment accounts, never to ISA or pension disposals.`,
+      fingerprint: `cgt:${realised.tax_year}:headroom:${bucket(cgt.headroom, 500)}`,
+    });
+  }
+
+  if (realised.sheltered.net !== null && realised.sheltered.net < -100) {
+    signals.push({
+      id: "isa-realised-loss",
+      kind: "briefing",
+      severity: "info",
+      summary: `${money(
+        Math.abs(realised.sheltered.net),
+        base,
+      )} of realised losses sit inside sheltered accounts (ISA or pension) across ${realised.sheltered.disposals} disposals in ${realised.tax_year}. These carry no tax benefit — they cannot be set against gains and they do not carry forward. Only a general investment account loss can.`,
+      fingerprint: `realised:sheltered:${realised.tax_year}:${bucket(realised.sheltered.net, 250)}`,
+    });
+  }
+
+  if (cgt.unknown_basis_disposals > 0 && cgt.status !== "watch") {
+    signals.push({
+      id: "realised-unknown-basis",
+      kind: "briefing",
+      severity: "info",
+      summary: `${cgt.unknown_basis_disposals} disposals in general investment accounts have no recorded purchase cost, so the realised position for ${realised.tax_year} is incomplete. Importing the earlier contract notes or activity export would settle it.`,
+      fingerprint: `realised:unknown:${realised.tax_year}:${cgt.unknown_basis_disposals}`,
+    });
+  }
+
+  return signals;
+}
+
+
 function fromLiquidity(context: HouseholdContext, base: string): Signal[] {
   const { gbp_cash, essential_monthly, months_covered, target_months } = context.liquidity;
   if (!essential_monthly || !months_covered || !gbp_cash) return [];
@@ -569,6 +773,9 @@ export function detectSignals(input: {
     ...fromPolicy(findings),
     ...fromGoals(context, base),
     ...fromAllowances(context, base),
+    ...fromIsaAsymmetry(context, base),
+    ...fromMandates(context, base),
+    ...fromRealised(context, base),
     ...fromLiquidity(context, base),
     ...fromWatchlist(context),
     ...fromHoldings(context, base),

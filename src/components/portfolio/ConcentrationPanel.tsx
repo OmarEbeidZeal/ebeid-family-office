@@ -9,14 +9,17 @@ import { POLICY_RULES, type ConcentrationRow } from "@/lib/policy";
 
 function valueLabel(row: ConcentrationRow) {
   if (row.value === null) return "—";
-  return row.unit === "pct"
-    ? formatPercent(row.value)
-    : `${row.value.toFixed(1)} month${row.value === 1 ? "" : "s"}`;
+  if (row.unit === "pct") return formatPercent(row.value);
+  if (row.unit === "months") return `${row.value.toFixed(1)} month${row.value === 1 ? "" : "s"}`;
+  if (row.unit === "count") return `${row.value}`;
+  return null;
 }
 
 function limitLabel(row: ConcentrationRow) {
   if (row.limit === null) return null;
-  return row.unit === "pct" ? `limit ${formatPercent(row.limit, 0)}` : `target ${row.limit} months`;
+  if (row.unit === "pct") return `limit ${formatPercent(row.limit, 0)}`;
+  if (row.unit === "months") return `target ${row.limit} months`;
+  return null;
 }
 
 /**

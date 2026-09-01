@@ -8,10 +8,13 @@ import {
   useGoals,
   useHoldings,
   useIncomeStreams,
+  useInvestmentMandates,
   useLiabilities,
   useTaxAllowances,
+  useTrades,
   useWatchlist,
 } from "@/hooks/useFinancials";
+
 import { useObservedSpending } from "@/hooks/useObservedSpending";
 import { useQuotes } from "@/hooks/useMarketData";
 import { buildPositions } from "@/lib/portfolio";
@@ -37,7 +40,10 @@ export function useHouseholdContext() {
   const holdings = useHoldings();
   const watchlist = useWatchlist();
   const allowances = useTaxAllowances();
+  const mandates = useInvestmentMandates();
+  const trades = useTrades();
   const spending = useObservedSpending();
+
 
   const tickers = useMemo(
     () => [
@@ -58,7 +64,10 @@ export function useHouseholdContext() {
     goals.isLoading ||
     holdings.isLoading ||
     watchlist.isLoading ||
-    allowances.isLoading;
+    allowances.isLoading ||
+    mandates.isLoading ||
+    trades.isLoading;
+
 
   const toBase = useMemo(
     () => (amount: number, currency: string) => convert(amount, currency, base),
@@ -131,6 +140,21 @@ export function useHouseholdContext() {
         ),
         spending: observed,
         allowances: allowances.data ?? [],
+        // Per-person mandates and the trade history: without them allocation
+        // would be judged against a household average and every closed
+        // position would vanish from the tax picture.
+        mandates: mandates.data ?? [],
+        trades: (trades.data ?? []).map((trade) => ({
+          id: trade.id,
+          holding_id: trade.holding_id,
+          account_id: trade.account_id,
+          side: trade.side,
+          trade_date: trade.trade_date,
+          quantity: Number(trade.quantity),
+          price: Number(trade.price),
+          fees: Number(trade.fees),
+          currency: trade.currency,
+        })),
         marketDataAvailable: market.configured !== false,
         marketDataMessage: market.message,
         toBase,
@@ -152,9 +176,12 @@ export function useHouseholdContext() {
       market.message,
       observed,
       allowances.data,
+      mandates.data,
+      trades.data,
       toBase,
     ],
   );
+
 
   return {
     ...built,

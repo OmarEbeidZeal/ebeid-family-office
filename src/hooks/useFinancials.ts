@@ -213,9 +213,14 @@ export type HoldingRow = {
   thesis: string | null;
   falsification: string | null;
   target_price: number | null;
-  realised_pnl: number;
+  realised_pnl: number | null;
   opened_at: string | null;
   notes: string | null;
+  opening_quantity: number | null;
+  opening_cost: number | null;
+  /** The household's own Shariah determination; "unscreened" until someone records one. */
+  shariah_status: string | null;
+  shariah_note: string | null;
 };
 
 export type TradeRow = {
@@ -242,6 +247,23 @@ export type WatchlistRow = {
   falsification: string;
   added_by: string | null;
   created_at: string;
+  shariah_status: string | null;
+  shariah_note: string | null;
+};
+
+export type InvestmentMandateRow = {
+  id: string;
+  profile_id: string;
+  mandate_type: string;
+  target_core_pct: number;
+  target_income_pct: number;
+  target_thematic_pct: number;
+  target_satellite_pct: number;
+  speculative_cap_pct: number;
+  single_name_cap_pct: number;
+  crypto_cap_pct: number;
+  additional_constraints: string | null;
+  notes: string | null;
 };
 
 export type AdvisorNoteRow = {
@@ -392,6 +414,8 @@ export const useParentalLeavePlans = () =>
   useTable<ParentalLeavePlanRow>("parental_leave_plans", "parental_leave_plans");
 export const useChildcarePlans = () =>
   useTable<ChildcarePlanRow>("childcare_plans", "childcare_plans");
+export const useInvestmentMandates = () =>
+  useTable<InvestmentMandateRow>("investment_mandates", "investment_mandates");
 
 /**
  * How many briefing notes are waiting. Drives the Advisor badge in the sidebar,
