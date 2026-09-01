@@ -831,12 +831,57 @@ export async function importExtracted(
       );
     }
 
+    /* -------------------------------- where this file contradicts an earlier one */
+    // Two exports of the same weeks can disagree. Whichever was read last would
+    // otherwise become the truth in silence, so the disagreement is named and
+    // the statement is held for review instead.
+    if (statement.account_id) {
+      const { data: siblings } = await supabase
+        .from("statements")
+        .select("id, file_name, period_start, period_end, opening_balance, closing_balance, currency")
+        .eq("household_id", statement.household_id)
+        .eq("account_id", statement.account_id)
+        .neq("id", statementId)
+        .in("status", ["parsed", "needs_review"])
+        .order("period_end", { ascending: false })
+        .limit(120);
+
+      const balanceClashes = detectBalanceConflicts(
+        {
+          id: statementId,
+          fileName: statement.file_name ?? null,
+          periodStart: extraction.meta.period_start ?? firstDate,
+          periodEnd: extraction.meta.period_end ?? lastDate,
+          openingBalance: opening,
+          closingBalance: closing,
+          currency: statementCurrency,
+        },
+        ((siblings ?? []) as Array<Record<string, unknown>>).map((row) => ({
+          id: String(row["id"]),
+          fileName: (row["file_name"] as string | null) ?? null,
+          periodStart: (row["period_start"] as string | null) ?? null,
+          periodEnd: (row["period_end"] as string | null) ?? null,
+          openingBalance: row["opening_balance"] === null ? null : Number(row["opening_balance"]),
+          closingBalance: row["closing_balance"] === null ? null : Number(row["closing_balance"]),
+          currency: (row["currency"] as string | null) ?? null,
+        })),
+      );
+
+      for (const clash of balanceClashes) {
+        conflicts.push(clash);
+        notes.push(clash.message);
+      }
+    }
+
     const needsReview =
       (discrepancy !== null && discrepancy !== 0) ||
       extraction.skippedRows > 0 ||
       aiNote !== null ||
       brokerNote !== null ||
+      conflicts.length > 0 ||
       payload.some((row) => row.amount_base === null && row.currency !== baseCurrency);
+
+
 
 
     const message = buildMessage({
