@@ -781,15 +781,18 @@ export async function importExtracted(
     // on this side must not lose the cash side, so it is reported rather than
     // thrown.
     let brokerNote: string | null = null;
+    const conflicts: Conflict[] = [];
     if (extraction.broker && statement.account_id) {
       try {
         const broker = await importBrokerLedger(supabase, {
           householdId: statement.household_id,
           accountId: statement.account_id,
           statementId: statement.id,
+          fileName: statement.file_name ?? null,
           ledger: extraction.broker,
         });
         notes.push(...broker.notes);
+        conflicts.push(...broker.conflicts);
       } catch (error) {
         brokerNote =
           error instanceof Error
@@ -798,6 +801,7 @@ export async function importExtracted(
         notes.push(brokerNote);
       }
     }
+
 
 
 
