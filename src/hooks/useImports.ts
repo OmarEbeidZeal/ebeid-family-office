@@ -291,6 +291,23 @@ export function useRetryStatement() {
   });
 }
 
+/**
+ * Throws away what a file imported and reads it again from nothing. Accounts,
+ * transactions and balances all move, so the whole workspace is refreshed.
+ */
+export function useReimportStatement() {
+  const client = useQueryClient();
+  const invalidate = useInvalidateImports();
+  return useMutation({
+    mutationFn: async (statementId: string) => reimportStatement({ data: { statementId } }),
+    onSuccess: async () => {
+      await invalidate();
+      await client.invalidateQueries();
+    },
+  });
+}
+
+
 export function useCancelStatement() {
   const invalidate = useInvalidateImports();
   return useMutation({
