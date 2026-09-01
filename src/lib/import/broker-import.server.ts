@@ -31,6 +31,12 @@ import {
   type PartialPosition,
   type TradeLike,
 } from "./broker";
+import {
+  detectPositionConflict,
+  detectSnapshotConflict,
+  positionAt,
+  type Conflict,
+} from "./conflicts";
 
 type Client = any;
 
@@ -39,6 +45,8 @@ export type BrokerImportResult = {
   tradesHeld: number;
   holdingsTouched: number;
   notes: string[];
+  /** Where this export and an earlier one from the same broker disagree. */
+  conflicts: Conflict[];
 };
 
 type HoldingRow = {
@@ -52,9 +60,10 @@ type HoldingRow = {
   opened_at: string | null;
   opening_quantity: number | null;
   opening_cost: number | null;
-  position_evidence: { as_of?: string; shares?: number } | null;
+  position_evidence: { as_of?: string; shares?: number; file?: string | null } | null;
   discovered_from: string | null;
 };
+
 
 type ExistingTrade = {
   id: string;
