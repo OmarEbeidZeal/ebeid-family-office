@@ -20,6 +20,7 @@ import {
   useReimportStatement,
   useRetryStatement,
   type ImportStatementRow,
+  type StatementConflict,
   type StatementSummary,
 } from "@/hooks/useImports";
 import { useRefileStatement } from "@/hooks/useAccountRepair";
