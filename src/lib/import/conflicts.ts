@@ -66,6 +66,13 @@ export function detectPositionConflict(input: {
   statedShares: number;
   /** Shares the recorded orders leave in hand on that date. */
   derivedShares: number;
+  /**
+   * Shares the orders leave in hand a few weeks earlier. A dividend is paid on
+   * the position at its ex-date, so buying between then and the payment date
+   * legitimately leaves more shares on the day than the snapshot counted. Only
+   * a gap that was already there before that window is a disagreement.
+   */
+  derivedSharesEarlier?: number;
   /** The institution both documents came from. */
   institution: string;
   /** The document stating the snapshot figure. */
@@ -73,8 +80,15 @@ export function detectPositionConflict(input: {
   /** The document the orders came from, when it is a different one. */
   derivedSource?: string | null;
 }): Conflict | null {
+  const tolerance = shareTolerance(input.statedShares);
   const gap = input.derivedShares - input.statedShares;
-  if (gap <= shareTolerance(input.statedShares)) return null;
+  if (gap <= tolerance) return null;
+  if (
+    input.derivedSharesEarlier !== undefined &&
+    input.derivedSharesEarlier - input.statedShares <= tolerance
+  ) {
+    return null;
+  }
 
   const stated = fileLabel(input.statedSource, "this export");
   const derived = fileLabel(input.derivedSource, "the orders already recorded");
@@ -90,6 +104,36 @@ export function detectPositionConflict(input: {
     sources,
   };
 }
+
+/**
+ * Two snapshots of the same position on the same day that do not agree — the
+ * activity export and the statement PDF, each stating a different holding.
+ * There is no reading under which both are right.
+ */
+export function detectSnapshotConflict(input: {
+  ticker: string;
+  asOf: string;
+  institution: string;
+  held: { shares: number; source: string | null };
+  incoming: { shares: number; source: string | null };
+}): Conflict | null {
+  const gap = Math.abs(input.incoming.shares - input.held.shares);
+  if (gap <= shareTolerance(input.held.shares)) return null;
+
+  const heldLabel = fileLabel(input.held.source);
+  const incomingLabel = fileLabel(input.incoming.source, "this export");
+  if (heldLabel === incomingLabel) return null;
+
+  return {
+    kind: "position",
+    message:
+      `${input.institution} states two different holdings of ${input.ticker} on ${input.asOf}: ` +
+      `${incomingLabel} says ${formatShares(input.incoming.shares)} shares and ${heldLabel} says ` +
+      `${formatShares(input.held.shares)}. The larger figure is kept so no shares are lost, but one of the two exports is wrong.`,
+    sources: [incomingLabel, heldLabel],
+  };
+}
+
 
 /* -------------------------------------------------------------- balances */
 
