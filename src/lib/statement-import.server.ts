@@ -891,6 +891,7 @@ export async function importExtracted(
       discrepancy,
       currency: statementCurrency,
       exact: exactFormat,
+      conflicts: conflicts.length,
     });
 
     // Count what this file actually accounts for rather than what this run
@@ -922,10 +923,12 @@ export async function importExtracted(
           skipped_rows: extraction.skippedRows,
           notes,
           format,
+          conflicts,
           categorised_by: categorisedByModel ? { model: categorisedByModel } : null,
         },
       })
       .eq("id", statementId);
+
 
     return {
       status: needsReview ? "needs_review" : "parsed",
