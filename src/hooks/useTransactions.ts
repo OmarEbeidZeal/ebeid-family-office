@@ -5,7 +5,9 @@ import { applyCategoryRule, rescanTransfers } from "@/lib/statements.functions";
 import { expandSplits, type SplitPart } from "@/lib/spending";
 import { useAuth } from "./useAuth";
 import { useAccounts } from "./useFinancials";
+import type { StatementSummary } from "./useImports";
 import { useScope } from "./useScope";
+
 
 export type TransactionRow = {
   id: string;
