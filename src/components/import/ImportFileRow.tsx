@@ -191,7 +191,16 @@ export function ImportFileRow({
           {!statement.error_message && summary && (
             <p className="mt-0.5 truncate text-[0.7rem] text-muted-foreground">{summary}</p>
           )}
+          {conflicts.map((conflict, index) => (
+            <p
+              key={`${conflict.kind ?? "conflict"}-${index}`}
+              className="mt-1.5 border-l-2 border-warn/50 pl-2 text-[0.7rem] leading-relaxed text-warn"
+            >
+              {conflict.message}
+            </p>
+          ))}
         </div>
+
 
         <span className={cn("flex shrink-0 items-center gap-1.5 text-[0.7rem]", status.tone)}>
           {status.spin && <Loader2 className="size-3 animate-spin" />}
