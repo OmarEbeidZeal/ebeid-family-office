@@ -274,7 +274,16 @@ describe("parseMonzo — Flex is financing, not a shop", () => {
         category: "Groceries",
         amount: "-42.10",
       }),
+      row({
+        id: "tx_current_dd",
+        date: "22/02/2026",
+        type: "Direct Debit",
+        name: "Thames Water",
+        category: "Bills",
+        amount: "-38.00",
+      }),
     ]);
+    expect(drawdown.meta.identity.ledger ?? null).toBeNull();
     const byRef = (ref: string) =>
       drawdown.transactions.find((t) => t.bank_reference === ref);
     // The purchase itself already sits on the Flex ledger. Counting the money
