@@ -397,8 +397,15 @@ export async function importBrokerLedger(
         // the household has given us. Null is the only true answer.
         opening_cost: opening.quantity > 0 ? (existing?.opening_cost ?? null) : null,
         position_evidence: evidence
-          ? { as_of: evidence.asOf, shares: evidence.shares, source: ledger.broker }
+          ? {
+              as_of: evidence.asOf,
+              shares: evidence.shares,
+              source: ledger.broker,
+              // The file is kept so a later export that disagrees can name it.
+              file: evidence === fileEvidence ? fileName : (storedSource ?? null),
+            }
           : null,
+
       })
       .eq("id", holdingId);
 
