@@ -44,10 +44,21 @@ const STATUS: Record<string, { label: string; tone: string; spin?: boolean }> = 
   uploaded: { label: "Waiting", tone: "text-muted-foreground" },
 };
 
+/** The disagreements recorded against a file, as plain sentences. */
+function conflictsOf(summary: StatementSummary | null): StatementConflict[] {
+  return (summary?.conflicts ?? []).filter(
+    (entry): entry is StatementConflict =>
+      Boolean(entry) && typeof entry.message === "string" && entry.message.trim().length > 0,
+  );
+}
+
 /**
  * The reader's own notes about a file, as a sentence. Kept honest: it says how
  * the file was read, which model was involved if any, and repeats anything the
  * reader flagged.
+ *
+ * Disagreements between documents are left out — they are too important to be
+ * truncated into a tail, so they get their own lines below.
  */
 function summaryLine(statement: ImportStatementRow, summary: StatementSummary | null) {
   const parts: string[] = [];
@@ -55,8 +66,10 @@ function summaryLine(statement: ImportStatementRow, summary: StatementSummary | 
   const note = formatNote(statement.source_format);
   if (note) parts.push(note);
 
+  const spokenFor = new Set(conflictsOf(summary).map((conflict) => conflict.message));
   const notes = [...(summary?.notes ?? []), ...(summary?.extraction_notes ?? [])].filter(
-    (entry): entry is string => typeof entry === "string" && entry.trim().length > 0,
+    (entry): entry is string =>
+      typeof entry === "string" && entry.trim().length > 0 && !spokenFor.has(entry),
   );
   parts.push(...notes);
 
@@ -69,6 +82,7 @@ function summaryLine(statement: ImportStatementRow, summary: StatementSummary | 
 
   return parts.length ? parts.join(" · ") : null;
 }
+
 
 /** One file in the queue, with whatever is known about it so far. */
 export function ImportFileRow({
