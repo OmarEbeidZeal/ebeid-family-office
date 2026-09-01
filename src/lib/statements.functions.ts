@@ -208,6 +208,49 @@ export const retryStatement = createServerFn({ method: "POST" })
     return { queued: true };
   });
 
+/**
+ * Read a file again from nothing — for when the first reading was wrong, not
+ * merely incomplete.
+ *
+ * A plain re-read keeps everything already imported and only fills gaps, which
+ * is right when the reader has learnt to see more in the same file. It is wrong
+ * when the reader has learnt the file is a different thing entirely: a Monzo
+ * Flex credit line pooled into a current account cannot be corrected row by
+ * row. So the transactions this file wrote are removed, the file lets go of the
+ * account it was filed under, and it queues as if newly uploaded — asking again
+ * which account it belongs to. Nothing any other file imported is touched.
+ */
+export const reimportStatement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => statementInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const { householdId } = await viewerOf(context.supabase, context.userId);
+
+    const { data: statement } = await context.supabase
+      .from("statements")
+      .select("file_path, storage_bucket")
+      .eq("id", data.statementId)
+      .eq("household_id", householdId)
+      .maybeSingle();
+
+    if (statement?.file_path) {
+      const { removeCachedExtraction } = await import("@/lib/import/pipeline.server");
+      await removeCachedExtraction(
+        context.supabase,
+        statement.file_path,
+        statement.storage_bucket ?? "statements",
+      ).catch(() => undefined);
+    }
+
+    const { unfileStatement } = await import("@/lib/accounts/repair.server");
+    return await unfileStatement(context.supabase, {
+      householdId,
+      statementId: data.statementId,
+    });
+  });
+
+
+
 
 
 /** Stops a statement being read, without deleting what it already imported. */
