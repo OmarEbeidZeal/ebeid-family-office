@@ -30,6 +30,17 @@ export type NormalisedIdentifier = {
   hash: string;
   /** "•••• 4821" — safe to render anywhere. Null when there is nothing to mask. */
   mask: string | null;
+  /**
+   * True when this is a whole identifier only one account in the world carries:
+   * an IBAN, a full account number, a card number, or a masked tail pinned to a
+   * sort code. False for everything softer — a bare `****234`, or a key built
+   * out of the bank, the currency and the holder.
+   *
+   * Only a positive identifier ever files a statement into an account without
+   * being asked. Everything else proposes, because merging two people's
+   * accounts is a corruption no later screen can undo.
+   */
+  positive: boolean;
 };
 
 function salt(): string {
@@ -46,6 +57,7 @@ export function maskIdentifier(lastFour: string, kind: IdentifierKind): string {
   const prefix = kind === "card" ? "•••• •••• ••••" : "••••";
   return `${prefix} ${lastFour}`;
 }
+
 
 /**
  * The last rung of the identity ladder: no IBAN, no account number, nothing
