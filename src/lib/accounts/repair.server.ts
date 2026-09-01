@@ -441,6 +441,43 @@ export async function refileStatement(
 
   const previous: string | null = statement.account_id;
 
+  // Orders read from this file belong wherever the file belongs; a holding whose
+  // every trade has moved moves with them, so a position is never split across
+  // the account it was bought in and the one the file now sits under.
+  const orders = await fetchAll<{ id: string; holding_id: string }>((from, to) =>
+    supabase
+      .from("trades")
+      .select("id, holding_id")
+      .eq("household_id", input.householdId)
+      .eq("statement_id", input.statementId)
+      .range(from, to),
+  );
+  if (orders.length) {
+    for (const batch of chunk(orders.map((row) => row.id))) {
+      const { error: tradeError } = await supabase
+        .from("trades")
+        .update({ account_id: input.accountId })
+        .eq("household_id", input.householdId)
+        .in("id", batch);
+      if (tradeError) throw new Error(tradeError.message);
+    }
+
+    for (const holdingId of Array.from(new Set(orders.map((row) => row.holding_id)))) {
+      const { count } = await supabase
+        .from("trades")
+        .select("id", { count: "exact", head: true })
+        .eq("household_id", input.householdId)
+        .eq("holding_id", holdingId)
+        .neq("account_id", input.accountId);
+      if ((count ?? 0) > 0) continue;
+      await supabase
+        .from("holdings")
+        .update({ account_id: input.accountId })
+        .eq("id", holdingId)
+        .eq("household_id", input.householdId);
+    }
+  }
+
   const { error } = await supabase
     .from("statements")
     .update({ account_id: input.accountId })
@@ -470,9 +507,81 @@ export async function refileStatement(
 
 export type UnfileOutcome = {
   removed: number;
+  trades: number;
+  holdingsRemoved: number;
   fileName: string | null;
   accountNickname: string | null;
 };
+
+/**
+ * Take back the orders a broker export wrote.
+ *
+ * A holding's quantity, average cost and realised profit come from its trades,
+ * so removing the trades is enough — the database recomputes the position. A
+ * name that existed only because this file mentioned it goes with the file; one
+ * the household typed in stays, minus the trades this file added.
+ */
+async function unwindTrades(
+  supabase: Client,
+  householdId: string,
+  statementId: string,
+): Promise<{ trades: number; holdingsRemoved: number }> {
+  const rows = await fetchAll<{ id: string; holding_id: string }>((from, to) =>
+    supabase
+      .from("trades")
+      .select("id, holding_id")
+      .eq("household_id", householdId)
+      .eq("statement_id", statementId)
+      .range(from, to),
+  );
+  if (!rows.length) return { trades: 0, holdingsRemoved: 0 };
+
+  const holdingIds = Array.from(new Set(rows.map((row) => row.holding_id)));
+
+  for (const batch of chunk(rows.map((row) => row.id))) {
+    const { error } = await supabase
+      .from("trades")
+      .delete()
+      .eq("household_id", householdId)
+      .in("id", batch);
+    if (error) throw new Error(error.message);
+  }
+
+  let holdingsRemoved = 0;
+  for (const holdingId of holdingIds) {
+    const { count } = await supabase
+      .from("trades")
+      .select("id", { count: "exact", head: true })
+      .eq("household_id", householdId)
+      .eq("holding_id", holdingId);
+    if ((count ?? 0) > 0) continue;
+
+    const { data: holding } = await supabase
+      .from("holdings")
+      .select("id, discovered_from")
+      .eq("id", holdingId)
+      .eq("household_id", householdId)
+      .maybeSingle();
+    if (!holding) continue;
+
+    if (holding.discovered_from === "statement") {
+      await supabase.from("holdings").delete().eq("id", holdingId).eq("household_id", householdId);
+      holdingsRemoved += 1;
+      continue;
+    }
+
+    // A hand-entered position keeps its own figures, but the shares an import
+    // inferred were held before the file begins are the file's claim, not the
+    // household's.
+    await supabase
+      .from("holdings")
+      .update({ opening_quantity: 0, opening_cost: null, position_evidence: null })
+      .eq("id", holdingId)
+      .eq("household_id", householdId);
+  }
+
+  return { trades: rows.length, holdingsRemoved };
+}
 
 /**
  * Undo an import, so the file can be read as if it had never arrived.
@@ -571,7 +680,15 @@ export async function unfileStatement(
     .eq("household_id", input.householdId);
   if (detached) throw new Error(detached.message);
 
+  const orders = await unwindTrades(supabase, input.householdId, input.statementId);
+
   if (previous) await recomputeAccountBalance(supabase, input.householdId, previous);
 
-  return { removed: doomed.length, fileName: statement.file_name, accountNickname: nickname };
+  return {
+    removed: doomed.length,
+    trades: orders.trades,
+    holdingsRemoved: orders.holdingsRemoved,
+    fileName: statement.file_name,
+    accountNickname: nickname,
+  };
 }
