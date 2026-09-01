@@ -60,7 +60,12 @@ export function MandateSection({
           }
         />
       ) : (
-        <div className={evaluations.length > 1 ? "grid gap-4 lg:grid-cols-2" : ""}>
+        <div
+          className={
+            evaluations.length > 1 ? "grid items-start gap-4 lg:grid-cols-2" : ""
+          }
+        >
+
           {evaluations.map((evaluation) => (
             <MandateCard
               key={evaluation.profileId}
