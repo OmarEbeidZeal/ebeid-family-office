@@ -32,7 +32,15 @@ export type HoldingLike = {
    * still have no honest return to show.
    */
   opening_quantity?: number | null;
+  /** Cost of those opening shares where it is known; null when it is not. */
+  opening_cost?: number | null;
   discovered_from?: string | null;
+  /**
+   * The household's own determination, never inferred: "compliant",
+   * "non_compliant", or "unscreened" where nobody has judged it.
+   */
+  shariah_status?: string | null;
+  shariah_note?: string | null;
 };
 
 

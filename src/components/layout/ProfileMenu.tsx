@@ -10,13 +10,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
+import { memberName } from "@/hooks/useOwners";
 
 export function ProfileMenu() {
   const { profile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
 
-  const name = profile?.display_name ?? profile?.full_name ?? profile?.email ?? "Account";
+  const name = profile ? memberName(profile) : "Account";
   const initials = name
     .split(" ")
     .map((part) => part.charAt(0))

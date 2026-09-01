@@ -33,6 +33,21 @@ import {
 import { sleeveTotals, type Position, type ToBase } from "@/lib/portfolio";
 import { buildDocumentContext, type DocPolicy, type DocTenancy } from "@/lib/documents/context";
 import type { PayslipLike, PersonLike } from "@/lib/documents/analysis";
+import {
+  evaluateMandate,
+  mandateFor,
+  normaliseShariahStatus,
+  type MandateEvaluation,
+  type MandateRowLike,
+} from "@/lib/mandates";
+import {
+  realisedDisposals,
+  summariseRealised,
+  wrapperOf,
+  type RealisedTrade,
+} from "@/lib/realised";
+import { buildIsaTracker } from "@/lib/isa";
+import { personLabel } from "@/lib/people";
 
 /** Accounts whose balance is a market value rather than cash. */
 export const INVESTMENT_ACCOUNT_TYPES = ["isa", "gia", "crypto"];
@@ -123,6 +138,8 @@ export type CtxWatch = {
   target_price: number | null;
   thesis: string;
   falsification: string;
+  /** The household's own determination; never inferred from the ticker. */
+  shariah_status?: string | null;
 };
 
 export type CtxAllowance = {
@@ -179,6 +196,10 @@ export type ContextInput = {
   payslips?: PayslipLike[];
   /** Years of income the household chose to replace on death. */
   replacementYears?: number;
+  /** One investment mandate per person. Absent rows fall back to the written default. */
+  mandates?: MandateRowLike[];
+  /** Every trade, so disposals can be replayed per wrapper for the CGT position. */
+  trades?: RealisedTrade[];
 };
 
 const round = (value: number | null | undefined, decimals = 0): number | null => {
@@ -195,8 +216,9 @@ function monthsUntil(date: string | null, now: Date): number | null {
 }
 
 function personName(member: CtxMember | undefined) {
-  return member?.display_name ?? member?.full_name ?? "Unnamed";
+  return personLabel(member?.display_name) || personLabel(member?.full_name) || "Unnamed";
 }
+
 
 export type HouseholdContext = ReturnType<typeof buildHouseholdContext>["context"];
 
@@ -219,6 +241,24 @@ export function buildHouseholdContext(input: ContextInput) {
   // Investment accounts are valued at their priced holdings when we have them,
   // otherwise at the recorded balance. Holdings never stack on top of the
   // account balance that already contains them.
+  //
+  // The same pool is also totalled per person, because a percentage limit only
+  // means something against the money it applies to: Haya's sleeve weights are
+  // her assets over her investable total, not hers over the household's.
+  const UNASSIGNED_OWNER = "__unassigned__";
+  const investableByOwner = new Map<string, number>();
+  const addOwned = (ownerId: string | null | undefined, value: number) => {
+    const key = ownerId ?? UNASSIGNED_OWNER;
+    investableByOwner.set(key, (investableByOwner.get(key) ?? 0) + value);
+  };
+  const accountOwner = new Map(
+    input.accounts.map((account) => [account.id, account.owner_profile_id ?? null]),
+  );
+  /** Whose money a position is: the holding's owner, else the account's. */
+  const positionOwner = (position: Position): string | null =>
+    position.holding.owner_profile_id ??
+    (position.holding.account_id ? (accountOwner.get(position.holding.account_id) ?? null) : null);
+
   const pricedByAccount = new Map<string, number>();
   let unaccountedHoldingsValue = 0;
   for (const position of input.positions) {
@@ -231,6 +271,7 @@ export function buildHouseholdContext(input: ContextInput) {
       );
     } else {
       unaccountedHoldingsValue += position.marketValueBase ?? 0;
+      addOwned(positionOwner(position), position.marketValueBase ?? 0);
     }
   }
 
@@ -256,6 +297,7 @@ export function buildHouseholdContext(input: ContextInput) {
     if (CASH_ACCOUNT_TYPES.includes(account.account_type)) {
       if (recorded === null) continue;
       investableTotal += recorded;
+      addOwned(account.owner_profile_id, recorded);
       if (account.currency === "GBP") gbpCash += Number(account.current_balance);
       investableAccounts.push({
         id: account.id,
@@ -273,6 +315,7 @@ export function buildHouseholdContext(input: ContextInput) {
       const value = priced && priced > 0 ? priced : recorded;
       if (value === null) continue;
       investableTotal += value;
+      addOwned(account.owner_profile_id, value);
       investableAccounts.push({
         id: account.id,
         label: account.nickname,
@@ -288,12 +331,14 @@ export function buildHouseholdContext(input: ContextInput) {
     (asset) =>
       asset.is_liquid && asset.asset_class !== "private_equity" && asset.asset_class !== "pension",
   );
-  const liquidAssetValue = liquidNonAccountAssets.reduce(
-    (sum, asset) =>
-      sum +
-      toBase(Number(asset.current_value) * (Number(asset.ownership_pct) / 100), asset.currency),
-    0,
-  );
+  const liquidAssetValue = liquidNonAccountAssets.reduce((sum, asset) => {
+    const value = toBase(
+      Number(asset.current_value) * (Number(asset.ownership_pct) / 100),
+      asset.currency,
+    );
+    addOwned(asset.owner_profile_id, value);
+    return sum + value;
+  }, 0);
   investableTotal += liquidAssetValue + unaccountedHoldingsValue;
 
   // ---- Sleeves, equity pool, weights ------------------------------------
@@ -319,6 +364,74 @@ export function buildHouseholdContext(input: ContextInput) {
     hasThesis: position.hasThesis,
     priced: position.priced,
   }));
+
+  // ---- Per-person investment mandates -------------------------------------
+  // Omar and Haya invest on genuinely different principles, so each person's
+  // allocation is measured against their own mandate rather than a household
+  // average that describes neither of them. A position whose owner nobody has
+  // recorded belongs to no mandate: it is reported as unassigned instead of
+  // being folded into whichever mandate is nearest.
+  const mandateEvaluations: MandateEvaluation[] = input.members.map((member) => {
+    const row = (input.mandates ?? []).find((entry) => entry.profile_id === member.id);
+    return evaluateMandate({
+      mandate: mandateFor({ profileId: member.id, person: personName(member), row }),
+      positions: input.positions
+        .filter((position) => positionOwner(position) === member.id)
+        .map((position) => ({
+          id: position.id,
+          ticker: position.ticker,
+          name: position.name,
+          sleeve: position.sleeve as Sleeve,
+          securityType: position.securityType,
+          priced: position.priced,
+          marketValueBase: position.marketValueBase,
+          shariahStatus: normaliseShariahStatus(position.holding.shariah_status),
+        })),
+      investableBase: investableByOwner.get(member.id) ?? 0,
+    });
+  });
+
+  const unassignedPositions = input.positions.filter(
+    (position) => positionOwner(position) === null,
+  );
+  const unassignedInvestable = investableByOwner.get(UNASSIGNED_OWNER) ?? 0;
+
+  // Which mandate a row on screen is judged by. The holdings table needs this
+  // to show a compliance flag only where a mandate actually asks for one.
+  const mandateByPosition = new Map<string, MandateEvaluation>();
+  for (const position of input.positions) {
+    const owner = positionOwner(position);
+    if (!owner) continue;
+    const evaluation = mandateEvaluations.find((entry) => entry.profileId === owner);
+    if (evaluation) mandateByPosition.set(position.id, evaluation);
+  }
+
+
+  // ---- Realised gains and losses, per wrapper ------------------------------
+  // A loss inside an ISA is not a usable loss, so disposals are grouped by the
+  // wrapper they happened in before anything is set against the exempt amount.
+  const disposals = realisedDisposals({
+    holdings: input.positions.map((position) => ({
+      id: position.holding.id,
+      ticker: position.ticker,
+      name: position.name,
+      account_id: position.holding.account_id,
+      owner_profile_id: positionOwner(position),
+      currency: position.holding.currency,
+      opening_quantity: position.holding.opening_quantity ?? null,
+      opening_cost: position.holding.opening_cost ?? null,
+    })),
+    trades: input.trades ?? [],
+    accounts: activeAccounts.map((account) => ({
+      id: account.id,
+      account_type: account.account_type,
+      nickname: account.nickname,
+      owner_profile_id: account.owner_profile_id,
+    })),
+    toBase,
+  });
+  const realised = summariseRealised({ disposals, base, now });
+
 
   // ---- Spending, surplus, reserve ---------------------------------------
   const observedEssential = input.spending?.essentialMonthly ?? null;
@@ -402,6 +515,16 @@ export function buildHouseholdContext(input: ContextInput) {
     };
   });
 
+  // Two people hold two ISA allowances. One heavily used while the other sits
+  // untouched is not a mistake in itself, but the unused one expires on 5 April
+  // rather than carrying forward, so it is worth raising as a question.
+  const isa = buildIsaTracker({
+    members: input.members.map((member) => ({ id: member.id, name: personName(member) })),
+    allowances: input.allowances,
+    now,
+  });
+
+
   // ---- Debt --------------------------------------------------------------
   const debts = [
     ...input.liabilities.map((liability) => ({
@@ -470,6 +593,7 @@ export function buildHouseholdContext(input: ContextInput) {
     })),
     allowances: allowanceRows,
     daysToTaxYearEnd: taxYear.daysRemaining,
+    mandates: mandateEvaluations,
     now: now.toISOString(),
   };
 
@@ -529,6 +653,7 @@ export function buildHouseholdContext(input: ContextInput) {
       crossed_target: target !== null && price !== null ? price >= target : null,
       thesis: item.thesis,
       falsification: item.falsification,
+      shariah_status: normaliseShariahStatus(item.shariah_status),
     };
   });
 
@@ -738,9 +863,60 @@ export function buildHouseholdContext(input: ContextInput) {
       has_written_thesis: position.hasThesis,
       thesis: position.holding.thesis ?? null,
       falsification: position.holding.falsification ?? null,
+      owner:
+        positionOwner(position) === null
+          ? null
+          : personName(input.members.find((member) => member.id === positionOwner(position))),
+      wrapper: wrapperOf(
+        position.holding.account_id
+          ? (activeAccounts.find((account) => account.id === position.holding.account_id)
+              ?.account_type ?? null)
+          : null,
+      ),
+      shariah_status: normaliseShariahStatus(position.holding.shariah_status),
     })),
     watchlist,
     goals,
+    // ---- Mandates: the hard constraint on each person's own money ----------
+    mandates: {
+      note: "Allocation, drift and speculative caps are measured per person against their own mandate. Never suggest an instrument that breaches the mandate of the person whose money it is; where a request would breach one, name the constraint and give the compliant equivalent rather than refusing.",
+      per_person: mandateEvaluations.map((evaluation) => ({
+        person: evaluation.person,
+        mandate_type: evaluation.type,
+        mandate_recorded: evaluation.recorded,
+        investable_base: round(evaluation.investableBase),
+        measurable: evaluation.measurable,
+        unpriced_holdings: evaluation.unpricedCount,
+        targets: evaluation.rows.map((row) => ({
+          sleeve: row.sleeve,
+          label: row.label,
+          target_pct: row.targetPct,
+          actual_pct: round(row.actualPct, 1),
+          drift_pp: round(row.driftPp, 1),
+          status: row.status,
+        })),
+        speculative_cap_pct: evaluation.speculative.capPct,
+        speculative_actual_pct: round(evaluation.speculative.pct, 1),
+        single_name_cap_pct: evaluation.mandate.singleNameCapPct,
+        crypto_cap_pct: evaluation.crypto.capPct,
+        constraints: evaluation.mandate.constraints,
+        shariah: {
+          non_compliant: evaluation.compliance.nonCompliant.map((flag) => flag.ticker),
+          unscreened: evaluation.compliance.unscreened.map((flag) => flag.ticker),
+          compliant_count: evaluation.compliance.compliantCount,
+          headline: evaluation.compliance.headline,
+        },
+        allocation_headline: evaluation.allocationHeadline,
+        speculative_headline: evaluation.speculativeHeadline,
+      })),
+      unassigned: {
+        investable_base: round(unassignedInvestable),
+        holdings: unassignedPositions.map((position) => position.ticker),
+        note: unassignedPositions.length
+          ? "These holdings have no owner recorded, so they belong to no mandate and are excluded from every per-person percentage above. Ask who owns them rather than assuming."
+          : null,
+      },
+    },
     income: input.income.map((row) => ({
       label: row.label,
       type: row.income_type,
@@ -768,6 +944,7 @@ export function buildHouseholdContext(input: ContextInput) {
       days_to_5_april: taxYear.daysRemaining,
       isa_allowance: POLICY_LIMITS.isaAllowance,
       pension_annual_allowance: POLICY_LIMITS.pensionAllowance,
+      cgt_annual_exempt: POLICY_LIMITS.cgtAnnualExempt,
       per_person: allowanceRows.map((row) => ({
         person: row.person,
         recorded: row.recorded,
@@ -776,6 +953,53 @@ export function buildHouseholdContext(input: ContextInput) {
         pension_used: round(row.pensionUsed),
         pension_remaining: round(row.pensionRemaining),
         employer_match_secured: row.employerMatchSecured,
+      })),
+      // An ISA belongs to the person named on it, funded from their own
+      // subscription. Two people hold two allowances; the unused one expires.
+      isa_per_person: {
+        household_capacity: round(isa.householdCapacityBase),
+        household_used: round(isa.householdUsedBase),
+        household_remaining: round(isa.householdRemainingBase),
+        people: isa.people.map((person) => ({
+          person: person.person,
+          recorded: person.recorded,
+          used: round(person.usedBase),
+          remaining: round(person.remainingBase),
+          used_pct: round(person.usedPct, 1),
+        })),
+        asymmetry: isa.asymmetry ? isa.asymmetry.question : null,
+      },
+    },
+    // ---- Realised results, and whether the tax system cares about them ------
+    realised: {
+      tax_year: realised.taxYear,
+      note: "Losses realised inside an ISA or SIPP carry no tax benefit — they cannot be set against gains. Only disposals in a general investment account count toward the CGT annual exempt amount.",
+      cgt_general_investment_accounts: {
+        gains: round(realised.cgt.gainsBase),
+        losses: round(realised.cgt.lossesBase),
+        net: round(realised.cgt.netBase),
+        exempt_amount: realised.cgt.exemptAmount,
+        headroom: round(realised.cgt.headroomBase),
+        taxable: round(realised.cgt.taxableBase),
+        unknown_basis_disposals: realised.cgt.unknownBasisCount,
+        status: realised.cgt.status,
+        headline: realised.cgt.headline,
+      },
+      sheltered: {
+        net: round(realised.shelteredNetBase),
+        disposals: realised.shelteredDisposals,
+        note: "Sheltered results, shown so an ISA loss is not mistaken for a usable one.",
+      },
+      by_wrapper: realised.thisYear.map((wrapper) => ({
+        wrapper: wrapper.wrapper,
+        label: wrapper.label,
+        disposals: wrapper.disposals,
+        gains: round(wrapper.gainsBase),
+        losses: round(wrapper.lossesBase),
+        net: round(wrapper.gainBase),
+        unknown_basis: wrapper.unknownBasisCount,
+        tickers: wrapper.tickers,
+        tax_treatment: wrapper.note,
       })),
     },
     documents,
@@ -801,7 +1025,23 @@ export function buildHouseholdContext(input: ContextInput) {
     },
   };
 
-  return { context, policyInput, findings, netWorth, investableTotal, taxYear, allowanceRows };
+  return {
+    context,
+    policyInput,
+    findings,
+    netWorth,
+    investableTotal,
+    taxYear,
+    allowanceRows,
+    mandates: mandateEvaluations,
+    mandateByPosition,
+    unassignedPositions,
+    unassignedInvestable,
+    disposals,
+    realised,
+    isa,
+  };
 }
+
 
 export type HouseholdContextResult = ReturnType<typeof buildHouseholdContext>;

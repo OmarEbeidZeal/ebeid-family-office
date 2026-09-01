@@ -1,13 +1,13 @@
 import { useCallback, useMemo } from "react";
-import { indexPersonNames, suggestPerson, type PersonNameIndex } from "@/lib/people";
+import { indexPersonNames, personLabel, suggestPerson, type PersonNameIndex } from "@/lib/people";
 import { useAuth, type Profile } from "./useAuth";
 
 /** What to call a member, shortest form first. */
 export function memberName(profile: Pick<Profile, "display_name" | "full_name" | "email">) {
   return (
-    profile.display_name?.trim() ||
-    profile.full_name?.trim() ||
-    profile.email?.split("@")[0] ||
+    personLabel(profile.display_name) ||
+    personLabel(profile.full_name) ||
+    personLabel(profile.email?.split("@")[0]) ||
     "Member"
   );
 }

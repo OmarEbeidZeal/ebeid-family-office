@@ -10,7 +10,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSaveRow } from "@/hooks/useUpsertRow";
 import { useAccounts, type HoldingRow } from "@/hooks/useFinancials";
 import { CURRENCIES, DEBT_ACCOUNT_TYPES, accountTypeLabel } from "@/lib/format";
+import { SHARIAH_STATUSES } from "@/lib/mandates";
 import { SLEEVES, isSpeculative, type Sleeve } from "@/lib/policy";
+import { memberName } from "@/hooks/useOwners";
+
 
 const SECURITY_TYPES = [
   { value: "stock", label: "Single stock" },
@@ -36,6 +39,9 @@ const schema = z
     falsification: z.string(),
     opened_at: z.string(),
     notes: z.string(),
+    shariah_status: z.string(),
+    shariah_note: z.string(),
+
   })
   .superRefine((values, ctx) => {
     if (!isSpeculative(values.sleeve as Sleeve)) return;
@@ -102,6 +108,9 @@ export function HoldingSheet({
       falsification: "",
       opened_at: "",
       notes: "",
+      shariah_status: "unscreened",
+      shariah_note: "",
+
     },
   });
 
@@ -122,6 +131,9 @@ export function HoldingSheet({
       falsification: holding?.falsification ?? "",
       opened_at: holding?.opened_at ?? "",
       notes: holding?.notes ?? "",
+      shariah_status: holding?.shariah_status ?? "unscreened",
+      shariah_note: holding?.shariah_note ?? "",
+
     });
   }, [open, holding, prefillTicker, form]);
 
@@ -151,6 +163,9 @@ export function HoldingSheet({
         falsification: values.falsification.trim() || null,
         opened_at: values.opened_at || null,
         notes: values.notes.trim() || null,
+        shariah_status: values.shariah_status,
+        shariah_note: values.shariah_note.trim() || null,
+
       },
     });
     onOpenChange(false);
@@ -242,13 +257,44 @@ export function HoldingSheet({
                 { value: "joint", label: "Joint" },
                 ...members.map((member) => ({
                   value: member.id,
-                  label: member.display_name ?? member.full_name ?? member.email,
+                  label: memberName(member),
                 })),
               ]}
             />
           )}
         />
       </Field>
+
+      <Field
+        label="Shariah status"
+        hint="Your own determination. Nothing is screened automatically, and unscreened is left as an honest unknown."
+      >
+        <Controller
+          control={form.control}
+          name="shariah_status"
+          render={({ field }) => (
+            <SelectNative
+              value={field.value}
+              onChange={field.onChange}
+              options={SHARIAH_STATUSES.map((entry) => ({
+                value: entry.value,
+                label: entry.label,
+              }))}
+            />
+          )}
+        />
+      </Field>
+
+      <FullRow>
+        <Field label="Screening note" hint="Where the determination came from, so it can be revisited.">
+          <Input
+            placeholder="AAOIFI screen via issuer factsheet, reviewed March 2026"
+            {...form.register("shariah_note")}
+          />
+        </Field>
+      </FullRow>
+
+
 
       <Field label="Currency" hint="The currency the position is booked in.">
         <Controller

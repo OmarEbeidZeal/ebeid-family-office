@@ -15,8 +15,10 @@ import type {
   GoalRow,
   HoldingRow,
   IncomeRow,
+  InvestmentMandateRow,
   LiabilityRow,
   TaxAllowanceRow,
+  TradeRow,
   WatchlistRow,
 } from "@/hooks/useFinancials";
 import type {
@@ -58,6 +60,9 @@ export type AdvisorContextResult = {
   netWorth: ReturnType<typeof buildHouseholdContext>["netWorth"];
   investableTotal: number;
   taxYear: ReturnType<typeof buildHouseholdContext>["taxYear"];
+  mandates: ReturnType<typeof buildHouseholdContext>["mandates"];
+  realised: ReturnType<typeof buildHouseholdContext>["realised"];
+  isa: ReturnType<typeof buildHouseholdContext>["isa"];
   positions: Position[];
   marketAvailable: boolean;
 };
@@ -166,6 +171,8 @@ export async function loadAdvisorContextForHousehold(
     policies,
     tenancies,
     payslips,
+    mandates,
+    trades,
   ] = await Promise.all([
     client
       .from("profiles")
@@ -185,6 +192,8 @@ export async function loadAdvisorContextForHousehold(
     rows<InsurancePolicyRow>(client, "insurance_policies", householdId),
     rows<TenancyRow>(client, "tenancies", householdId),
     rows<PayslipRow>(client, "payslips", householdId),
+    rows<InvestmentMandateRow>(client, "investment_mandates", householdId),
+    rows<TradeRow>(client, "trades", householdId),
   ]);
 
   const [fxRows, transactionRows, splitRows] = await Promise.all([
@@ -272,6 +281,9 @@ export async function loadAdvisorContextForHousehold(
     ),
     spending: observedSpending(transactions, categories, toBase),
     allowances,
+    // Each person's own mandate, and every trade behind the realised position.
+    mandates,
+    trades,
     marketDataAvailable: marketAvailable,
     marketDataMessage: marketMessage,
     toBase,
@@ -293,6 +305,9 @@ export async function loadAdvisorContextForHousehold(
     netWorth: built.netWorth,
     investableTotal: built.investableTotal,
     taxYear: built.taxYear,
+    mandates: built.mandates,
+    realised: built.realised,
+    isa: built.isa,
     positions,
     marketAvailable,
   };

@@ -4,8 +4,10 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { RowActions } from "@/components/RowActions";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ShariahBadge, ShariahControl } from "@/components/portfolio/ShariahBadge";
 import { cn } from "@/lib/utils";
 import { formatMoney, formatSignedPercent, relativeTime } from "@/lib/format";
+import { normaliseShariahStatus, type ShariahStatus } from "@/lib/mandates";
 import type { WatchlistRow } from "@/hooks/useFinancials";
 import type { QuoteResult } from "@/lib/market/shared";
 
@@ -23,6 +25,9 @@ export function WatchlistPanel({
   onEdit,
   onDelete,
   onOpenTicker,
+  shariahRelevant = false,
+  shariahPending = false,
+  onShariah,
 }: {
   items: WatchlistRow[];
   quotes: Record<string, QuoteResult | undefined>;
@@ -31,7 +36,12 @@ export function WatchlistPanel({
   onEdit: (item: WatchlistRow) => void;
   onDelete: (item: WatchlistRow) => void;
   onOpenTicker: (ticker: string) => void;
+  /** True when somebody in the household invests under a Shariah mandate. */
+  shariahRelevant?: boolean;
+  shariahPending?: boolean;
+  onShariah?: (item: WatchlistRow, status: ShariahStatus) => void;
 }) {
+
   return (
     <section className="hairline rounded-lg bg-surface p-5">
       <SectionHeader
@@ -75,6 +85,9 @@ export function WatchlistPanel({
                 ? ((item.target_price - quote.price!) / quote.price!) * 100
                 : null;
 
+            const shariah = normaliseShariahStatus(item.shariah_status);
+            const showShariah = shariahRelevant || shariah !== "unscreened";
+
             return (
               <li
                 key={item.id}
@@ -82,20 +95,39 @@ export function WatchlistPanel({
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => onOpenTicker(item.ticker)}
-                      className="num text-sm text-foreground transition-colors hover:text-gold"
-                    >
-                      {item.ticker}
-                    </button>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {item.name ?? CONVICTION_LABELS[item.conviction ?? "watching"]}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onOpenTicker(item.ticker)}
+                        className="num text-sm text-foreground transition-colors hover:text-gold"
+                      >
+                        {item.ticker}
+                      </button>
+                      <span className="text-xs text-muted-foreground">
+                        {item.name ?? CONVICTION_LABELS[item.conviction ?? "watching"]}
+                      </span>
+                      {showShariah &&
+                        (onShariah ? (
+                          <ShariahControl
+                            status={shariah}
+                            ticker={item.ticker}
+                            pending={shariahPending}
+                            onChange={(status) => onShariah(item, status)}
+                          />
+                        ) : (
+                          <ShariahBadge status={shariah} />
+                        ))}
+                    </div>
                     <p className="mt-0.5 text-[0.65rem] uppercase tracking-[0.12em] text-muted-foreground">
                       {CONVICTION_LABELS[item.conviction ?? "watching"]}
+                      {item.shariah_note ? (
+                        <span className="ml-2 normal-case tracking-normal text-muted-foreground/80">
+                          {item.shariah_note}
+                        </span>
+                      ) : null}
                     </p>
                   </div>
+
 
                   <div className="flex items-start gap-3">
                     <div className="text-right">

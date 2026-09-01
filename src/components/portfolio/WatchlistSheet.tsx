@@ -8,6 +8,7 @@ import { Field, SelectNative } from "@/components/forms/FormField";
 import { FormSheet, FullRow } from "@/components/forms/FormSheet";
 import { useSaveRow } from "@/hooks/useUpsertRow";
 import type { WatchlistRow } from "@/hooks/useFinancials";
+import { SHARIAH_STATUSES } from "@/lib/mandates";
 
 const CONVICTIONS = [
   { value: "high", label: "High — would size it today" },
@@ -37,7 +38,10 @@ const schema = z.object({
     .string()
     .trim()
     .min(25, "Name the specific evidence that would prove the thesis wrong."),
+  shariah_status: z.string(),
+  shariah_note: z.string(),
 });
+
 
 type Values = z.infer<typeof schema>;
 
@@ -72,6 +76,8 @@ export function WatchlistSheet({
       target_price: "",
       thesis: "",
       falsification: "",
+      shariah_status: "unscreened",
+      shariah_note: "",
     },
   });
 
@@ -85,8 +91,12 @@ export function WatchlistSheet({
       target_price: item?.target_price == null ? "" : String(item.target_price),
       thesis: item?.thesis ?? "",
       falsification: item?.falsification ?? "",
+      shariah_status: item?.shariah_status ?? "unscreened",
+      shariah_note: item?.shariah_note ?? "",
     });
   }, [open, item, form]);
+
+
 
   const onSubmit = form.handleSubmit(async (values) => {
     await save.mutateAsync({
@@ -99,6 +109,9 @@ export function WatchlistSheet({
         target_price: values.target_price === "" ? null : Number(values.target_price),
         thesis: values.thesis.trim(),
         falsification: values.falsification.trim(),
+        shariah_status: values.shariah_status,
+        shariah_note: values.shariah_note.trim() || null,
+
       },
     });
     onOpenChange(false);
@@ -143,11 +156,41 @@ export function WatchlistSheet({
         />
       </Field>
 
+      <Field
+        label="Shariah status"
+        hint="Recorded by you, never screened automatically."
+      >
+        <Controller
+          control={form.control}
+          name="shariah_status"
+          render={({ field }) => (
+            <SelectNative
+              value={field.value}
+              onChange={field.onChange}
+              options={SHARIAH_STATUSES.map((entry) => ({
+                value: entry.value,
+                label: entry.label,
+              }))}
+            />
+          )}
+        />
+      </Field>
+
       <FullRow>
         <Field label="Target price" hint="Optional. Distance to target is shown on the watchlist.">
           <Input type="number" step="0.01" inputMode="decimal" {...form.register("target_price")} />
         </Field>
       </FullRow>
+
+      <FullRow>
+        <Field label="Screening note" hint="Where the Shariah determination came from.">
+          <Input
+            placeholder="Screened compliant on the issuer's own AAOIFI factsheet"
+            {...form.register("shariah_note")}
+          />
+        </Field>
+      </FullRow>
+
 
       <FullRow>
         <Field

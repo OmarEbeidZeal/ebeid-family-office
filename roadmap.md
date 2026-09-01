@@ -1,10 +1,22 @@
 # Roadmap
 
-## Now — the household actions the new readers unlock
+## Now
+
+- [ ] Record a person's mandate at the moment they are invited, so a Shariah mandate is set with the invitation rather than after the first sign-in
+
+## Household actions the readers unlock
 
 - [ ] Publish first: the queue sweep runs every five minutes against the published build, so a file re-queued before publishing is read again by the old parser
 - [ ] Then start the Monzo Flex export over, so its 1,403 lines leave the investment account and land on a Flex credit line of their own
 - [ ] Re-download the two Trading 212 PDFs as CSV — the PDFs carry no readable digits, and the CSV brings the orders with it
+- [ ] Invite Haya so her Shariah mandate, her ISA allowance and her side of the balance sheet stop being modelled as the household's
+
+## Ready next
+
+- [ ] Imported holdings sit in the core sleeve until the household places them: prompt for the classification rather than assuming it
+- [ ] Document-derived net-worth inputs (deposit asset, protection sum assured) surfaced on the balance sheet
+- [ ] Rent-versus-buy comparison on the property goal using the rent trajectory
+- [ ] Net-pay reconciliation against matched bank credits shown on the payslip row, not just the stored verdict
 
 ## Field fixes from Omar's real files
 
@@ -15,15 +27,15 @@
 - [x] 5. Statement holder drives owner assignment on the proposals screen — never the uploader
 - [x] 6. Two statements from the same broker that disagree: raise a `needs_review` conflict naming both figures and both files
 
-
-## Ready next
-
-- [ ] Imported holdings sit in the core sleeve until the household places them: prompt for the classification rather than assuming it
-- [ ] Document-derived net-worth inputs (deposit asset, protection sum assured) surfaced on the balance sheet
-- [ ] Rent-versus-buy comparison on the property goal using the rent trajectory
-- [ ] Net-pay reconciliation against matched bank credits shown on the payslip row, not just the stored verdict
-
 ## Done
+
+- [x] Per-person investment mandates: `investment_mandates` keyed to a profile — type, sleeve targets, speculative / single-name / crypto caps, written constraints
+- [x] `shariah_status` on holdings and watchlist entries, recorded by hand and never screened automatically; unscreened reads as unknown, never as compliant
+- [x] Allocation, drift and rebalancing measured per person against their own mandate and their own investable base; the household chart stays informational
+- [x] Advisor holds each person's mandate as a hard constraint and answers with the compliant alternative rather than a refusal
+- [x] ISA allowance tracked per person against £20,000, with the unused-second-allowance question raised before 5 April
+- [x] Realised gains and losses per wrapper: GIA disposals against the £3,000 exemption, ISA disposals carrying no tax effect, unknown basis reported as unknown
+- [x] Names typed in lower case read properly on screen without rewriting what the household stored
 
 - [x] A Trading 212 activity export read as trades and cash, so share purchases build the portfolio's cost basis instead of landing in the spending analytics
 - [x] An export that starts mid-life says the cost basis is unknown on that holding, and keeps it out of profit and loss, rather than averaging half the story

@@ -14,6 +14,10 @@ import { ExposurePanel } from "@/components/portfolio/ExposurePanel";
 import { WatchlistPanel } from "@/components/portfolio/WatchlistPanel";
 import { WatchlistSheet } from "@/components/portfolio/WatchlistSheet";
 import { HoldingSheet } from "@/components/portfolio/HoldingSheet";
+import { MandateSection } from "@/components/portfolio/MandateSection";
+import { MandateSheet } from "@/components/portfolio/MandateSheet";
+import { IsaAllowancePanel } from "@/components/portfolio/IsaAllowancePanel";
+import { RealisedPanel } from "@/components/portfolio/RealisedPanel";
 import { useQuickAdd } from "@/lib/quick-add";
 import { TradeSheet } from "@/components/portfolio/TradeSheet";
 import { TradesPanel } from "@/components/portfolio/TradesPanel";
@@ -23,6 +27,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useScope } from "@/hooks/useScope";
 import { useHouseholdContext } from "@/hooks/useHouseholdContext";
+import { useSetShariahStatus } from "@/hooks/useShariah";
 import {
   useAccounts,
   useHoldings,
@@ -40,7 +45,9 @@ import {
   sleeveTotals,
   type Position,
 } from "@/lib/portfolio";
+import type { Mandate } from "@/lib/mandates";
 import { allocationRows, concentrationRows, POLICY_VERSION } from "@/lib/policy";
+
 
 export const Route = createFileRoute("/portfolio")({
   head: () => ({
@@ -88,6 +95,10 @@ function PortfolioPage() {
     open: false,
     item: null,
   });
+  const [mandateSheet, setMandateSheet] = useState<{ open: boolean; mandate: Mandate | null }>({
+    open: false,
+    mandate: null,
+  });
   const [detailTicker, setDetailTicker] = useState<string | null>(null);
 
   useQuickAdd("holding", () => setHoldingSheet({ open: true, holding: null }));
@@ -95,6 +106,9 @@ function PortfolioPage() {
   const deleteHolding = useDeleteRow("holdings", "holdings", "Holding");
   const deleteTrade = useDeleteRow("trades", "trades", "Trade");
   const deleteWatch = useDeleteRow("watchlist", "watchlist", "Watchlist idea");
+  const setShariah = useSetShariahStatus("holdings");
+  const setWatchShariah = useSetShariahStatus("watchlist");
+
 
   /** Rows respect the Me / Haya / Household toggle; policy always measures the household. */
   const visiblePositions = useMemo(
@@ -103,10 +117,38 @@ function PortfolioPage() {
     [context.positions, matches],
   );
 
+  // A person's mandate judges their own book. In the household view both are
+  // shown side by side rather than averaged into one meaningless target.
+  const visibleMandates = useMemo(
+    () =>
+      scope === "household"
+        ? context.mandates
+        : context.mandates.filter((evaluation) => evaluation.profileId === scope),
+    [context.mandates, scope],
+  );
+
+  // Watchlist screening only matters where somebody actually invests under a
+  // Shariah mandate; otherwise the badge is noise on every idea.
+  const shariahRelevant = useMemo(
+    () => visibleMandates.some((evaluation) => evaluation.type === "shariah"),
+    [visibleMandates],
+  );
+
+
+
+  const unassigned = useMemo(() => {
+    const rows = visiblePositions.filter((position) => !position.holding.owner_profile_id);
+    return {
+      count: rows.length,
+      value: rows.reduce((sum, position) => sum + (position.marketValueBase ?? 0), 0),
+    };
+  }, [visiblePositions]);
+
   const toBase = useMemo(
     () => (amount: number, currency: string) => context.toBase(amount, currency),
     [context],
   );
+
 
   const totals = useMemo(
     () => portfolioTotals(visiblePositions, toBase),
@@ -243,15 +285,42 @@ function PortfolioPage() {
               onTrade={(position) =>
                 setTradeSheet({ open: true, trade: null, holdingId: position.id })
               }
+              mandateByPosition={context.mandateByPosition}
+              shariahPending={setShariah.isPending}
+              onShariah={(position, status) =>
+                setShariah.mutate({ id: position.id, status, ticker: position.ticker })
+              }
             />
           )}
         </section>
+
+        <MandateSection
+          evaluations={visibleMandates}
+          base={base}
+          scoped={scope !== "household"}
+          unassignedCount={unassigned.count}
+          unassignedValue={unassigned.value}
+          loading={loading}
+          onEdit={(evaluation) => setMandateSheet({ open: true, mandate: evaluation.mandate })}
+        />
 
         <ReconciliationPanel rows={reconciliation} accounts={accounts.data ?? []} base={base} />
 
         <ConcentrationPanel rows={concentration} loading={loading} />
 
         <div className="grid gap-4 lg:grid-cols-2">
+          <IsaAllowancePanel isa={context.isa} base={base} loading={loading} />
+
+          <RealisedPanel
+            realised={context.realised}
+            disposals={context.disposals}
+            base={base}
+            loading={loading || trades.isLoading}
+          />
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+
           <SleevePanel
             rows={allocation}
             base={base}
@@ -281,7 +350,13 @@ function PortfolioPage() {
           onEdit={(item) => setWatchSheet({ open: true, item })}
           onDelete={(item) => deleteWatch.mutate(item.id)}
           onOpenTicker={(ticker) => setDetailTicker(ticker)}
+          shariahRelevant={shariahRelevant}
+          shariahPending={setWatchShariah.isPending}
+          onShariah={(item, status) =>
+            setWatchShariah.mutate({ id: item.id, status, ticker: item.ticker })
+          }
         />
+
 
         <p className="pb-2 text-xs leading-relaxed text-muted-foreground">
           Prices come from the configured market-data provider and are stamped with the time they
@@ -314,6 +389,13 @@ function PortfolioPage() {
         onOpenChange={(open) => setWatchSheet((current) => ({ ...current, open }))}
         item={watchSheet.item}
       />
+
+      <MandateSheet
+        open={mandateSheet.open}
+        onOpenChange={(open) => setMandateSheet((current) => ({ ...current, open }))}
+        mandate={mandateSheet.mandate}
+      />
+
 
       <SecurityDetailSheet
         ticker={detailTicker}
