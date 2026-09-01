@@ -45,9 +45,12 @@ export type StatementRow = {
   discrepancy: number | null;
   currency: string | null;
   error_message: string | null;
+  /** The reader's own account of the file, including any disagreement it found. */
+  summary: StatementSummary | null;
   parsed_at: string | null;
   created_at: string;
 };
+
 
 export type CategoryRuleRow = {
   id: string;
