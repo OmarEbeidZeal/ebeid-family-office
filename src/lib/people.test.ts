@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { detectTransfers } from "./categorise.server";
-import { indexPersonNames, matchPersonByName, ownNameHit } from "./people";
+import { indexPersonNames, ownNameHit, suggestPerson } from "./people";
 
 const OMAR = indexPersonNames({
   id: "p-omar",
@@ -12,53 +12,53 @@ const PEOPLE = [OMAR, HAYA];
 
 describe("ownNameHit", () => {
   it("recognises the household's own name on a payment", () => {
-    expect(ownNameHit("OMAR EBEID", PEOPLE)).toBe(true);
-    expect(ownNameHit("TRANSFER TO O EBEID", PEOPLE)).toBe(true);
-    expect(ownNameHit("HAYA EBEID SAVINGS", PEOPLE)).toBe(true);
+    expect(ownNameHit("OMAR EBEID", PEOPLE)).toBeTruthy();
+    expect(ownNameHit("TRANSFER TO O EBEID", PEOPLE)).toBeTruthy();
+    expect(ownNameHit("HAYA EBEID SAVINGS", PEOPLE)).toBeTruthy();
   });
 
   it("reads an initial-and-surname the way a bank prints it", () => {
-    expect(ownNameHit("MR O EBEID", PEOPLE)).toBe(true);
-    expect(ownNameHit("EBEID O", PEOPLE)).toBe(true);
+    expect(ownNameHit("MR O EBEID", PEOPLE)).toBeTruthy();
+    expect(ownNameHit("EBEID O", PEOPLE)).toBeTruthy();
   });
 
   it("does not fire on the surname alone", () => {
     // A shop or a landlord could be called Ebeid. One token is not identity.
-    expect(ownNameHit("EBEID CATERING LTD", PEOPLE)).toBe(false);
+    expect(ownNameHit("EBEID CATERING LTD", PEOPLE)).toBeNull();
   });
 
   it("does not fire on the forename alone", () => {
-    expect(ownNameHit("OMAR", PEOPLE)).toBe(false);
-    expect(ownNameHit("CAFE OMAR", PEOPLE)).toBe(false);
+    expect(ownNameHit("OMAR", PEOPLE)).toBeNull();
+    expect(ownNameHit("CAFE OMAR", PEOPLE)).toBeNull();
   });
 
   it("leaves a salary carrying the employee's name as income", () => {
     // The employer is the counterparty here, not Omar — and misreading this
     // would delete the household's largest genuine credit.
-    expect(ownNameHit("ZEAL GROUP PAYROLL", PEOPLE)).toBe(false);
-    expect(ownNameHit("BACS ZEAL SALARY", PEOPLE)).toBe(false);
+    expect(ownNameHit("ZEAL GROUP PAYROLL", PEOPLE)).toBeNull();
+    expect(ownNameHit("BACS ZEAL SALARY", PEOPLE)).toBeNull();
   });
 
   it("ignores an empty or absent counterparty", () => {
-    expect(ownNameHit(null, PEOPLE)).toBe(false);
-    expect(ownNameHit("", PEOPLE)).toBe(false);
-    expect(ownNameHit("OMAR EBEID", [])).toBe(false);
+    expect(ownNameHit(null, PEOPLE)).toBeNull();
+    expect(ownNameHit("", PEOPLE)).toBeNull();
+    expect(ownNameHit("OMAR EBEID", [])).toBeNull();
   });
 });
 
-describe("matchPersonByName", () => {
+describe("suggestPerson", () => {
   it("finds the person a statement is addressed to", () => {
-    expect(matchPersonByName("MR OMAR EBEID", PEOPLE)?.id).toBe("p-omar");
-    expect(matchPersonByName("Haya Ebeid", PEOPLE)?.id).toBe("p-haya");
+    expect(suggestPerson("MR OMAR EBEID", PEOPLE)?.id).toBe("p-omar");
+    expect(suggestPerson("Haya Ebeid", PEOPLE)?.id).toBe("p-haya");
   });
 
   it("refuses when the surname alone cannot tell two people apart", () => {
-    expect(matchPersonByName("EBEID", PEOPLE)).toBeNull();
+    expect(suggestPerson("EBEID", PEOPLE)).toBeNull();
   });
 
   it("refuses a holder line naming both of them", () => {
     // A joint account belongs to neither one of them alone.
-    expect(matchPersonByName("OMAR EBEID & HAYA EBEID", PEOPLE)).toBeNull();
+    expect(suggestPerson("OMAR EBEID & HAYA EBEID", PEOPLE)).toBeNull();
   });
 });
 
