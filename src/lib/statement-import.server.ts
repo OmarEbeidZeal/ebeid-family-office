@@ -21,6 +21,7 @@ import { CATEGORISATION_MODEL } from "./ai/models";
 import { importBrokerLedger } from "./import/broker-import.server";
 import { parseCamt053 } from "./import/camt053.server";
 import { StatementFailure } from "./import/failure";
+import { unreadablePdfMessage } from "./import/pdf-guidance";
 
 import { EXACT_BALANCE_FORMATS, formatLabel, type SourceFormat } from "./import/formats";
 import { parseMt940 } from "./import/mt940.server";
@@ -274,7 +275,7 @@ async function readStatementContent(file: LoadedStatementFile): Promise<Extracti
     case "pdf": {
       const pdf = await extractPdfText(file.bytes);
       if (looksScanned(pdf)) throw new StatementFailure(SCANNED_PDF_MESSAGE);
-      if (looksUnmapped(pdf)) throw new StatementFailure(UNMAPPED_PDF_MESSAGE);
+      if (looksUnmapped(pdf)) throw new StatementFailure(unreadablePdfMessage(pdf.text));
       return [tag(await extractFromPdfText(pdf.text), "pdf")];
     }
     default: {

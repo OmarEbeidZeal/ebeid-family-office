@@ -11,7 +11,6 @@ import type { SourceFormat } from "../import/formats";
 import { sniffFormat } from "../import/sniff.server";
 import {
   SCANNED_PDF_MESSAGE,
-  UNMAPPED_PDF_MESSAGE,
   decodeText,
   extractPdfText,
   looksScanned,
@@ -94,7 +93,7 @@ export async function documentText(file: LoadedDocument): Promise<string> {
     case "pdf": {
       const pdf = await extractPdfText(file.bytes);
       if (looksScanned(pdf)) throw new StatementFailure(SCANNED_PDF_MESSAGE);
-      if (looksUnmapped(pdf)) throw new StatementFailure(UNMAPPED_PDF_MESSAGE);
+      if (looksUnmapped(pdf)) throw new StatementFailure(unreadablePdfMessage(pdf.text, "document"));
       body = pdf.text;
       break;
     }
