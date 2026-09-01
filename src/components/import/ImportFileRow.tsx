@@ -256,6 +256,25 @@ export function ImportFileRow({
               <RotateCcw className="size-3" /> Read again
             </Button>
           )}
+          {restartable && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-[0.7rem] text-muted-foreground"
+              disabled={reimport.isPending}
+              title="Throw away everything this file imported and read it from nothing."
+              onClick={() => setConfirmingReimport(true)}
+            >
+              {reimport.isPending ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Eraser className="size-3" />
+              )}{" "}
+              Start over
+            </Button>
+          )}
+
+
 
           {cancellable && (
             <Button
