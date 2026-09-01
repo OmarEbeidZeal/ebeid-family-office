@@ -94,7 +94,16 @@ type Instrument = {
  * the household to re-sleeve deliberately rather than quietly treating a
  * concentrated position as core.
  */
+/** The same calendar day, some weeks earlier, as an ISO date. */
+function weeksBefore(date: string, weeks: number): string {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  parsed.setUTCDate(parsed.getUTCDate() - weeks * 7);
+  return parsed.toISOString().slice(0, 10);
+}
+
 function sleeveFor(securityType: string): string {
+
   return securityType === "etf" ? "core" : "satellite";
 }
 
