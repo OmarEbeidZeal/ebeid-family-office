@@ -38,7 +38,7 @@ export type StatementIdentity = {
    * is never written to the database.
    */
   account_identifier: string | null;
-  identifier_kind: "account_number" | "iban" | "card" | null;
+  identifier_kind: "account_number" | "iban" | "card" | "reference" | null;
   account_type: string | null;
   country: string | null;
   /**

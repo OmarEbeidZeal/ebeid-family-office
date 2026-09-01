@@ -20,8 +20,9 @@ import {
 import { CATEGORISATION_MODEL } from "./ai/models";
 import { importBrokerLedger } from "./import/broker-import.server";
 import { parseCamt053 } from "./import/camt053.server";
+import { loadPeopleIndex } from "./people.server";
 import { StatementFailure } from "./import/failure";
-import { unreadablePdfMessage } from "./import/pdf-guidance";
+import { digitsLostPdfMessage, unreadablePdfMessage } from "./import/pdf-guidance";
 
 import { EXACT_BALANCE_FORMATS, formatLabel, type SourceFormat } from "./import/formats";
 import { parseMt940 } from "./import/mt940.server";
@@ -43,6 +44,7 @@ import {
 import {
   SCANNED_PDF_MESSAGE,
   decodeText,
+  digitsLost,
   extractPdfText,
   fingerprintOf,
   looksScanned,
@@ -274,9 +276,13 @@ async function readStatementContent(file: LoadedStatementFile): Promise<Extracti
     case "pdf": {
       const pdf = await extractPdfText(file.bytes);
       if (looksScanned(pdf)) throw new StatementFailure(SCANNED_PDF_MESSAGE);
+      // The digits are checked before the glyphs: a file that kept its words
+      // and lost its numbers reads as a clean import and holds no money.
+      if (digitsLost(pdf)) throw new StatementFailure(digitsLostPdfMessage(pdf.text));
       if (looksUnmapped(pdf)) throw new StatementFailure(unreadablePdfMessage(pdf.text));
       return [tag(await extractFromPdfText(pdf.text), "pdf")];
     }
+
     default: {
       const rawRows =
         file.format === "csv"
@@ -921,13 +927,18 @@ async function flagTransfers(
   const from = new Date(new Date(firstDate).getTime() - 4 * 86_400_000).toISOString().slice(0, 10);
   const to = new Date(new Date(lastDate).getTime() + 4 * 86_400_000).toISOString().slice(0, 10);
 
-  const { data } = await supabase
-    .from("transactions")
-    .select("id, account_id, booked_date, amount, amount_base, direction, is_transfer")
-    .eq("household_id", householdId)
-    .gte("booked_date", from)
-    .lte("booked_date", to)
-    .limit(8000);
+  const [{ data }, people] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select(
+        "id, account_id, booked_date, amount, amount_base, direction, is_transfer, merchant, description",
+      )
+      .eq("household_id", householdId)
+      .gte("booked_date", from)
+      .lte("booked_date", to)
+      .limit(8000),
+    loadPeopleIndex(supabase, householdId).catch(() => []),
+  ]);
 
   const rows = (data ?? []) as Array<{
     id: string;
@@ -937,13 +948,16 @@ async function flagTransfers(
     amount_base: number | null;
     direction: string;
     is_transfer: boolean;
+    merchant: string | null;
+    description: string | null;
   }>;
   if (rows.length < 2) return;
 
-  const transferIds = detectTransfers(rows);
+  const transferIds = detectTransfers(rows, people);
   const toFlag = rows.filter((row) => transferIds.has(row.id) && !row.is_transfer).map((r) => r.id);
   await updateIn(supabase, toFlag, { is_transfer: true });
 }
+
 
 async function flagRecurring(supabase: Client, householdId: string, lastDate: string) {
   const from = new Date(new Date(lastDate).getTime() - 550 * 86_400_000).toISOString().slice(0, 10);

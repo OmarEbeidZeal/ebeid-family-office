@@ -126,16 +126,43 @@ const CATEGORY_MAP: Record<string, string> = {
 };
 
 /**
- * A repayment moving between the household's own current account and its own
- * credit line. It appears in both exports — leaving one, arriving in the other —
- * and is spending in neither.
+ * Flex is a financing facility, not a shop.
  *
- * A purchase moved onto Flex is deliberately not counted here: the current
- * account shows the original payment out and the reimbursement back in, which
- * cancel, and the expense itself lands on the Flex ledger where it belongs.
+ * Money labelled `Flex` is the household borrowing from itself and paying
+ * itself back: a drawdown onto the credit line, or an instalment leaving the
+ * current account for it. Both sides appear in the exports, and counting
+ * either as spending or income double-counts a purchase that is already
+ * recorded where it happened.
+ *
+ * What is not financing is a purchase that happens to sit on the Flex ledger —
+ * a named merchant on a Flex row. That is real spending, once, on the credit
+ * line. Marking those internal too would quietly delete them from the
+ * household's outgoings, which is the same class of error in the other
+ * direction.
  */
-function isRepayment(type: string, category: string, name: string): boolean {
-  return type.toLowerCase() === "flex" && category.toLowerCase() === "transfers" && !name;
+function isFinancing(
+  ledger: MonzoLedger,
+  type: string,
+  category: string,
+  name: string,
+  note: string,
+): boolean {
+  const kind = type.trim().toLowerCase();
+  const payee = name.trim().toLowerCase();
+
+  if (kind === "flex") {
+    // On the current account, every Flex line is money moving to the credit
+    // line — the purchase itself is on the other ledger.
+    if (ledger === "current") return true;
+    // On the credit line, an instalment or repayment names nobody, or names
+    // the facility itself.
+    if (!payee) return true;
+    if (category.trim().toLowerCase() === "transfers") return true;
+    return /^(monzo )?flex\b/.test(payee) || /repayment|instal?ment/.test(`${payee} ${note.toLowerCase()}`);
+  }
+
+  // A current-account row paying the facility by name.
+  return ledger === "current" && /^(monzo )?flex$/.test(payee);
 }
 
 function modal(values: string[]): string | null {
@@ -184,6 +211,7 @@ export function parseMonzo(rows: string[][]): ExtractionResult {
   const currencies: string[] = [];
   let skippedRows = 0;
   let repayments = 0;
+  let purchasesOnFlex = 0;
   let converted = 0;
   let hinted = 0;
 
@@ -229,8 +257,9 @@ export function parseMonzo(rows: string[][]): ExtractionResult {
       localCurrency && localCurrency !== currency && localAmount && Math.abs(localAmount.value) > 0;
     if (foreign) converted += 1;
 
-    const internal = isRepayment(type, category, name);
+    const internal = isFinancing(ledger, type, category, name, note);
     if (internal) repayments += 1;
+    else if (type.trim().toLowerCase() === "flex") purchasesOnFlex += 1;
 
     const hint = CATEGORY_MAP[category.toLowerCase()] ?? null;
     if (hint) hinted += 1;
@@ -269,8 +298,13 @@ export function parseMonzo(rows: string[][]): ExtractionResult {
   if (repayments) {
     notes.push(
       ledger === "flex"
-        ? `${repayments} Flex repayments arriving from the current account are marked as internal, not income.`
-        : `${repayments} Flex repayments leaving for the credit line are marked as internal, not spending.`,
+        ? `${repayments} Flex movements — drawdowns and repayments — are marked as financing, not income.`
+        : `${repayments} Flex movements leaving for the credit line are marked as financing, not spending.`,
+    );
+  }
+  if (purchasesOnFlex) {
+    notes.push(
+      `${purchasesOnFlex} purchases sitting on the Flex line keep their merchant and count as spending, once.`,
     );
   }
   if (converted) notes.push(`${converted} payments were made in another currency and keep it.`);

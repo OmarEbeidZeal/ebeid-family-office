@@ -7,6 +7,7 @@
  * queue.
  */
 import { completeJson } from "./ai/gateway.server";
+import { ownNameHit, type PersonNameIndex } from "./people";
 import { normaliseDescription, similarity } from "./text";
 
 export type CategoryRef = {
@@ -169,16 +170,31 @@ export type TransferCandidate = {
   amount_base: number | null;
   direction: string;
   is_transfer: boolean;
+  /** The counterparty as the bank printed it, for the own-name rung. */
+  merchant?: string | null;
+  description?: string | null;
 };
 
 const THREE_DAYS = 3 * 86_400_000;
 
 /**
- * A payment out of one household account matched by a payment into another,
- * within three days, is an internal move — not spending. Counting these would
- * inflate expenses every time money is swept into savings.
+ * Internal moves, found two ways.
+ *
+ * The first is pairing: a payment out of one household account matched by a
+ * payment into another within three days. That only works when both sides were
+ * imported.
+ *
+ * The second is the counterparty's name. The largest single credit in this
+ * household's Monzo data is Omar paying himself, from an account that was never
+ * imported — nothing pairs with it, and counted as income it inflates every
+ * savings rate and every forecast built on one. Reading the name catches it.
+ * The name rung is strict (see `ownNameHit`): a salary narrative that happens
+ * to carry the employee's name must not disappear from income.
  */
-export function detectTransfers(candidates: TransferCandidate[]): Set<string> {
+export function detectTransfers(
+  candidates: TransferCandidate[],
+  people: PersonNameIndex[] = [],
+): Set<string> {
   const matched = new Set<string>();
   const debits = candidates.filter((row) => row.direction === "debit");
   const credits = candidates.filter((row) => row.direction === "credit");
@@ -210,8 +226,18 @@ export function detectTransfers(candidates: TransferCandidate[]): Set<string> {
     }
   }
 
+  if (people.length) {
+    for (const row of candidates) {
+      if (matched.has(row.id)) continue;
+      if (ownNameHit(row.merchant, people) || ownNameHit(row.description, people)) {
+        matched.add(row.id);
+      }
+    }
+  }
+
   return matched;
 }
+
 
 /* ------------------------------------------------------------- recurring */
 

@@ -6,6 +6,7 @@
  * exports still differ in delimiter, decimal separator and date order, so each
  * of those is handled explicitly rather than hoped away.
  */
+import { digitIntegrity, type DigitIntegrity } from "./import/pdf-digits";
 import {
   guessMerchant,
   normaliseDescription,
@@ -13,6 +14,7 @@ import {
   similarity,
   unreadableRatio,
 } from "./text";
+
 
 
 export { guessMerchant, normaliseDescription, similarity };
@@ -336,14 +338,57 @@ export type PdfText = {
   pages: number;
   /** Share of non-space characters that came back as unmapped glyphs. */
   unreadable: number;
+  /** Whether the figures survived the read — see `pdf-digits`. */
+  digits: DigitIntegrity;
+  /** Which read produced this text. */
+  reader: "text-layer" | "glyphs";
 };
 
+function measure(raw: string, pages: number, reader: PdfText["reader"]): PdfText {
+  const text = scrubText(raw);
+  return {
+    text,
+    pages,
+    unreadable: unreadableRatio(raw),
+    digits: digitIntegrity(text),
+    reader,
+  };
+}
+
+/**
+ * The text of a PDF, read twice when once is not enough.
+ *
+ * The ordinary read trusts the file's own character map. When that map blanks
+ * the numerals — the failure that makes a Trading 212 statement look like it
+ * imported perfectly and contain no money — the file is read again from its
+ * drawing operations, where the drawn glyph and the raw character code offer a
+ * second and third answer. Whichever read kept its digits is the one returned.
+ */
 export async function extractPdfText(bytes: Uint8Array): Promise<PdfText> {
   const { extractText, getDocumentProxy } = await import("unpdf");
   const document = await getDocumentProxy(bytes);
   const { totalPages, text } = await extractText(document, { mergePages: true });
   const raw = Array.isArray(text) ? text.join("\n") : text;
-  return { text: scrubText(raw), pages: totalPages, unreadable: unreadableRatio(raw) };
+
+  const layer = measure(raw, totalPages, "text-layer");
+  if (layer.digits.ok && layer.unreadable < 0.02) return layer;
+
+  try {
+    const { extractGlyphText } = await import("./import/pdf-glyphs.server");
+    const recovered = await extractGlyphText(document);
+    const glyphs = measure(recovered.text, recovered.pages || totalPages, "glyphs");
+    // Only preferred when it actually fixes something and loses nothing: a
+    // second read that finds fewer words than the first is a worse read.
+    const keptText = glyphs.digits.letters >= layer.digits.letters * 0.6;
+    const better =
+      keptText &&
+      (glyphs.digits.digits > layer.digits.digits || glyphs.unreadable < layer.unreadable);
+    if (better) return glyphs;
+  } catch {
+    /* The ordinary read is what the caller judges, and it already has it. */
+  }
+
+  return layer;
 }
 
 export const SCANNED_PDF_MESSAGE =
@@ -364,4 +409,13 @@ export function looksScanned(pdf: PdfText): boolean {
 export function looksUnmapped(pdf: PdfText): boolean {
   return pdf.unreadable >= 0.02;
 }
+
+/**
+ * The words came through and the figures did not. Nothing in a file like this
+ * can be imported: a statement with no digits is not a statement.
+ */
+export function digitsLost(pdf: PdfText): boolean {
+  return !pdf.digits.ok;
+}
+
 
