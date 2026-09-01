@@ -81,12 +81,15 @@ export function ImportFileRow({
   onReview?: (statement: ImportStatementRow) => void;
 }) {
   const retry = useRetryStatement();
+  const reimport = useReimportStatement();
   const cancel = useCancelStatement();
   const assign = useAssignStatementAccount();
   const refile = useRefileStatement();
   const [chosen, setChosen] = useState("");
   const [moving, setMoving] = useState(false);
   const [moveTo, setMoveTo] = useState("");
+  const [confirmingReimport, setConfirmingReimport] = useState(false);
+
 
 
   const status = STATUS[statement.status] ?? {
