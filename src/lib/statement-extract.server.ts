@@ -479,10 +479,11 @@ const PDF_SYSTEM = `You read the text layer of an English-language bank statemen
 Absolute rules:
 - Never invent, estimate or complete a transaction. If a line is unreadable, leave it out.
 - amount is always a positive number. direction is "debit" for money leaving the account and "credit" for money arriving.
-- date must be ISO yyyy-mm-dd. Use the statement's own date convention; UK, Egyptian and Jordanian statements are day-first unless the text clearly shows otherwise.
-- description is the merchant or narrative text as printed, without the amount or balance.
+- date: copy what the line prints. If the line prints a full date, return it as ISO yyyy-mm-dd, reading UK, Egyptian and Jordanian statements as day-first unless the text clearly shows otherwise. If the line prints only a day and a month — "26 Aug", "26/08" — return exactly those characters and nothing else. Never add a year the line does not print; the year is worked out afterwards from the statement period.
+- description is the narrative as printed, in full. NatWest and some others run the transaction type onto the end of the merchant with no space ("TESCO STORES 3241Debit Card Transaction") — copy it exactly as it appears, including the type. Do not split it, reorder it or tidy it. Leave out only the amount and the balance.
 - balance_after is the running balance printed on that line, as plain digits, or "" when the statement does not print one.
 - Ignore summary blocks, interest-rate tables, page headers, footers and marketing text.`;
+
 
 const CHUNK_SIZE = 9000;
 const MAX_CHUNKS = 24;
