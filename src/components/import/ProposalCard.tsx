@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Check, ChevronDown, Link2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, ChevronDown, Link2, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { BankMark } from "@/components/BankMark";
 import { Money } from "@/components/Money";
@@ -17,6 +17,7 @@ import {
   formatDate,
 } from "@/lib/format";
 import { cn } from "@/lib/utils";
+
 
 function typeFor(detected: string | null): string {
   const value = (detected ?? "").toLowerCase();
