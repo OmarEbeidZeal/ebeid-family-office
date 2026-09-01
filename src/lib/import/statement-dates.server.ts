@@ -84,27 +84,38 @@ function isoOf(year: number, month: number, day: number): string | null {
  *
  * The period end is the anchor: a row dated later in the year than the
  * statement ended cannot be from the ending year, so it belongs to the one
- * before. A period spanning more than a year cannot be resolved this way and
- * is refused rather than guessed at.
+ * before. When only a start date is known the anchor flips — a row cannot
+ * predate the statement, so a day-and-month before it belongs to the year
+ * after. With neither, nothing is guessed.
  */
 export function inferYearFromPeriod(
   day: number,
   month: number,
   period: StatementPeriod,
 ): string | null {
-  const end = period.end ?? period.start;
-  if (!end) return null;
+  if (period.end) {
+    const endYear = Number(period.end.slice(0, 4));
+    if (!Number.isFinite(endYear)) return null;
 
-  const endYear = Number(end.slice(0, 4));
-  if (!Number.isFinite(endYear)) return null;
+    const sameYear = isoOf(endYear, month, day);
+    if (sameYear && sameYear <= period.end) return sameYear;
 
-  const sameYear = isoOf(endYear, month, day);
-  if (sameYear && sameYear <= end) return sameYear;
+    const previous = isoOf(endYear - 1, month, day);
+    // 29 February only exists in one of the two candidate years.
+    return previous ?? sameYear;
+  }
 
-  const previous = isoOf(endYear - 1, month, day);
-  // 29 February only exists in one of the two candidate years.
-  return previous ?? sameYear;
+  if (!period.start) return null;
+  const startYear = Number(period.start.slice(0, 4));
+  if (!Number.isFinite(startYear)) return null;
+
+  const sameYear = isoOf(startYear, month, day);
+  if (sameYear && sameYear >= period.start) return sameYear;
+
+  const next = isoOf(startYear + 1, month, day);
+  return next ?? sameYear;
 }
+
 
 function withinPeriod(date: string, period: StatementPeriod): boolean {
   if (period.start && date < period.start) return false;
