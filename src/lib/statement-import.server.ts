@@ -19,6 +19,8 @@ import {
 } from "./categorise.server";
 import { CATEGORISATION_MODEL } from "./ai/models";
 import { importBrokerLedger } from "./import/broker-import.server";
+import { detectBalanceConflicts, type Conflict } from "./import/conflicts";
+
 import { parseCamt053 } from "./import/camt053.server";
 import { loadPeopleIndex } from "./people.server";
 import { StatementFailure } from "./import/failure";
