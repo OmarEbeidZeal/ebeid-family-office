@@ -790,7 +790,7 @@ export async function importExtracted(
           householdId: statement.household_id,
           accountId: statement.account_id,
           statementId: statement.id,
-          fileName: statement.file_name ?? null,
+          fileName: (statement["file_name"] as string | null) ?? null,
           ledger: extraction.broker,
         });
         notes.push(...broker.notes);
@@ -851,7 +851,7 @@ export async function importExtracted(
       const balanceClashes = detectBalanceConflicts(
         {
           id: statementId,
-          fileName: statement.file_name ?? null,
+          fileName: (statement["file_name"] as string | null) ?? null,
           periodStart: extraction.meta.period_start ?? firstDate,
           periodEnd: extraction.meta.period_end ?? lastDate,
           openingBalance: opening,
