@@ -385,6 +385,44 @@ export function ImportFileRow({
         </div>
       )}
 
+      <AlertDialog open={confirmingReimport} onOpenChange={setConfirmingReimport}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Start over with {statement.file_name ?? "this file"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The{" "}
+              <span className="num">{statement.transaction_count ?? 0}</span> transaction
+              {statement.transaction_count === 1 ? "" : "s"} this file imported are removed, along
+              with any categories or notes added to them by hand, and the file goes back to the
+              queue to be read from nothing — including which account it belongs to. Nothing any
+              other file imported is touched. Use this when the file was read as the wrong kind of
+              account; to fill in gaps, use Read again instead.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it as it is</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                reimport
+                  .mutateAsync(statement.id)
+                  .then((result) => {
+                    toast.success("Reading it from nothing", {
+                      description: result.removed
+                        ? `${result.removed} transaction${result.removed === 1 ? "" : "s"} removed${
+                            result.accountNickname ? ` from ${result.accountNickname}` : ""
+                          }.`
+                        : "Nothing had been imported from it yet.",
+                    });
+                  })
+                  .catch((error: Error) => toast.error(error.message))
+              }
+            >
+              Start over
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </li>
+
   );
 }
