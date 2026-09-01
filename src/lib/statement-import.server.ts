@@ -950,6 +950,7 @@ function buildMessage(input: {
   discrepancy: number | null;
   currency: string;
   exact: boolean;
+  conflicts: number;
 }) {
   const parts = [`${input.inserted} new`];
   if (input.duplicates) parts.push(`${input.duplicates} already imported`);
@@ -962,8 +963,16 @@ function buildMessage(input: {
         : `balance out by ${amount}`,
     );
   }
+  if (input.conflicts) {
+    parts.push(
+      input.conflicts === 1
+        ? "one figure here disagrees with another document"
+        : `${input.conflicts} figures here disagree with other documents`,
+    );
+  }
   return parts.join(", ");
 }
+
 
 /* ------------------------------------------------- post-import enrichment */
 
