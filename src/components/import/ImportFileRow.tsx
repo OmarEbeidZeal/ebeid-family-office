@@ -129,6 +129,14 @@ export function ImportFileRow({
   );
   const reviewable = ["imported", "parsed", "needs_review"].includes(statement.status);
 
+  // Reading again fills gaps; starting over throws the reading away. That is the
+  // right move only when the file was understood as the wrong thing — a credit
+  // line read as a current account, two banks pooled into one — because no
+  // amount of filling gaps corrects rows that should never have been written.
+  const restartable = ["imported", "parsed", "needs_review", "duplicate", "awaiting_account"].includes(
+    statement.status,
+  );
+
   // Once a file is filed, it can still be filed wrongly — a statement that names
   // no bank lands on whatever account the pipeline could match. Moving it takes
   // its transactions and its closing balance with it.
@@ -140,6 +148,7 @@ export function ImportFileRow({
   // number — QIF, usually. It is answered here, on its own row.
   const needsAccountHere =
     statement.status === "awaiting_account" && !statement.proposal_id && accounts.length > 0;
+
 
 
   return (
