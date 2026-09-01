@@ -780,6 +780,7 @@ export async function importExtracted(
         const broker = await importBrokerLedger(supabase, {
           householdId: statement.household_id,
           accountId: statement.account_id,
+          statementId: statement.id,
           ledger: extraction.broker,
         });
         notes.push(...broker.notes);

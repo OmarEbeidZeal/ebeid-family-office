@@ -125,9 +125,12 @@ export async function importBrokerLedger(
     householdId: string;
     accountId: string;
     ledger: BrokerLedger;
+    /** The file these orders were read from, so they can be undone with it. */
+    statementId?: string | null;
   },
 ): Promise<BrokerImportResult> {
   const { householdId, accountId, ledger } = input;
+  const statementId = input.statementId ?? null;
   const instruments = group(ledger);
   const notes: string[] = [];
 
@@ -262,6 +265,7 @@ export async function importBrokerLedger(
         household_id: householdId,
         holding_id: holdingId,
         account_id: accountId,
+        statement_id: statementId,
         external_ref: trade.externalRef,
         side: trade.side,
         trade_date: trade.tradeDate,
