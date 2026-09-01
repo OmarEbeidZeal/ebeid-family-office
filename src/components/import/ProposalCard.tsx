@@ -49,25 +49,38 @@ export function ProposalCard({
   const [accountType, setAccountType] = useState(typeFor(proposal.account_type));
   const [currency, setCurrency] = useState((proposal.currency ?? "GBP").toUpperCase());
   const [country, setCountry] = useState((proposal.country ?? "GB").toUpperCase());
-  // Deliberately empty. Whoever uploaded the file has no bearing on whose
-  // account this is, so there is nothing sensible to pre-select.
+  // The name on the statement decides this, never whoever uploaded the file.
   const [owner, setOwner] = useState("");
+  const chosen = useRef(false);
   const [linkTo, setLinkTo] = useState(proposal.matched_account_id ?? accounts[0]?.id ?? "");
 
   const mask = proposal.identifier_last4
     ? `${proposal.identifier_kind === "iban" ? "IBAN" : proposal.identifier_kind === "card" ? "Card" : "••••"} ${proposal.identifier_last4}`
     : null;
 
-  // The statement's own holder name is the clue, shown rather than acted on.
+  /**
+   * `Acct/Ownr/Nm` on a CAMT.053, the holder line on a PDF. It is the only
+   * evidence of whose account this is, so it is shown on its own line and
+   * used to fill the owner in — the household still confirms it.
+   */
   const likely = matchHolder(proposal.holder);
-  const holderHint = proposal.holder
-    ? `Statement is in the name of ${proposal.holder}${likely ? ` — that looks like ${memberName(likely)}` : ""}.`
-    : null;
+
+  useEffect(() => {
+    if (chosen.current || !likely) return;
+    setOwner(likely.id);
+  }, [likely]);
+
+  const ownerHint = likely
+    ? `Filled in from the name on the statement — ${proposal.holder}. Change it if that is not right.`
+    : proposal.holder
+      ? `The statement is in the name of ${proposal.holder}, which matches nobody in the household yet. Say who it belongs to.`
+      : "Uploading someone else's statement does not make it yours — say who it belongs to.";
 
   const period =
     proposal.period_start && proposal.period_end
       ? `${formatDate(proposal.period_start)} – ${formatDate(proposal.period_end)}`
       : null;
+
 
   const submit = async (action: "create" | "link" | "reject") => {
     try {
