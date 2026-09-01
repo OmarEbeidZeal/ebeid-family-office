@@ -130,6 +130,8 @@ export function ImportFileRow({
   ].filter(Boolean);
 
   const summary = summaryLine(statement, statement.summary);
+  const conflicts = conflictsOf(statement.summary);
+
   const retryable = ["failed", "cancelled"].includes(statement.status);
   // A file that read fine can still be worth reading again: the reader learns
   // formats, and a second pass fills in what the first one dropped — a running
