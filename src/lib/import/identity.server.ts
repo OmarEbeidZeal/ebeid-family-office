@@ -78,14 +78,32 @@ export function compositeAccountKey(parts: Array<string | null | undefined>): st
   return key.replace(/\|/g, "").length >= 6 ? key : null;
 }
 
+/** Two or more masking characters in a row: `****234`, `xxxx 4821`, `••••234`. */
+const MASK_RUN = /(?:[*x×•#]\s*){2,}/i;
+
+/** `54-21-47`, `54 21 47` — a UK sort code, which needs its separators to be one. */
+const SORT_CODE = /\b(\d{2})[-\s](\d{2})[-\s](\d{2})\b/;
+
+function institutionKey(institution: string | null | undefined): string {
+  return (institution ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 /**
  * Reduce a printed identifier to something matchable. Returns null when what
  * was printed carries too little signal to be worth matching on — a bank that
  * prints only "****" tells us nothing.
+ *
+ * A masked number is handled apart from a whole one, because the two are not
+ * the same kind of evidence. `*****234 · 54-21-47` is as good as an account
+ * number: no two accounts share a sort code and a tail, so three years of
+ * NatWest downloads land on one account. `****234` on its own is not — plenty
+ * of accounts end 234 — so it is kept as a weak key that recognises the same
+ * bank's files as each other and never links them to an account by itself.
  */
 export function normaliseIdentifier(
   raw: string | null | undefined,
   hint: IdentifierKind | null,
+  context?: { institution?: string | null },
 ): NormalisedIdentifier | null {
   if (!raw) return null;
 
@@ -98,8 +116,13 @@ export function normaliseIdentifier(
       lastFour: null,
       hash: createHmac("sha256", salt()).update(`reference:${key}`).digest("hex"),
       mask: null,
+      // The bank, the currency and the holder agreeing is a strong hint and
+      // nothing more: two sub-accounts can agree on all three.
+      positive: false,
     };
   }
+
+  if (MASK_RUN.test(raw)) return maskedIdentifier(raw, hint, context?.institution ?? null);
 
   const cleaned = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (cleaned.length < 4) return null;
@@ -118,8 +141,54 @@ export function normaliseIdentifier(
   const lastFour = digits.slice(-4);
   const hash = createHmac("sha256", salt()).update(`${kind}:${cleaned}`).digest("hex");
 
-  return { kind, normalised: cleaned, lastFour, hash, mask: maskIdentifier(lastFour, kind) };
+  return {
+    kind,
+    normalised: cleaned,
+    lastFour,
+    hash,
+    mask: maskIdentifier(lastFour, kind),
+    positive: true,
+  };
 }
+
+/**
+ * What the bank left visible when it masked its own statement.
+ *
+ * The tail is hashed with whatever pins it down — a sort code if the page
+ * printed one, otherwise the bank's name — so a tail can never collide with a
+ * whole account number, and `****234` at one bank can never match `****234`
+ * at another.
+ */
+function maskedIdentifier(
+  raw: string,
+  hint: IdentifierKind | null,
+  institution: string | null,
+): NormalisedIdentifier | null {
+  const tailMatch = raw.match(/(?:[*x×•#]\s*){2,}\s*(\d{2,6})/i);
+  const tail = tailMatch?.[1] ?? null;
+  if (!tail) return null;
+
+  const kind: IdentifierKind = hint && hint !== "reference" ? hint : "account_number";
+  const sort = raw.match(SORT_CODE);
+  const branch = sort ? `${sort[1]}${sort[2]}${sort[3]}` : null;
+  const bank = institutionKey(institution);
+
+  // Nothing pins the tail down: not enough to recognise anything by.
+  if (!branch && !bank) return null;
+
+  const scope = branch ? `sort:${branch}` : `bank:${bank}`;
+  return {
+    kind,
+    normalised: `${scope}|mask:${tail}`,
+    lastFour: tail,
+    hash: createHmac("sha256", salt()).update(`${kind}:mask:${scope}:${tail}`).digest("hex"),
+    mask: maskIdentifier(tail, kind),
+    // A sort code and a tail together name one account. A tail and a bank name
+    // a great many, so it proposes rather than links.
+    positive: Boolean(branch),
+  };
+}
+
 
 /** Hash of just the last four, for matching a masked statement against a known account. */
 export function lastFourHash(lastFour: string, kind: IdentifierKind): string {
