@@ -310,18 +310,26 @@ export async function importBrokerLedger(
 
     const { data: tradeRows } = await supabase
       .from("trades")
-      .select("side, trade_date, quantity")
+      .select("side, trade_date, quantity, account_id")
       .eq("holding_id", holdingId)
       .order("trade_date", { ascending: true });
 
-    const trades = ((tradeRows ?? []) as Array<{
+    const allTrades = ((tradeRows ?? []) as Array<{
       side: string;
       trade_date: string;
       quantity: number;
-    }>).map<TradeLike>((row) => ({
-      side: row.side === "sell" ? "sell" : "buy",
+      account_id: string | null;
+    }>).map((row) => ({
+      side: (row.side === "sell" ? "sell" : "buy") as TradeLike["side"],
       trade_date: row.trade_date,
       quantity: Number(row.quantity),
+      account_id: row.account_id,
+    }));
+
+    const trades: TradeLike[] = allTrades.map(({ side, trade_date, quantity }) => ({
+      side,
+      trade_date,
+      quantity,
     }));
 
     // Evidence already on the holding is kept: it came from a file that may not
@@ -336,8 +344,50 @@ export async function importBrokerLedger(
           ? { asOf: String(storedEvidence.as_of), shares: Number(storedEvidence.shares) }
           : null;
 
+    /* ------------------------------------- where the broker contradicts itself */
+    const institution = brokerLabel(ledger.broker) ?? "The broker";
+    const storedSource = storedEvidence?.file ? String(storedEvidence.file) : null;
+
+    if (fileEvidence && storedEvidence?.shares != null && storedEvidence.as_of) {
+      const clash =
+        String(storedEvidence.as_of) === fileEvidence.asOf
+          ? detectSnapshotConflict({
+              ticker: instrument.brokerTicker,
+              asOf: fileEvidence.asOf,
+              institution,
+              held: { shares: Number(storedEvidence.shares), source: storedSource },
+              incoming: { shares: fileEvidence.shares, source: fileName },
+            })
+          : null;
+      if (clash) conflicts.push(clash);
+    }
+
+    // Only this account's orders can contradict this account's snapshot — the
+    // same ticker held at another broker is a second position, not a discrepancy.
+    if (evidence) {
+      const sameAccount = allTrades
+        .filter((row) => !row.account_id || row.account_id === accountId)
+        .map<TradeLike>(({ side, trade_date, quantity }) => ({ side, trade_date, quantity }));
+      const evidenceSource = evidence === fileEvidence ? fileName : storedSource;
+      const clash = detectPositionConflict({
+        ticker: instrument.brokerTicker,
+        asOf: evidence.asOf,
+        statedShares: evidence.shares,
+        derivedShares: positionAt(sameAccount, evidence.asOf),
+        derivedSharesEarlier: positionAt(sameAccount, weeksBefore(evidence.asOf, 3)),
+        institution,
+        statedSource: evidenceSource,
+        derivedSource:
+          evidenceSource && fileName && evidenceSource !== fileName
+            ? fileName
+            : "the orders already recorded",
+      });
+      if (clash) conflicts.push(clash);
+    }
+
     const opening = openingPosition(trades, evidence);
     const hadOpening = Number(existing?.opening_quantity ?? 0) > 0;
+
 
     await supabase
       .from("holdings")
