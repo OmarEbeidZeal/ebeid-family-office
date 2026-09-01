@@ -218,19 +218,17 @@ export function ProposalCard({
             </Field>
           </div>
 
-          <Field
-            label="Whose account is this?"
-            hint={
-              holderHint ??
-              "Uploading someone else's statement does not make it yours — say who it belongs to."
-            }
-          >
+          <Field label="Whose account is this?" hint={ownerHint}>
             <SelectNative
               value={owner}
-              onChange={setOwner}
+              onChange={(value) => {
+                chosen.current = true;
+                setOwner(value);
+              }}
               options={[{ value: "", label: "Choose a person…" }, ...ownerOptions]}
             />
           </Field>
+
 
           <button
             type="button"
