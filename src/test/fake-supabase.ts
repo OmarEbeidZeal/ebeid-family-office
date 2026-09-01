@@ -218,7 +218,7 @@ export function fakeSupabase(seed: Tables): FakeSupabase {
       };
     },
     async rpc(name: string, args?: Record<string, unknown>) {
-      calls.push({ name, args });
+      calls.push({ name, args: args ?? {} });
       return { data: null, error: null };
     },
   };
