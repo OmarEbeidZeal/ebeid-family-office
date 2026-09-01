@@ -193,6 +193,20 @@ export function StatementsPanel({
                   {statement.error_message}
                 </p>
               )}
+
+              {/* Two documents that disagree: both figures, both files, no verdict. */}
+              {(statement.summary?.conflicts ?? [])
+                .filter((conflict) => typeof conflict?.message === "string" && conflict.message)
+                .map((conflict, index) => (
+                  <p
+                    key={`${conflict.kind ?? "conflict"}-${index}`}
+                    className="mt-1.5 flex gap-1.5 border-l-2 border-warn/50 pl-2 text-xs leading-relaxed text-warn"
+                  >
+                    <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+                    <span>{conflict.message}</span>
+                  </p>
+                ))}
+
             </div>
 
             <div className="flex items-center gap-1">
