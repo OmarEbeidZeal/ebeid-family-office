@@ -2715,6 +2715,7 @@ export type Database = {
           price: number
           quantity: number
           side: string
+          statement_id: string | null
           trade_date: string
           updated_at: string
         }
@@ -2731,6 +2732,7 @@ export type Database = {
           price: number
           quantity: number
           side: string
+          statement_id?: string | null
           trade_date?: string
           updated_at?: string
         }
@@ -2747,6 +2749,7 @@ export type Database = {
           price?: number
           quantity?: number
           side?: string
+          statement_id?: string | null
           trade_date?: string
           updated_at?: string
         }
@@ -2770,6 +2773,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trades_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "statements"
             referencedColumns: ["id"]
           },
         ]
