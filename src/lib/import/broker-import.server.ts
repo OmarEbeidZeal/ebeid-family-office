@@ -136,16 +136,21 @@ export async function importBrokerLedger(
     ledger: BrokerLedger;
     /** The file these orders were read from, so they can be undone with it. */
     statementId?: string | null;
+    /** What that file is called, so a disagreement can name both documents. */
+    fileName?: string | null;
   },
 ): Promise<BrokerImportResult> {
   const { householdId, accountId, ledger } = input;
   const statementId = input.statementId ?? null;
+  const fileName = input.fileName ?? null;
   const instruments = group(ledger);
   const notes: string[] = [];
+  const conflicts: Conflict[] = [];
 
   if (!instruments.length) {
-    return { tradesInserted: 0, tradesHeld: 0, holdingsTouched: 0, notes };
+    return { tradesInserted: 0, tradesHeld: 0, holdingsTouched: 0, notes, conflicts };
   }
+
 
   const { data: account } = await supabase
     .from("accounts")
