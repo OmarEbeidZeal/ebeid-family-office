@@ -437,6 +437,8 @@ export async function importBrokerLedger(
       `The missing purchases behind ${resolved.join(", ")} are now accounted for, so ${resolved.length === 1 ? "that position has" : "those positions have"} a full cost basis.`,
     );
   }
+  for (const conflict of conflicts) notes.push(conflict.message);
 
-  return { tradesInserted, tradesHeld, holdingsTouched, notes };
+  return { tradesInserted, tradesHeld, holdingsTouched, notes, conflicts };
+
 }
