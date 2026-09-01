@@ -1007,6 +1007,62 @@ async function updateIn(supabase: Client, ids: string[], values: Record<string, 
   }
 }
 
+/* --------------------------------------------- transfers, on demand */
+
+/**
+ * Re-reads every transaction the household holds and marks the internal moves.
+ *
+ * Import-time detection only sees a four-day window around the file it just
+ * read, so a rule learned later — a name confirmed on an account, a second
+ * account finally imported — never reaches what came before. This does.
+ *
+ * It only ever adds the flag. A row somebody marked internal by hand stays
+ * internal: the household's own judgement outranks a heuristic.
+ */
+export async function rescanTransfers(
+  supabase: Client,
+  householdId: string,
+): Promise<{ scanned: number; flagged: number }> {
+  const people = await loadPeopleIndex(supabase, householdId).catch(() => []);
+
+  const rows: Array<{
+    id: string;
+    account_id: string | null;
+    booked_date: string;
+    amount: number;
+    amount_base: number | null;
+    direction: string;
+    is_transfer: boolean;
+    merchant: string | null;
+    description: string | null;
+  }> = [];
+
+  const PAGE = 1000;
+  for (let start = 0; start < 60_000; start += PAGE) {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select(
+        "id, account_id, booked_date, amount, amount_base, direction, is_transfer, merchant, description",
+      )
+      .eq("household_id", householdId)
+      .order("booked_date", { ascending: true })
+      .order("id", { ascending: true })
+      .range(start, start + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as typeof rows;
+    rows.push(...page);
+    if (page.length < PAGE) break;
+  }
+
+  if (rows.length < 1) return { scanned: 0, flagged: 0 };
+
+  const transferIds = detectTransfers(rows, people);
+  const toFlag = rows.filter((row) => transferIds.has(row.id) && !row.is_transfer).map((r) => r.id);
+  await updateIn(supabase, toFlag, { is_transfer: true });
+
+  return { scanned: rows.length, flagged: toFlag.length };
+}
+
 /* --------------------------------------------------- rules applied later */
 
 export async function applyRuleToExisting(
