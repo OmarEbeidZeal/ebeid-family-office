@@ -2,14 +2,16 @@
 
 ## Now
 
-- [ ] Record a person's mandate at the moment they are invited, so a Shariah mandate is set with the invitation rather than after the first sign-in
+- [x] Record a person's mandate at the moment they are invited, so a Shariah mandate is set with the invitation rather than after the first sign-in
+- [x] Haya added as a member on a Shariah mandate; Settings flags any allowlisted address that still has no member record behind it
 
 ## Household actions the readers unlock
 
 - [ ] Publish first: the queue sweep runs every five minutes against the published build, so a file re-queued before publishing is read again by the old parser
 - [ ] Then start the Monzo Flex export over, so its 1,403 lines leave the investment account and land on a Flex credit line of their own
 - [ ] Re-download the two Trading 212 PDFs as CSV — the PDFs carry no readable digits, and the CSV brings the orders with it
-- [ ] Invite Haya so her Shariah mandate, her ISA allowance and her side of the balance sheet stop being modelled as the household's
+- [ ] Assign Haya's accounts, holdings and ISA contributions to her now that she owns a side of the balance sheet
+
 
 ## Ready next
 
