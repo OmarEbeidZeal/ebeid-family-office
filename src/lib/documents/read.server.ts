@@ -8,6 +8,7 @@
  */
 import { StatementFailure } from "../import/failure";
 import type { SourceFormat } from "../import/formats";
+import { unreadablePdfMessage } from "../import/pdf-guidance";
 import { sniffFormat } from "../import/sniff.server";
 import {
   SCANNED_PDF_MESSAGE,

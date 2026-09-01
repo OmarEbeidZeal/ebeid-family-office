@@ -42,7 +42,6 @@ import {
 
 import {
   SCANNED_PDF_MESSAGE,
-  UNMAPPED_PDF_MESSAGE,
   decodeText,
   extractPdfText,
   fingerprintOf,

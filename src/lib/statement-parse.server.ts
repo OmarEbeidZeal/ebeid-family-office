@@ -349,8 +349,6 @@ export async function extractPdfText(bytes: Uint8Array): Promise<PdfText> {
 export const SCANNED_PDF_MESSAGE =
   "This looks like a scanned PDF with no text layer — try downloading the CSV from your bank instead.";
 
-export const UNMAPPED_PDF_MESSAGE =
-  "This PDF's text layer does not map its own characters — the figures come out blank, so nothing in it can be read honestly. Some brokers and app-only banks export PDFs like this; download the CSV or Excel version of the same statement instead.";
 
 /** A statement page with real text carries far more than a few stray characters. */
 export function looksScanned(pdf: PdfText): boolean {
