@@ -131,7 +131,6 @@ export function ProposalCard({
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {[
-              proposal.holder,
               (proposal.currency ?? "").toUpperCase() || null,
               period,
               `${proposal.statement_count} file${proposal.statement_count === 1 ? "" : "s"} waiting`,
@@ -140,9 +139,22 @@ export function ProposalCard({
               .join(" · ")}
           </p>
 
+          {proposal.holder && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-xs text-foreground">
+              <User className="size-3 shrink-0 text-muted-foreground" strokeWidth={1.6} />
+              <span className="truncate">
+                In the name of <span className="font-medium">{proposal.holder}</span>
+                {likely && (
+                  <span className="text-muted-foreground"> · {memberName(likely)}</span>
+                )}
+              </span>
+            </p>
+          )}
+
           {proposal.reason && (
             <p className="mt-1 text-[0.7rem] text-muted-foreground">{proposal.reason}</p>
           )}
+
         </div>
         {proposal.closing_balance !== null && (
           <div className="hidden text-right sm:block">
