@@ -6,7 +6,14 @@
  * exports still differ in delimiter, decimal separator and date order, so each
  * of those is handled explicitly rather than hoped away.
  */
-import { guessMerchant, normaliseDescription, similarity } from "./text";
+import {
+  guessMerchant,
+  normaliseDescription,
+  scrubText,
+  similarity,
+  unreadableRatio,
+} from "./text";
+
 
 export { guessMerchant, normaliseDescription, similarity };
 
@@ -33,7 +40,24 @@ export type RawTransaction = {
   original_amount?: number | null;
   original_currency?: string | null;
   fx_rate?: number | null;
+  /**
+   * Money that moved without the household spending or earning anything — cash
+   * paid into a broker, and the same cash turning into shares. It belongs on
+   * the account so the running balance is right, and nowhere near spending.
+   */
+  internal?: boolean;
+  /** The household's own note on the entry, when the export carries one. */
+  notes?: string | null;
+  /**
+   * A category the file itself states — the label the household already gave
+   * the payment in its banking app. Matched against the household's categories
+   * by name before any rule or model is consulted; an unrecognised name is
+   * simply ignored.
+   */
+  category_hint?: string | null;
 };
+
+
 
 export type DateFormat = "DMY" | "MDY" | "YMD" | "auto";
 
@@ -307,17 +331,24 @@ export async function parseWorkbookRows(bytes: Uint8Array): Promise<string[][]> 
   );
 }
 
-export type PdfText = { text: string; pages: number };
+export type PdfText = {
+  text: string;
+  pages: number;
+  /** Share of non-space characters that came back as unmapped glyphs. */
+  unreadable: number;
+};
 
 export async function extractPdfText(bytes: Uint8Array): Promise<PdfText> {
   const { extractText, getDocumentProxy } = await import("unpdf");
   const document = await getDocumentProxy(bytes);
   const { totalPages, text } = await extractText(document, { mergePages: true });
-  return { text: Array.isArray(text) ? text.join("\n") : text, pages: totalPages };
+  const raw = Array.isArray(text) ? text.join("\n") : text;
+  return { text: scrubText(raw), pages: totalPages, unreadable: unreadableRatio(raw) };
 }
 
 export const SCANNED_PDF_MESSAGE =
   "This looks like a scanned PDF with no text layer — try downloading the CSV from your bank instead.";
+
 
 /** A statement page with real text carries far more than a few stray characters. */
 export function looksScanned(pdf: PdfText): boolean {
@@ -325,3 +356,12 @@ export function looksScanned(pdf: PdfText): boolean {
   const perPage = meaningful.length / Math.max(1, pdf.pages);
   return meaningful.length < 200 || perPage < 80;
 }
+
+/**
+ * Text came out, but a meaningful slice of it is unmapped glyphs — typically
+ * every digit. Reading it would mean inventing the numbers, so it is refused.
+ */
+export function looksUnmapped(pdf: PdfText): boolean {
+  return pdf.unreadable >= 0.02;
+}
+

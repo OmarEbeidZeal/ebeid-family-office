@@ -19,6 +19,11 @@ import type {
   TaxAllowanceRow,
   WatchlistRow,
 } from "@/hooks/useFinancials";
+import type {
+  InsurancePolicyRow,
+  PayslipRow,
+  TenancyRow,
+} from "@/hooks/useDocuments";
 import type { TransactionRow } from "@/hooks/useTransactions";
 import { buildHouseholdContext, type CtxSpending } from "@/lib/household-context";
 import { makeConverter } from "@/lib/fx-rates";
@@ -137,7 +142,7 @@ export async function loadAdvisorContextForHousehold(
 ): Promise<AdvisorContextResult> {
   const { data: household } = await client
     .from("households")
-    .select("id, name, base_currency")
+    .select("id, name, base_currency, income_replacement_years")
     .eq("id", householdId)
     .maybeSingle();
   const base = household?.base_currency ?? "GBP";
@@ -158,6 +163,9 @@ export async function loadAdvisorContextForHousehold(
     watchlist,
     allowances,
     categories,
+    policies,
+    tenancies,
+    payslips,
   ] = await Promise.all([
     client
       .from("profiles")
@@ -174,6 +182,9 @@ export async function loadAdvisorContextForHousehold(
     rows<WatchlistRow>(client, "watchlist", householdId),
     rows<TaxAllowanceRow>(client, "tax_allowances", householdId),
     rows<CategoryRow>(client, "categories", householdId),
+    rows<InsurancePolicyRow>(client, "insurance_policies", householdId),
+    rows<TenancyRow>(client, "tenancies", householdId),
+    rows<PayslipRow>(client, "payslips", householdId),
   ]);
 
   const [fxRows, transactionRows, splitRows] = await Promise.all([
@@ -264,6 +275,11 @@ export async function loadAdvisorContextForHousehold(
     marketDataAvailable: marketAvailable,
     marketDataMessage: marketMessage,
     toBase,
+    // The paperwork layer: cover, rent commitments and the £100,000 line.
+    policies,
+    tenancies,
+    payslips,
+    replacementYears: household?.income_replacement_years ?? 10,
   });
 
   return {

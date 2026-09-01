@@ -143,6 +143,13 @@ export type IncomeRow = {
   currency: string;
   frequency: string;
   annual_growth_rate: number;
+  /** Where the income arises — foreign income has its own UK reporting duty. */
+  country: string | null;
+  taxed_at_source: boolean;
+  uk_self_assessment: boolean;
+  /** "manual" or "payslip": a payslip-derived stream is kept in step by the reader. */
+  source: string;
+  last_observed_at: string | null;
 };
 
 export type ForecastExpenseRow = {

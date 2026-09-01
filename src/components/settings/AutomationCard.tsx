@@ -23,7 +23,7 @@ export function AutomationCard() {
   return (
     <SettingsCard
       title="Automatic updates"
-      description="Four jobs keep the household's figures current on their own. The app still refreshes anything stale when you open it, so these are a floor, not the only path."
+      description="Six jobs keep the household's figures current on their own. The app still refreshes anything stale when you open it, so these are a floor, not the only path."
     >
       <ul className="space-y-3">
         {SCHEDULED_JOBS.map((job) => (

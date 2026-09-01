@@ -35,14 +35,28 @@ export function PortfolioSummary({
 
       <StatTile
         label="Unrealised P/L"
-        definition="Market value less the cost of the shares still held. Only positions with both a live price and a recorded cost are counted."
-        value={priced ? formatMoney(totals.unrealisedBase, base, { decimals: 0 }) : "—"}
-        tone={totals.unrealisedBase > 0 ? "gain" : totals.unrealisedBase < 0 ? "loss" : "neutral"}
+        definition="Market value less the cost of the shares still held. Only positions with both a live price and a known cost are counted — a position whose purchase price is in none of your files is left out rather than counted as pure profit."
+        value={
+          totals.unrealisedPct === null ? "—" : formatMoney(totals.unrealisedBase, base, { decimals: 0 })
+        }
+        tone={
+          totals.unrealisedPct === null
+            ? "neutral"
+            : totals.unrealisedBase > 0
+              ? "gain"
+              : totals.unrealisedBase < 0
+                ? "loss"
+                : "neutral"
+        }
         loading={!!loading}
         sub={
           totals.unrealisedPct === null
-            ? "Record average cost to see the return"
-            : `${formatSignedPercent(totals.unrealisedPct)} on ${formatMoney(totals.costBase, base, { decimals: 0 })} cost`
+            ? totals.unknownBasisCount > 0
+              ? `Cost unknown on ${totals.unknownBasisCount} position${totals.unknownBasisCount === 1 ? "" : "s"}`
+              : "Record average cost to see the return"
+            : totals.unknownBasisCount > 0
+              ? `${formatSignedPercent(totals.unrealisedPct)} on ${formatMoney(totals.costBase, base, { decimals: 0 })} cost · ${formatMoney(totals.unknownBasisValueBase, base, { decimals: 0 })} excluded, cost unknown`
+              : `${formatSignedPercent(totals.unrealisedPct)} on ${formatMoney(totals.costBase, base, { decimals: 0 })} cost`
         }
       />
 
@@ -61,16 +75,19 @@ export function PortfolioSummary({
 
       <StatTile
         label="Realised P/L"
-        definition="Profit and loss booked on shares already sold, computed from your recorded trades at the average cost at the time of each sale."
+        definition="Profit and loss booked on shares already sold, computed from your recorded trades at the average cost at the time of each sale. Sales whose purchase price is in none of your files are excluded."
         value={formatMoney(totals.realisedBase, base, { decimals: 0 })}
         tone={totals.realisedBase > 0 ? "gain" : totals.realisedBase < 0 ? "loss" : "neutral"}
         loading={!!loading}
         sub={
-          totals.unpricedCount > 0
-            ? `${totals.unpricedCount} position${totals.unpricedCount === 1 ? "" : "s"} unpriced`
-            : "From recorded sells"
+          totals.unknownRealisedCount > 0
+            ? `${totals.unknownRealisedCount} holding${totals.unknownRealisedCount === 1 ? "" : "s"} excluded, cost unknown`
+            : totals.unpricedCount > 0
+              ? `${totals.unpricedCount} position${totals.unpricedCount === 1 ? "" : "s"} unpriced`
+              : "From recorded sells"
         }
       />
+
     </div>
   );
 }

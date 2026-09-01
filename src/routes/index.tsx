@@ -99,6 +99,7 @@ function Dashboard() {
         base={summary.base}
         loading={summary.loading}
         delta={delta}
+        balancesUnstated={summary.counts.balancesUnstated}
       />
 
       <MetricRow summary={summary} spending={spending} />

@@ -14,18 +14,23 @@ import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as AdvisorRouteImport } from './routes/advisor'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BalanceSheetRouteImport } from './routes/balance-sheet'
+import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as ForecastRouteImport } from './routes/forecast'
 import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PayRouteImport } from './routes/pay'
 import { Route as PlanningRouteImport } from './routes/planning'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
+import { Route as ProtectionRouteImport } from './routes/protection'
 import { Route as ScenariosRouteImport } from './routes/scenarios'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SpendingRouteImport } from './routes/spending'
+import { Route as TenancyRouteImport } from './routes/tenancy'
 import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as ApiAdvisorChatRouteImport } from './routes/api/advisor/chat'
 import { Route as ApiPublicBankLogoRouteImport } from './routes/api/public/bank-logo'
+import { Route as ApiPublicHooksDocumentQueueRouteImport } from './routes/api/public/hooks/document-queue'
 import { Route as ApiPublicHooksFxRefreshRouteImport } from './routes/api/public/hooks/fx-refresh'
 import { Route as ApiPublicHooksImportQueueRouteImport } from './routes/api/public/hooks/import-queue'
 import { Route as ApiPublicHooksMarketCloseRouteImport } from './routes/api/public/hooks/market-close'
@@ -57,6 +62,11 @@ const BalanceSheetRoute = BalanceSheetRouteImport.update({
   path: '/balance-sheet',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocumentsRoute = DocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ForecastRoute = ForecastRouteImport.update({
   id: '/forecast',
   path: '/forecast',
@@ -77,6 +87,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PayRoute = PayRouteImport.update({
+  id: '/pay',
+  path: '/pay',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlanningRoute = PlanningRouteImport.update({
   id: '/planning',
   path: '/planning',
@@ -85,6 +100,11 @@ const PlanningRoute = PlanningRouteImport.update({
 const PortfolioRoute = PortfolioRouteImport.update({
   id: '/portfolio',
   path: '/portfolio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProtectionRoute = ProtectionRouteImport.update({
+  id: '/protection',
+  path: '/protection',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScenariosRoute = ScenariosRouteImport.update({
@@ -102,6 +122,11 @@ const SpendingRoute = SpendingRouteImport.update({
   path: '/spending',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TenancyRoute = TenancyRouteImport.update({
+  id: '/tenancy',
+  path: '/tenancy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TransactionsRoute = TransactionsRouteImport.update({
   id: '/transactions',
   path: '/transactions',
@@ -117,6 +142,12 @@ const ApiPublicBankLogoRoute = ApiPublicBankLogoRouteImport.update({
   path: '/api/public/bank-logo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksDocumentQueueRoute =
+  ApiPublicHooksDocumentQueueRouteImport.update({
+    id: '/api/public/hooks/document-queue',
+    path: '/api/public/hooks/document-queue',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksFxRefreshRoute = ApiPublicHooksFxRefreshRouteImport.update({
   id: '/api/public/hooks/fx-refresh',
   path: '/api/public/hooks/fx-refresh',
@@ -153,18 +184,23 @@ export interface FileRoutesByFullPath {
   '/advisor': typeof AdvisorRoute
   '/auth': typeof AuthRoute
   '/balance-sheet': typeof BalanceSheetRoute
+  '/documents': typeof DocumentsRoute
   '/forecast': typeof ForecastRoute
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
+  '/pay': typeof PayRoute
   '/planning': typeof PlanningRoute
   '/portfolio': typeof PortfolioRoute
+  '/protection': typeof ProtectionRoute
   '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
   '/spending': typeof SpendingRoute
+  '/tenancy': typeof TenancyRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
   '/api/public/bank-logo': typeof ApiPublicBankLogoRoute
+  '/api/public/hooks/document-queue': typeof ApiPublicHooksDocumentQueueRoute
   '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
   '/api/public/hooks/import-queue': typeof ApiPublicHooksImportQueueRoute
   '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
@@ -177,18 +213,23 @@ export interface FileRoutesByTo {
   '/advisor': typeof AdvisorRoute
   '/auth': typeof AuthRoute
   '/balance-sheet': typeof BalanceSheetRoute
+  '/documents': typeof DocumentsRoute
   '/forecast': typeof ForecastRoute
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
+  '/pay': typeof PayRoute
   '/planning': typeof PlanningRoute
   '/portfolio': typeof PortfolioRoute
+  '/protection': typeof ProtectionRoute
   '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
   '/spending': typeof SpendingRoute
+  '/tenancy': typeof TenancyRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
   '/api/public/bank-logo': typeof ApiPublicBankLogoRoute
+  '/api/public/hooks/document-queue': typeof ApiPublicHooksDocumentQueueRoute
   '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
   '/api/public/hooks/import-queue': typeof ApiPublicHooksImportQueueRoute
   '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
@@ -202,18 +243,23 @@ export interface FileRoutesById {
   '/advisor': typeof AdvisorRoute
   '/auth': typeof AuthRoute
   '/balance-sheet': typeof BalanceSheetRoute
+  '/documents': typeof DocumentsRoute
   '/forecast': typeof ForecastRoute
   '/goals': typeof GoalsRoute
   '/import': typeof ImportRoute
   '/onboarding': typeof OnboardingRoute
+  '/pay': typeof PayRoute
   '/planning': typeof PlanningRoute
   '/portfolio': typeof PortfolioRoute
+  '/protection': typeof ProtectionRoute
   '/scenarios': typeof ScenariosRoute
   '/settings': typeof SettingsRoute
   '/spending': typeof SpendingRoute
+  '/tenancy': typeof TenancyRoute
   '/transactions': typeof TransactionsRoute
   '/api/advisor/chat': typeof ApiAdvisorChatRoute
   '/api/public/bank-logo': typeof ApiPublicBankLogoRoute
+  '/api/public/hooks/document-queue': typeof ApiPublicHooksDocumentQueueRoute
   '/api/public/hooks/fx-refresh': typeof ApiPublicHooksFxRefreshRoute
   '/api/public/hooks/import-queue': typeof ApiPublicHooksImportQueueRoute
   '/api/public/hooks/market-close': typeof ApiPublicHooksMarketCloseRoute
@@ -228,18 +274,23 @@ export interface FileRouteTypes {
     | '/advisor'
     | '/auth'
     | '/balance-sheet'
+    | '/documents'
     | '/forecast'
     | '/goals'
     | '/import'
     | '/onboarding'
+    | '/pay'
     | '/planning'
     | '/portfolio'
+    | '/protection'
     | '/scenarios'
     | '/settings'
     | '/spending'
+    | '/tenancy'
     | '/transactions'
     | '/api/advisor/chat'
     | '/api/public/bank-logo'
+    | '/api/public/hooks/document-queue'
     | '/api/public/hooks/fx-refresh'
     | '/api/public/hooks/import-queue'
     | '/api/public/hooks/market-close'
@@ -252,18 +303,23 @@ export interface FileRouteTypes {
     | '/advisor'
     | '/auth'
     | '/balance-sheet'
+    | '/documents'
     | '/forecast'
     | '/goals'
     | '/import'
     | '/onboarding'
+    | '/pay'
     | '/planning'
     | '/portfolio'
+    | '/protection'
     | '/scenarios'
     | '/settings'
     | '/spending'
+    | '/tenancy'
     | '/transactions'
     | '/api/advisor/chat'
     | '/api/public/bank-logo'
+    | '/api/public/hooks/document-queue'
     | '/api/public/hooks/fx-refresh'
     | '/api/public/hooks/import-queue'
     | '/api/public/hooks/market-close'
@@ -276,18 +332,23 @@ export interface FileRouteTypes {
     | '/advisor'
     | '/auth'
     | '/balance-sheet'
+    | '/documents'
     | '/forecast'
     | '/goals'
     | '/import'
     | '/onboarding'
+    | '/pay'
     | '/planning'
     | '/portfolio'
+    | '/protection'
     | '/scenarios'
     | '/settings'
     | '/spending'
+    | '/tenancy'
     | '/transactions'
     | '/api/advisor/chat'
     | '/api/public/bank-logo'
+    | '/api/public/hooks/document-queue'
     | '/api/public/hooks/fx-refresh'
     | '/api/public/hooks/import-queue'
     | '/api/public/hooks/market-close'
@@ -301,18 +362,23 @@ export interface RootRouteChildren {
   AdvisorRoute: typeof AdvisorRoute
   AuthRoute: typeof AuthRoute
   BalanceSheetRoute: typeof BalanceSheetRoute
+  DocumentsRoute: typeof DocumentsRoute
   ForecastRoute: typeof ForecastRoute
   GoalsRoute: typeof GoalsRoute
   ImportRoute: typeof ImportRoute
   OnboardingRoute: typeof OnboardingRoute
+  PayRoute: typeof PayRoute
   PlanningRoute: typeof PlanningRoute
   PortfolioRoute: typeof PortfolioRoute
+  ProtectionRoute: typeof ProtectionRoute
   ScenariosRoute: typeof ScenariosRoute
   SettingsRoute: typeof SettingsRoute
   SpendingRoute: typeof SpendingRoute
+  TenancyRoute: typeof TenancyRoute
   TransactionsRoute: typeof TransactionsRoute
   ApiAdvisorChatRoute: typeof ApiAdvisorChatRoute
   ApiPublicBankLogoRoute: typeof ApiPublicBankLogoRoute
+  ApiPublicHooksDocumentQueueRoute: typeof ApiPublicHooksDocumentQueueRoute
   ApiPublicHooksFxRefreshRoute: typeof ApiPublicHooksFxRefreshRoute
   ApiPublicHooksImportQueueRoute: typeof ApiPublicHooksImportQueueRoute
   ApiPublicHooksMarketCloseRoute: typeof ApiPublicHooksMarketCloseRoute
@@ -357,6 +423,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BalanceSheetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/documents': {
+      id: '/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof DocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forecast': {
       id: '/forecast'
       path: '/forecast'
@@ -385,6 +458,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pay': {
+      id: '/pay'
+      path: '/pay'
+      fullPath: '/pay'
+      preLoaderRoute: typeof PayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/planning': {
       id: '/planning'
       path: '/planning'
@@ -397,6 +477,13 @@ declare module '@tanstack/react-router' {
       path: '/portfolio'
       fullPath: '/portfolio'
       preLoaderRoute: typeof PortfolioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/protection': {
+      id: '/protection'
+      path: '/protection'
+      fullPath: '/protection'
+      preLoaderRoute: typeof ProtectionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/scenarios': {
@@ -420,6 +507,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SpendingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tenancy': {
+      id: '/tenancy'
+      path: '/tenancy'
+      fullPath: '/tenancy'
+      preLoaderRoute: typeof TenancyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/transactions': {
       id: '/transactions'
       path: '/transactions'
@@ -439,6 +533,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/bank-logo'
       fullPath: '/api/public/bank-logo'
       preLoaderRoute: typeof ApiPublicBankLogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/document-queue': {
+      id: '/api/public/hooks/document-queue'
+      path: '/api/public/hooks/document-queue'
+      fullPath: '/api/public/hooks/document-queue'
+      preLoaderRoute: typeof ApiPublicHooksDocumentQueueRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/fx-refresh': {
@@ -485,18 +586,23 @@ const rootRouteChildren: RootRouteChildren = {
   AdvisorRoute: AdvisorRoute,
   AuthRoute: AuthRoute,
   BalanceSheetRoute: BalanceSheetRoute,
+  DocumentsRoute: DocumentsRoute,
   ForecastRoute: ForecastRoute,
   GoalsRoute: GoalsRoute,
   ImportRoute: ImportRoute,
   OnboardingRoute: OnboardingRoute,
+  PayRoute: PayRoute,
   PlanningRoute: PlanningRoute,
   PortfolioRoute: PortfolioRoute,
+  ProtectionRoute: ProtectionRoute,
   ScenariosRoute: ScenariosRoute,
   SettingsRoute: SettingsRoute,
   SpendingRoute: SpendingRoute,
+  TenancyRoute: TenancyRoute,
   TransactionsRoute: TransactionsRoute,
   ApiAdvisorChatRoute: ApiAdvisorChatRoute,
   ApiPublicBankLogoRoute: ApiPublicBankLogoRoute,
+  ApiPublicHooksDocumentQueueRoute: ApiPublicHooksDocumentQueueRoute,
   ApiPublicHooksFxRefreshRoute: ApiPublicHooksFxRefreshRoute,
   ApiPublicHooksImportQueueRoute: ApiPublicHooksImportQueueRoute,
   ApiPublicHooksMarketCloseRoute: ApiPublicHooksMarketCloseRoute,

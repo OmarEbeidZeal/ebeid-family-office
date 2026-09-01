@@ -6,6 +6,7 @@
  * Account balances are authoritative for net worth; listed holdings are the
  * composition *inside* investment accounts and are never added on top.
  */
+import { balanceKnown, countUnstatedBalances } from "@/lib/balances";
 import {
   ASSET_CLASS_LABELS,
   DEBT_ACCOUNT_TYPES,
@@ -24,9 +25,12 @@ export type NwAccount = {
   account_type: string;
   currency: string;
   current_balance: number;
+  /** "unknown" means no balance has been stated; the row stays out of the maths. */
+  balance_source?: string | null;
   is_active: boolean;
   owner_profile_id?: string | null;
 };
+
 
 export type NwAsset = {
   asset_class: string;
@@ -72,13 +76,20 @@ export type NetWorthInput = {
 
 export function computeNetWorth(input: NetWorthInput) {
   const { toBase, base } = input;
-  const accounts = input.accounts.filter((account) => account.is_active);
+  const activeAccounts = input.accounts.filter((account) => account.is_active);
+  // An account whose balance nobody has stated contributes nothing — not zero,
+  // nothing. Counting the placeholder would drag the headline figure down and
+  // make every allocation slice wrong; the count is returned instead so the
+  // screen can say what is missing.
+  const accounts = activeAccounts.filter(balanceKnown);
+  const balancesUnstated = countUnstatedBalances(activeAccounts);
   const { assets, liabilities, income, expenses } = input;
 
   const assetValue = (a: { current_value: number; ownership_pct: number; currency: string }) =>
     toBase(Number(a.current_value) * (Number(a.ownership_pct) / 100), a.currency);
 
   const cashAccounts = accounts.filter((a) => !DEBT_ACCOUNT_TYPES.includes(a.account_type));
+
   const debtAccounts = accounts.filter((a) => DEBT_ACCOUNT_TYPES.includes(a.account_type));
 
   const accountAssetTotal = cashAccounts.reduce(
@@ -204,14 +215,17 @@ export function computeNetWorth(input: NetWorthInput) {
       .sort((a, b) => b.value - a.value);
 
   return {
-    hasData: accounts.length + assets.length + liabilities.length > 0,
+    hasData: activeAccounts.length + assets.length + liabilities.length > 0,
     base,
     counts: {
-      accounts: accounts.length,
+      accounts: activeAccounts.length,
+      /** Active accounts still waiting for a figure — excluded from every total above. */
+      balancesUnstated,
       assets: assets.length,
       liabilities: liabilities.length,
       income: income.length,
     },
+
     totalAssets,
     totalLiabilities,
     netWorth,

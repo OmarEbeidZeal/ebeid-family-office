@@ -42,8 +42,9 @@ export async function runDailySnapshots(now = new Date()): Promise<JobOutcome> {
         }),
       supabaseAdmin
         .from("accounts")
-        .select("household_id, account_type, currency, current_balance, is_active")
+        .select("household_id, account_type, currency, current_balance, is_active, balance_source")
         .then(({ data }) => data ?? []),
+
       supabaseAdmin
         .from("assets")
         .select("household_id, asset_class, currency, current_value, ownership_pct, is_liquid")

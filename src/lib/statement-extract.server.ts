@@ -14,6 +14,7 @@
  * Statements are English-language UK, Egyptian, Jordanian and US formats.
  */
 import { completeJson } from "./ai/gateway.server";
+import type { BrokerLedger } from "./import/broker";
 import type { SourceFormat } from "./import/formats";
 import {
   inferDateOrder,
@@ -23,6 +24,9 @@ import {
   type DateFormat,
   type RawTransaction,
 } from "./statement-parse.server";
+import { deriveBalances, RUNNING_BALANCE_NOTE } from "./import/running-balance";
+
+
 
 /** What the statement says about itself. */
 export type StatementIdentity = {
@@ -37,7 +41,15 @@ export type StatementIdentity = {
   identifier_kind: "account_number" | "iban" | "card" | null;
   account_type: string | null;
   country: string | null;
+  /**
+   * A sub-ledger the bank prints in the same shape as its main one, with no
+   * account number to tell them apart — a Monzo Flex credit line against a
+   * Monzo current account. Two files that agree on everything else are still
+   * two accounts when this differs, so it forms part of the account key.
+   */
+  ledger?: string | null;
 };
+
 
 export type StatementMeta = {
   period_start: string | null;
@@ -78,7 +90,13 @@ export type ExtractionResult = {
   accountDetectable?: boolean;
   /** The bank's own name for the statement — CAMT `Id`, MT940 `:28C:`. */
   statementReference?: string | null;
+  /**
+   * The securities side of a broker export: what was bought and sold, kept
+   * apart from the cash rows so trades never land in spending.
+   */
+  broker?: BrokerLedger;
 };
+
 
 export const MAX_TRANSACTIONS = 6000;
 
@@ -143,7 +161,7 @@ function cleanIdentity(raw: RawIdentity | null | undefined): StatementIdentity {
 
 /* ------------------------------------------------------------ tabular files */
 
-type ColumnMapping = {
+export type ColumnMapping = {
   header_row_index: number;
   date_column: number;
   description_columns: number[];
@@ -386,22 +404,8 @@ export function applyMapping(rows: string[][], mapping: ColumnMapping): Extracti
 
   // A balance the statement states outright beats one inferred from the running
   // balance column, because only the stated figure can disagree with the rows.
-  let opening: number | null = statedOpening;
-  let closing: number | null = statedClosing;
-  if (
-    opening === null &&
-    first &&
-    first.balance_after !== null &&
-    first.balance_after !== undefined
-  ) {
-    opening =
-      first.direction === "debit"
-        ? first.balance_after + first.amount
-        : first.balance_after - first.amount;
-  }
-  if (closing === null && last && last.balance_after !== null && last.balance_after !== undefined) {
-    closing = last.balance_after;
-  }
+  const balances = deriveBalances(transactions, { opening: statedOpening, closing: statedClosing });
+  if (balances.derived.includes("closing")) notes.push(RUNNING_BALANCE_NOTE);
 
   const identity = cleanIdentity(mapping);
   const currency = /^[A-Z]{3}$/.test(mapping.currency_code?.toUpperCase() ?? "")
@@ -415,13 +419,14 @@ export function applyMapping(rows: string[][], mapping: ColumnMapping): Extracti
     meta: {
       period_start: first?.booked_date ?? null,
       period_end: last?.booked_date ?? null,
-      opening_balance: opening,
-      closing_balance: closing,
+      opening_balance: balances.opening,
+      closing_balance: balances.closing,
       currency,
       identity,
     },
   };
 }
+
 
 /* ----------------------------------------------------------------- PDF text */
 
@@ -575,6 +580,16 @@ ${IDENTITY_RULES}`,
   const opening = meta?.opening_balance ? parseAmountCell(meta.opening_balance) : null;
   const closing = meta?.closing_balance ? parseAmountCell(meta.closing_balance) : null;
 
+  // Most PDF statements print a running balance on every line and state no
+  // closing figure in the header the reader can find. The last line is that
+  // figure — without it the account ends up with hundreds of transactions and
+  // no balance at all.
+  const balances = deriveBalances(results, {
+    opening: opening ? opening.value : null,
+    closing: closing ? closing.value : null,
+  });
+  if (balances.derived.includes("closing")) notes.push(RUNNING_BALANCE_NOTE);
+
   const firstDate = sorted[0]?.booked_date ?? null;
   const lastDate = sorted[sorted.length - 1]?.booked_date ?? null;
   const periodStart = meta?.period_start
@@ -591,12 +606,13 @@ ${IDENTITY_RULES}`,
     meta: {
       period_start: periodStart,
       period_end: periodEnd,
-      opening_balance: opening ? opening.value : null,
-      closing_balance: closing ? closing.value : null,
+      opening_balance: balances.opening,
+      closing_balance: balances.closing,
       currency: /^[A-Za-z]{3}$/.test(meta?.currency ?? "")
         ? (meta?.currency ?? "").toUpperCase()
         : null,
       identity: cleanIdentity(meta),
     },
   };
+
 }

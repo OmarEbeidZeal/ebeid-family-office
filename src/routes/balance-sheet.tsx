@@ -38,6 +38,7 @@ import {
   valuationAgeTone,
   valuationMethodLabel,
 } from "@/lib/format";
+import { balanceKnown, statedBalance, unstatedBalanceNote } from "@/lib/balances";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/balance-sheet")({
@@ -109,8 +110,12 @@ function BalanceSheetPage() {
     );
   const liabilityBaseValue = (liability: LiabilityRow) =>
     convert(Number(liability.outstanding_balance), liability.currency, base);
-  const accountBaseValue = (account: AccountRow) =>
-    convert(Number(account.current_balance), account.currency, base);
+  const accountBaseValue = (account: AccountRow) => {
+    // No stated balance, no contribution: the row is still listed, but it adds
+    // neither a figure nor a zero to the side it sits on.
+    const stated = statedBalance(account);
+    return stated === null ? 0 : convert(stated, account.currency, base);
+  };
 
   /** Cash and investment accounts sit on the asset side; cards and loan accounts on the other. */
   const cashAccounts = useMemo(
@@ -227,6 +232,12 @@ function BalanceSheetPage() {
 
   const nothingRecorded =
     !visibleAccounts.length && !visibleAssets.length && !visibleLiabilities.length;
+
+  // Accounts in view whose balance nobody has stated: listed on the sheet, but
+  // absent from both columns and from the net position.
+  const unstatedNote = unstatedBalanceNote(
+    visibleAccounts.filter((account) => !balanceKnown(account)).length,
+  );
 
   return (
     <AppShell
@@ -381,6 +392,15 @@ function BalanceSheetPage() {
                 </p>
               </div>
             </div>
+            {unstatedNote && (
+              <p className="mt-4 border-t border-border pt-3 text-xs text-warn">
+                {unstatedNote}{" "}
+                <Link to="/accounts" className="underline underline-offset-4">
+                  Set them on Accounts
+                </Link>
+                .
+              </p>
+            )}
           </div>
 
           <AllocationPanels summary={summary} />
@@ -485,6 +505,7 @@ function AccountLine({
   base: string;
   tone?: "loss";
 }) {
+  const known = balanceKnown(account);
   const stale = account.last_balance_update
     ? Date.now() - new Date(account.last_balance_update).getTime() > 30 * 24 * 60 * 60 * 1000
     : true;
@@ -502,18 +523,32 @@ function AccountLine({
           <p className="mt-1 text-xs text-muted-foreground">
             {account.institution || accountTypeLabel(account.account_type)}
             <span className="mx-1.5 text-border">·</span>
-            <span className={cn(stale && "text-warn")}>
-              {relativeAge(account.last_balance_update)}
-            </span>
+            {known ? (
+              <span className={cn(stale && "text-warn")}>
+                {relativeAge(account.last_balance_update)}
+              </span>
+            ) : (
+              <span className="text-warn">no balance recorded</span>
+            )}
           </p>
         </div>
-        <Money
-          amount={Math.abs(Number(account.current_balance))}
-          currency={account.currency}
-          align="right"
-          className={cn("text-sm", tone === "loss" && "text-loss")}
-          hideConverted={account.currency === base}
-        />
+        {known ? (
+          <Money
+            amount={Math.abs(Number(account.current_balance))}
+            currency={account.currency}
+            align="right"
+            className={cn("text-sm", tone === "loss" && "text-loss")}
+            hideConverted={account.currency === base}
+          />
+        ) : (
+          // Excluded from the subtotal above it, and saying so.
+          <Link
+            to="/accounts"
+            className="shrink-0 text-xs text-muted-foreground hover:text-primary"
+          >
+            Not set
+          </Link>
+        )}
       </div>
     </div>
   );

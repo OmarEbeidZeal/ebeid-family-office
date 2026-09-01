@@ -1,11 +1,16 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { FileUp, MoreHorizontal, Plus, Users } from "lucide-react";
+import { FileUp, Merge, MoreHorizontal, Plus, Users } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { AccountListRow } from "@/components/accounts/AccountListRow";
 import { AccountsEmptyState } from "@/components/accounts/AccountsEmptyState";
+import { DuplicateAccounts } from "@/components/accounts/DuplicateAccounts";
+import { MergeAccountsDialog } from "@/components/accounts/MergeAccountsDialog";
 import { PendingAccounts } from "@/components/accounts/PendingAccounts";
 import { ReassignOwnerDialog } from "@/components/accounts/ReassignOwnerDialog";
+import { UnstatedBalances } from "@/components/accounts/UnstatedBalances";
+
+
 import { Money } from "@/components/Money";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +29,9 @@ import { useScope } from "@/hooks/useScope";
 import { useStatementCoverage } from "@/hooks/useImports";
 import { useQuickAdd } from "@/lib/quick-add";
 import { accountCoverage } from "@/lib/import/coverage";
+import { balanceKnown, statedBalance, unstatedBalanceNote } from "@/lib/balances";
 import { DEBT_ACCOUNT_TYPES, countryLabel } from "@/lib/format";
+
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/accounts")({
@@ -70,6 +77,9 @@ function AccountsPage() {
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [reassignOpen, setReassignOpen] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeKeep, setMergeKeep] = useState<string | null>(null);
+
 
   useQuickAdd("account", () => {
     setEditing(null);
@@ -98,9 +108,19 @@ function AccountsPage() {
   );
 
   const signedBase = (account: AccountRow) => {
-    const value = convert(Number(account.current_balance), account.currency, base);
+    // An unstated balance contributes nothing — neither a figure nor a zero.
+    const stated = statedBalance(account);
+    if (stated === null) return 0;
+    const value = convert(stated, account.currency, base);
     return DEBT_ACCOUNT_TYPES.includes(account.account_type) ? -value : value;
   };
+
+  /** Accounts still waiting for a figure, listed above the groups. */
+  const awaitingBalance = useMemo(
+    () => visible.filter((account) => !balanceKnown(account)),
+    [visible],
+  );
+
 
   const groups = useMemo<Group[]>(() => {
     const byOwner = new Map<string, AccountRow[]>();
@@ -128,9 +148,19 @@ function AccountsPage() {
           countries: [...byCountry.entries()]
             .map(([code, rows]) => ({
               code,
-              accounts: rows.sort((a, b) => b.current_balance - a.current_balance),
+              // Accounts without a balance sort to the bottom of their country:
+              // they have no figure to rank by.
+              accounts: rows.sort((a, b) => {
+                const left = statedBalance(a);
+                const right = statedBalance(b);
+                if (left === null && right === null) return a.nickname.localeCompare(b.nickname);
+                if (left === null) return 1;
+                if (right === null) return -1;
+                return right - left;
+              }),
             }))
             .sort((a, b) => a.code.localeCompare(b.code)),
+
           total: list.reduce((sum, account) => sum + signedBase(account), 0),
         };
       })
@@ -190,6 +220,16 @@ function AccountsPage() {
                 <Users className="mr-2 h-3.5 w-3.5" />
                 {selecting ? "Done reassigning" : "Reassign owners"}
               </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={visible.length < 2}
+                onSelect={() => {
+                  setMergeKeep(null);
+                  setMergeOpen(true);
+                }}
+              >
+                <Merge className="mr-2 h-3.5 w-3.5" />
+                Merge two accounts
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </>
@@ -197,6 +237,10 @@ function AccountsPage() {
     >
       <div className="space-y-8">
         <PendingAccounts />
+        <DuplicateAccounts accounts={visible} />
+        <UnstatedBalances accounts={awaitingBalance} onSet={(account) => openSheet(account)} />
+
+
 
         {isLoading ? (
           <div className="space-y-3">
@@ -265,11 +309,20 @@ function AccountsPage() {
                           coverage={coverage.get(account.id)}
                           onEdit={() => openSheet(account)}
                           onDelete={() => remove.mutate(account.id)}
+                          onMerge={
+                            visible.length > 1
+                              ? () => {
+                                  setMergeKeep(account.id);
+                                  setMergeOpen(true);
+                                }
+                              : undefined
+                          }
                           selectable={selecting}
                           selected={selected.includes(account.id)}
                           onSelectedChange={(on) => toggleOne(account.id, on)}
                         />
                       ))}
+
                     </div>
                   ))}
                 </div>
@@ -281,8 +334,17 @@ function AccountsPage() {
                 <p className="eyebrow text-muted-foreground">Total account value</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Card and loan balances are netted off.
+                  {unstatedBalanceNote(awaitingBalance.length) ? (
+                    <>
+                      {" "}
+                      <span className="text-warn">
+                        {unstatedBalanceNote(awaitingBalance.length)}
+                      </span>
+                    </>
+                  ) : null}
                 </p>
               </div>
+
               <Money
                 amount={grandTotal}
                 currency={base}
@@ -324,6 +386,13 @@ function AccountsPage() {
           setSelecting(false);
         }}
       />
+      <MergeAccountsDialog
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        accounts={visible}
+        keepId={mergeKeep}
+      />
+
     </AppShell>
   );
 }

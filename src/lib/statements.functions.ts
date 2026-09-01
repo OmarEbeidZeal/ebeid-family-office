@@ -154,12 +154,40 @@ export const pumpImportQueue = createServerFn({ method: "POST" })
     return runImportQueue(context.supabase, { householdId, limit: data?.limit ?? 2 });
   });
 
-/** Puts a failed or cancelled statement back in the queue for another read. */
+/**
+ * Reads a file again — after a failure, or simply because the reader has since
+ * learned something the first pass missed.
+ *
+ * Nothing is imported twice: every line is matched against what the account
+ * already holds, and a second reading only fills in what was missing, such as a
+ * running balance the earlier reader dropped.
+ */
 export const retryStatement = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => statementInput.parse(data))
   .handler(async ({ data, context }) => {
     const { householdId } = await viewerOf(context.supabase, context.userId);
+
+    // Retry means read the file again. The reader caches what it made of a file
+    // beside the file itself, so without clearing that cache a retry would
+    // replay the same misreading — which is exactly what happened to the files
+    // that failed before the parser understood their format.
+    const { data: statement } = await context.supabase
+      .from("statements")
+      .select("file_path, storage_bucket")
+      .eq("id", data.statementId)
+      .eq("household_id", householdId)
+      .maybeSingle();
+
+    if (statement?.file_path) {
+      const { removeCachedExtraction } = await import("@/lib/import/pipeline.server");
+      await removeCachedExtraction(
+        context.supabase,
+        statement.file_path,
+        statement.storage_bucket ?? "statements",
+      ).catch(() => undefined);
+    }
+
     const { error } = await context.supabase
       .from("statements")
       .update({
@@ -169,12 +197,61 @@ export const retryStatement = createServerFn({ method: "POST" })
         locked_at: null,
         error_message: null,
         parsed_at: null,
+        // Clearing the fingerprint of the file makes the reader check again
+        // whether this is the same file as one already held — the check that
+        // keeps a second reading of a copy from importing it twice.
+        file_hash: null,
       })
       .eq("id", data.statementId)
       .eq("household_id", householdId);
     if (error) throw new Error(error.message);
     return { queued: true };
   });
+
+/**
+ * Read a file again from nothing — for when the first reading was wrong, not
+ * merely incomplete.
+ *
+ * A plain re-read keeps everything already imported and only fills gaps, which
+ * is right when the reader has learnt to see more in the same file. It is wrong
+ * when the reader has learnt the file is a different thing entirely: a Monzo
+ * Flex credit line pooled into a current account cannot be corrected row by
+ * row. So the transactions this file wrote are removed, the file lets go of the
+ * account it was filed under, and it queues as if newly uploaded — asking again
+ * which account it belongs to. Nothing any other file imported is touched.
+ */
+export const reimportStatement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => statementInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const { householdId } = await viewerOf(context.supabase, context.userId);
+
+    const { data: statement } = await context.supabase
+      .from("statements")
+      .select("file_path, storage_bucket")
+      .eq("id", data.statementId)
+      .eq("household_id", householdId)
+      .maybeSingle();
+
+    if (statement?.file_path) {
+      const { removeCachedExtraction } = await import("@/lib/import/pipeline.server");
+      await removeCachedExtraction(
+        context.supabase,
+        statement.file_path,
+        statement.storage_bucket ?? "statements",
+      ).catch(() => undefined);
+    }
+
+    const { unfileStatement } = await import("@/lib/accounts/repair.server");
+    return await unfileStatement(context.supabase, {
+      householdId,
+      statementId: data.statementId,
+    });
+  });
+
+
+
+
 
 /** Stops a statement being read, without deleting what it already imported. */
 export const cancelStatement = createServerFn({ method: "POST" })

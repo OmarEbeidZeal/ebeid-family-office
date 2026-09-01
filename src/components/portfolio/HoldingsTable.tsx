@@ -38,6 +38,23 @@ const NUMERIC: Record<SortKey, (position: Position) => number | null> = {
   weight: (p) => p.portfolioWeightPct,
 };
 
+/**
+ * Two different silences, worded differently. A holding typed in without a cost
+ * is waiting for someone to type one; a holding whose purchase predates every
+ * imported export is waiting for a file, and saying "no cost recorded" there
+ * would blame the household for the importer's blind spot.
+ */
+function basisLabel(position: Position): string {
+  return position.openingQuantity > 0 ? "Cost not in your files" : "No cost recorded";
+}
+
+function basisTitle(position: Position): string {
+  return position.openingQuantity > 0
+    ? `${position.ticker} was bought before the earliest statement you have imported, so its purchase price is in none of your files. Import the earlier export and the cost fills in by itself.`
+    : `No purchase price recorded for ${position.ticker}. Add the trades, or set an average cost on the holding.`;
+}
+
+
 function SortHeader({
   label,
   sortKey,
@@ -277,7 +294,9 @@ export function HoldingsTable({
 
                 <td className="px-3 py-3 text-right">
                   {position.avgCost === null ? (
-                    <span className="text-xs text-muted-foreground">—</span>
+                    <span className="text-xs text-muted-foreground" title={basisTitle(position)}>
+                      —
+                    </span>
                   ) : (
                     <span className="num text-foreground/85">
                       {formatMoney(position.avgCost, position.holding.currency, { decimals: 2 })}
@@ -299,10 +318,11 @@ export function HoldingsTable({
 
                 <td className="px-3 py-3 text-right">
                   {position.unrealisedBase === null ? (
-                    <span className="text-xs text-muted-foreground">
-                      {position.avgCost === null ? "No cost recorded" : "—"}
+                    <span className="text-xs text-muted-foreground" title={basisTitle(position)}>
+                      {position.avgCost === null ? basisLabel(position) : "—"}
                     </span>
                   ) : (
+
                     <div className="flex flex-col items-end">
                       <Money
                         amount={position.unrealisedBase}
@@ -442,7 +462,9 @@ export function HoldingsTable({
               <div className="text-right">
                 <p className="eyebrow mb-1">Unrealised</p>
                 {position.unrealisedBase === null ? (
-                  <span className="text-xs text-muted-foreground">—</span>
+                  <span className="text-xs text-muted-foreground">
+                    {position.avgCost === null ? basisLabel(position) : "—"}
+                  </span>
                 ) : (
                   <Money
                     amount={position.unrealisedBase}
@@ -463,6 +485,7 @@ export function HoldingsTable({
                     ` · ${formatMoney(position.avgCost, position.holding.currency, { decimals: 2 })}`}
                 </p>
               </div>
+
               <div className="text-right">
                 <p className="eyebrow mb-1">Today · weight</p>
                 <p className="num text-xs">

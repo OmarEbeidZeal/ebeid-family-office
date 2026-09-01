@@ -1,5 +1,7 @@
+import { Link } from "@tanstack/react-router";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatMoney, formatSignedPercent } from "@/lib/format";
 import { useScope } from "@/hooks/useScope";
@@ -24,6 +26,7 @@ export function HeroNetWorth({
   base,
   loading,
   delta,
+  balancesUnstated = 0,
 }: {
   netWorth: number;
   totalAssets: number;
@@ -33,6 +36,8 @@ export function HeroNetWorth({
   base: string;
   loading: boolean;
   delta: NetWorthDelta;
+  /** Accounts with no stated balance — excluded from the figure above. */
+  balancesUnstated?: number;
 }) {
   const { activeLabel } = useScope();
   const counted = useCountUp(netWorth, { enabled: !loading });
@@ -96,6 +101,18 @@ export function HeroNetWorth({
             <span className="px-2 text-muted-foreground/60">·</span>
             {formatMoney(illiquidNetWorth, base, { decimals: 0 })} in property, pensions and private
             shares
+          </p>
+        )}
+
+        {/* The headline is only trustworthy if it admits what it left out. */}
+        {!loading && balancesUnstated > 0 && (
+          <p className="mt-3 text-xs text-warn">
+            <Link to="/accounts" className="underline underline-offset-4">
+              {balancesUnstated === 1
+                ? "1 account has no balance yet"
+                : `${balancesUnstated} accounts have no balance yet`}
+            </Link>{" "}
+            — they are excluded from this figure rather than counted as nothing.
           </p>
         )}
       </div>

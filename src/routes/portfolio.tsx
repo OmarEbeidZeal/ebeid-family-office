@@ -140,7 +140,9 @@ function PortfolioPage() {
           id: account.id,
           currency: account.currency,
           current_balance: Number(account.current_balance),
+          balance_source: account.balance_source,
         })),
+
         toBase,
       ),
     [context.positions, accounts.data, toBase],

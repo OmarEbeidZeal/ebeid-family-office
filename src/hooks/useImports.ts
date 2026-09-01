@@ -15,9 +15,11 @@ import {
   cancelStatement,
   pumpImportQueue,
   queueStatements,
+  reimportStatement,
   resolveAccountProposal,
   retryStatement,
 } from "@/lib/statements.functions";
+
 import { useAuth } from "./useAuth";
 
 /** What the reader recorded about a file once it had been through the pipeline. */
@@ -288,6 +290,23 @@ export function useRetryStatement() {
     onSuccess: invalidate,
   });
 }
+
+/**
+ * Throws away what a file imported and reads it again from nothing. Accounts,
+ * transactions and balances all move, so the whole workspace is refreshed.
+ */
+export function useReimportStatement() {
+  const client = useQueryClient();
+  const invalidate = useInvalidateImports();
+  return useMutation({
+    mutationFn: async (statementId: string) => reimportStatement({ data: { statementId } }),
+    onSuccess: async () => {
+      await invalidate();
+      await client.invalidateQueries();
+    },
+  });
+}
+
 
 export function useCancelStatement() {
   const invalidate = useInvalidateImports();

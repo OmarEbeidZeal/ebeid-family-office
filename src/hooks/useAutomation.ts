@@ -1,10 +1,11 @@
 /**
  * What the system did while nobody was watching.
  *
- * Four scheduled jobs keep the household's figures current: the nightly
- * snapshot, the twice-daily exchange rates, weekday closing prices and the
- * weekly briefing. Each one records its run, and these hooks read those records
- * back so Settings can show what actually happened rather than what is meant to.
+ * Six scheduled jobs keep the household's figures current: the nightly
+ * snapshot, the twice-daily exchange rates, weekday closing prices, the weekly
+ * briefing, and the two queues that read whatever has been uploaded. Each one
+ * records its run, and these hooks read those records back so Settings can show
+ * what actually happened rather than what is meant to.
  */
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -23,7 +24,13 @@ export type AutomationRun = {
   ran_at: string;
 };
 
-export type JobKey = "net_worth_snapshot" | "fx_refresh" | "market_close" | "weekly_briefing";
+export type JobKey =
+  | "net_worth_snapshot"
+  | "fx_refresh"
+  | "market_close"
+  | "weekly_briefing"
+  | "import_queue"
+  | "document_queue";
 
 export const SCHEDULED_JOBS: {
   key: JobKey;
@@ -61,6 +68,21 @@ export const SCHEDULED_JOBS: {
     cadence: "07:00 UTC on your chosen day",
     purpose: "Reads the position and writes up anything material — in the app, and by email.",
     overdueAfterHours: 8 * 24,
+  },
+  {
+    key: "import_queue",
+    label: "Statement queue",
+    cadence: "Every five minutes",
+    purpose: "Reads uploaded statements and posts their transactions, tab open or not.",
+    // Nothing waiting is a skipped run, so a quiet week is not a missed turn.
+    overdueAfterHours: 24,
+  },
+  {
+    key: "document_queue",
+    label: "Paperwork queue",
+    cadence: "Every five minutes",
+    purpose: "Reads policies, tenancies and payslips, and hands any statement to the importer.",
+    overdueAfterHours: 24,
   },
 ];
 

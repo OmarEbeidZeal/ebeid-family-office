@@ -3,9 +3,11 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Field, SelectNative } from "./FormField";
 import { FormSheet, FullRow } from "./FormSheet";
 import {
+  COUNTRIES,
   CURRENCIES,
   FREQUENCIES,
   FREQUENCY_LABELS,
@@ -26,6 +28,9 @@ const schema = z.object({
   frequency: z.string(),
   annual_growth_pct: z.coerce.number().min(-50).max(100),
   owner_profile_id: z.string(),
+  country: z.string(),
+  taxed_at_source: z.boolean(),
+  uk_self_assessment: z.boolean(),
 });
 
 type Values = z.infer<typeof schema>;
@@ -53,6 +58,9 @@ export function IncomeSheet({
       frequency: "monthly",
       annual_growth_pct: 0,
       owner_profile_id: "joint",
+      country: "GB",
+      taxed_at_source: true,
+      uk_self_assessment: false,
     },
   });
 
@@ -70,8 +78,14 @@ export function IncomeSheet({
       frequency: income?.frequency ?? "monthly",
       annual_growth_pct: Number(rateToPct(income?.annual_growth_rate).toFixed(2)),
       owner_profile_id: income?.owner_profile_id ?? "joint",
+      country: income?.country ?? "GB",
+      taxed_at_source: income?.taxed_at_source ?? true,
+      uk_self_assessment: income?.uk_self_assessment ?? false,
     });
   }, [open, income, form]);
+
+  const country = form.watch("country");
+  const taxedAtSource = form.watch("taxed_at_source");
 
   const onSubmit = form.handleSubmit(async (values) => {
     const net = values.net_amount?.trim();
@@ -86,6 +100,9 @@ export function IncomeSheet({
         frequency: values.frequency,
         annual_growth_rate: pctToRate(values.annual_growth_pct),
         owner_profile_id: values.owner_profile_id === "joint" ? null : values.owner_profile_id,
+        country: values.country,
+        taxed_at_source: values.taxed_at_source,
+        uk_self_assessment: values.uk_self_assessment,
       },
     });
     onOpenChange(false);
@@ -192,6 +209,72 @@ export function IncomeSheet({
           )}
         />
       </Field>
+
+      <Field label="Paid from" hint="Where the income arises, not where it is banked.">
+        <Controller
+          control={form.control}
+          name="country"
+          render={({ field }) => (
+            <SelectNative
+              value={field.value}
+              onChange={field.onChange}
+              options={COUNTRIES.map((entry) => ({ value: entry.code, label: entry.label }))}
+            />
+          )}
+        />
+      </Field>
+
+      <FullRow>
+        <div className="hairline space-y-3 rounded-md bg-surface-raised p-3">
+          <p className="eyebrow">Tax treatment</p>
+          <Controller
+            control={form.control}
+            name="taxed_at_source"
+            render={({ field }) => (
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm text-foreground">Taxed at source</p>
+                  <p className="text-[0.7rem] leading-relaxed text-muted-foreground">
+                    {country === "GB"
+                      ? "PAYE or CGT already deducted before it arrives."
+                      : "Withheld abroad. Any UK liability is reduced, not removed, by treaty relief."}
+                  </p>
+                </div>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  aria-label="Taxed at source"
+                />
+              </div>
+            )}
+          />
+          <Controller
+            control={form.control}
+            name="uk_self_assessment"
+            render={({ field }) => (
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm text-foreground">Reported on UK Self Assessment</p>
+                  <p className="text-[0.7rem] leading-relaxed text-muted-foreground">
+                    Counts towards adjusted net income and the £100,000 line on the pay screen.
+                  </p>
+                </div>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  aria-label="Reported on UK Self Assessment"
+                />
+              </div>
+            )}
+          />
+          {country !== "GB" && !taxedAtSource && (
+            <p className="text-[0.7rem] leading-relaxed text-muted-foreground">
+              Foreign income with no tax withheld: the full amount is normally due through Self
+              Assessment, with the January payment on account to plan for.
+            </p>
+          )}
+        </div>
+      </FullRow>
     </FormSheet>
   );
 }

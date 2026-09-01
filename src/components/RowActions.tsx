@@ -24,11 +24,14 @@ export function RowActions({
   onDelete,
   label,
   deleteDescription,
+  extra,
 }: {
   onEdit: () => void;
   onDelete: () => void;
   label: string;
   deleteDescription?: string;
+  /** Row-specific items, rendered between edit and delete. */
+  extra?: React.ReactNode;
 }) {
   const [confirming, setConfirming] = useState(false);
 
@@ -45,11 +48,12 @@ export function RowActions({
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuItem onSelect={onEdit}>
             <Pencil className="mr-2 h-3.5 w-3.5" />
             Edit
           </DropdownMenuItem>
+          {extra}
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault();
@@ -62,6 +66,7 @@ export function RowActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
 
       <AlertDialog open={confirming} onOpenChange={setConfirming}>
         <AlertDialogContent>

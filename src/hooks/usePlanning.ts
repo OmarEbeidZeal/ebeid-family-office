@@ -38,7 +38,9 @@ import {
   type ForecastLiability,
   type ForecastShocks,
 } from "@/lib/forecast";
+import { statedBalance } from "@/lib/balances";
 import { DEBT_ACCOUNT_TYPES, LOCKED_ACCOUNT_TYPES, monthlyEquivalent } from "@/lib/format";
+
 import type { ScenarioContext } from "@/lib/scenario-presets";
 
 /** Growth and inflation rates are stored as fractions (0.03) and shown as percentages. */
@@ -316,8 +318,13 @@ export function useForecastSource(
 
     const debtAccounts: AccountRow[] = [];
     for (const account of accounts) {
-      const value = toBase(account.current_balance, account.currency);
+      // Forecasting from a balance nobody has stated would start the whole
+      // projection from a fictional zero.
+      const stated = statedBalance(account);
+      if (stated === null) continue;
+      const value = toBase(stated, account.currency);
       const bucket = bucketOfAccount(account);
+
       if (bucket === "debt") {
         debtAccounts.push(account);
         continue;

@@ -5,8 +5,10 @@
  * reasons from the identical numbers. A position with no live price is carried
  * through as unpriced — it is never valued at cost and passed off as market.
  */
+import { balanceKnown } from "@/lib/balances";
 import type { QuoteResult } from "@/lib/market/shared";
 import type { Sleeve } from "@/lib/policy";
+
 
 export type HoldingLike = {
   id: string;
@@ -22,8 +24,17 @@ export type HoldingLike = {
   thesis?: string | null;
   falsification?: string | null;
   target_price?: number | null;
-  realised_pnl?: number;
+  /** Null where a sale's purchase price is in no file the household holds. */
+  realised_pnl?: number | null;
+  /**
+   * Shares the household held before the earliest imported export begins. Their
+   * cost is not in any file, which is why a position can be real, priced, and
+   * still have no honest return to show.
+   */
+  opening_quantity?: number | null;
+  discovered_from?: string | null;
 };
+
 
 export type SecurityProfileLike = {
   ticker: string;
@@ -52,6 +63,14 @@ export type Position = {
   quoteSource: QuoteResult["source"];
   quoteError: string | null;
   priced: boolean;
+  /**
+   * Whether the cost of these shares is actually known. False splits into two
+   * cases the UI words differently: a holding entered by hand with no cost, and
+   * a holding whose purchase predates every export imported so far.
+   */
+  basisKnown: boolean;
+  /** Shares whose cost is missing because the export starts after they were bought. */
+  openingQuantity: number;
   marketValueNative: number | null;
   marketValueBase: number | null;
   costNative: number | null;
@@ -59,6 +78,7 @@ export type Position = {
   unrealisedNative: number | null;
   unrealisedBase: number | null;
   unrealisedPct: number | null;
+
   dayChangeNative: number | null;
   dayChangeBase: number | null;
   dayChangePct: number | null;
@@ -144,6 +164,9 @@ export function buildPositions(input: {
       quoteSource: quote?.source ?? "none",
       quoteError: quote?.error ?? null,
       priced,
+      basisKnown: avgCost !== null,
+      openingQuantity: Number(holding.opening_quantity ?? 0) || 0,
+
       marketValueNative,
       marketValueBase,
       costNative,
@@ -185,30 +208,55 @@ export type PortfolioTotals = {
   realisedBase: number;
   pricedCount: number;
   unpricedCount: number;
+  /** Priced positions left out of the return because their cost is unknown. */
+  unknownBasisCount: number;
+  /** What those positions are worth, so their absence is quantified, not hidden. */
+  unknownBasisValueBase: number;
+  /** Holdings whose realised profit cannot be computed from the trades held. */
+  unknownRealisedCount: number;
 };
 
 export function portfolioTotals(positions: Position[], toBase: ToBase): PortfolioTotals {
   const priced = positions.filter((p) => p.priced);
   const marketValueBase = priced.reduce((sum, p) => sum + (p.marketValueBase ?? 0), 0);
-  const costBase = priced.reduce((sum, p) => sum + p.costBase, 0);
+
+  // A position whose cost is unknown is worth what it is worth, but it has no
+  // return. Counting it at a cost of zero would report the whole holding as
+  // profit, which is the one thing this must never do — so the return is taken
+  // across the positions that can answer for themselves, and the rest are
+  // reported as excluded.
+  const costed = priced.filter((p) => p.basisKnown);
+  const costBase = costed.reduce((sum, p) => sum + p.costBase, 0);
+  const costedValueBase = costed.reduce((sum, p) => sum + (p.marketValueBase ?? 0), 0);
+  const unknownBasis = priced.filter((p) => !p.basisKnown);
+
   const dayChangeBase = priced.reduce((sum, p) => sum + (p.dayChangeBase ?? 0), 0);
-  const realisedBase = positions.reduce(
-    (sum, p) => sum + toBase(Number(p.holding.realised_pnl ?? 0), p.holding.currency),
+
+  const realised = positions.filter(
+    (p) => p.holding.realised_pnl !== null && p.holding.realised_pnl !== undefined,
+  );
+  const realisedBase = realised.reduce(
+    (sum, p) => sum + toBase(Number(p.holding.realised_pnl), p.holding.currency),
     0,
   );
+
   const previousValue = marketValueBase - dayChangeBase;
   return {
     marketValueBase,
     costBase,
-    unrealisedBase: marketValueBase - costBase,
-    unrealisedPct: costBase > 0 ? ((marketValueBase - costBase) / costBase) * 100 : null,
+    unrealisedBase: costedValueBase - costBase,
+    unrealisedPct: costBase > 0 ? ((costedValueBase - costBase) / costBase) * 100 : null,
     dayChangeBase,
     dayChangePct: previousValue > 0 ? (dayChangeBase / previousValue) * 100 : null,
     realisedBase,
     pricedCount: priced.length,
     unpricedCount: positions.length - priced.length,
+    unknownBasisCount: unknownBasis.length,
+    unknownBasisValueBase: unknownBasis.reduce((sum, p) => sum + (p.marketValueBase ?? 0), 0),
+    unknownRealisedCount: positions.length - realised.length,
   };
 }
+
 
 export function sleeveTotals(positions: Position[]): Record<Sleeve, number> {
   const totals: Record<Sleeve, number> = {
@@ -265,7 +313,12 @@ export type AccountReconciliation = {
  */
 export function reconcileAccounts(
   positions: Position[],
-  accounts: { id: string; currency: string; current_balance: number }[],
+  accounts: {
+    id: string;
+    currency: string;
+    current_balance: number;
+    balance_source?: string | null;
+  }[],
   toBase: ToBase,
 ): AccountReconciliation[] {
   const byAccount = new Map<string, Position[]>();
@@ -279,7 +332,11 @@ export function reconcileAccounts(
   for (const [accountId, rows] of byAccount) {
     const account = accounts.find((a) => a.id === accountId);
     if (!account) continue;
+    // Nothing to reconcile against a balance nobody has stated — the gap would
+    // just be the priced value, reported as a discrepancy.
+    if (!balanceKnown(account)) continue;
     const priced = rows.filter((r) => r.priced);
+
     if (!priced.length) continue;
     const pricedValueBase = priced.reduce((sum, r) => sum + (r.marketValueBase ?? 0), 0);
     const recordedBalanceBase = toBase(Number(account.current_balance), account.currency);

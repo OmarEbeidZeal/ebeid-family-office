@@ -7,7 +7,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { SettingsCard } from "./SettingsCard";
 import { ReassignOwnerDialog } from "@/components/accounts/ReassignOwnerDialog";
 import { useAccounts } from "@/hooks/useFinancials";
+import { balanceKnown } from "@/lib/balances";
 import { useOwners } from "@/hooks/useOwners";
+
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCompact } from "@/lib/format";
@@ -30,14 +32,21 @@ export function OwnershipCard() {
       accounts
         .filter((account) => account.is_active)
         .slice()
-        .sort((a, b) => nameOf(a.owner_profile_id, a.is_joint).localeCompare(
-          nameOf(b.owner_profile_id, b.is_joint),
-        ) || a.nickname.localeCompare(b.nickname)),
+        .sort(
+          (a, b) =>
+            nameOf(a.owner_profile_id, a.is_joint).localeCompare(
+              nameOf(b.owner_profile_id, b.is_joint),
+            ) || a.nickname.localeCompare(b.nickname),
+        ),
     [accounts, nameOf],
   );
 
   const toggleVisibility = useMutation({
-    mutationFn: async (account: { id: string; visibility: string; owner_profile_id: string | null }) => {
+    mutationFn: async (account: {
+      id: string;
+      visibility: string;
+      owner_profile_id: string | null;
+    }) => {
       const next = account.visibility === "private" ? "household" : "private";
       if (next === "private" && !account.owner_profile_id) {
         throw new Error("A private account needs a single owner — it cannot be joint");
@@ -119,14 +128,15 @@ export function OwnershipCard() {
                     </p>
                   </div>
                   <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-                    {formatCompact(Number(account.current_balance), account.currency)}
+                    {balanceKnown(account)
+                      ? formatCompact(Number(account.current_balance), account.currency)
+                      : "Not set"}
                   </span>
+
                   <button
                     type="button"
                     title={
-                      isPrivate
-                        ? "Private — only the owner sees it"
-                        : "Shared with the household"
+                      isPrivate ? "Private — only the owner sees it" : "Shared with the household"
                     }
                     aria-label={isPrivate ? "Make visible to the household" : "Make private"}
                     disabled={!mine && isPrivate}

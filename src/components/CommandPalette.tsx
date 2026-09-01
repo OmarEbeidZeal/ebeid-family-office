@@ -5,8 +5,10 @@ import {
   BarChart3,
   Building2,
   CalendarRange,
+  FileStack,
   FileUp,
   GitCompare,
+  Home,
   LayoutDashboard,
   MessageSquareText,
   PiggyBank,
@@ -14,6 +16,7 @@ import {
   Receipt,
   Scale,
   Settings,
+  ShieldCheck,
   Target,
   Wallet,
 } from "lucide-react";
@@ -36,6 +39,10 @@ type Destination =
   | "/balance-sheet"
   | "/transactions"
   | "/import"
+  | "/documents"
+  | "/protection"
+  | "/pay"
+  | "/tenancy"
   | "/spending"
   | "/portfolio"
   | "/goals"
@@ -70,6 +77,20 @@ const PAGES: { to: Destination; label: string; icon: typeof LayoutDashboard; hin
     icon: Baby,
     hint: "New baby: leave, childcare, the £100k line",
   },
+  {
+    to: "/documents",
+    label: "Documents",
+    icon: FileStack,
+    hint: "Policies, tenancies, payslips",
+  },
+  {
+    to: "/protection",
+    label: "Protection",
+    icon: ShieldCheck,
+    hint: "Cover against the gap, renewals",
+  },
+  { to: "/pay", label: "Pay & tax", icon: Wallet, hint: "Adjusted net income, tax code" },
+  { to: "/tenancy", label: "Tenancy", icon: Home, hint: "Rent, deposit, notice window" },
   { to: "/forecast", label: "Forecast", icon: CalendarRange, hint: "Five-year projection" },
   { to: "/scenarios", label: "Scenarios", icon: GitCompare, hint: "What-ifs and Monte Carlo" },
   { to: "/advisor", label: "Advisor", icon: MessageSquareText, hint: "Grounded in your numbers" },
@@ -91,6 +112,7 @@ const ACTIONS: {
   { kind: "expense", to: "/forecast", label: "Add a planned outgoing", icon: CalendarRange },
   { kind: "scenario", to: "/scenarios", label: "Add a scenario", icon: GitCompare },
   { kind: "import", to: "/import", label: "Import statements", icon: FileUp },
+  { kind: "document", to: "/documents", label: "Upload paperwork", icon: FileStack },
 ];
 
 /** ⌘K: jump anywhere, search the ledger, start any add flow, ask the advisor. */
