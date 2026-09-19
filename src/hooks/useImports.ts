@@ -19,6 +19,11 @@ import {
   resolveAccountProposal,
   retryStatement,
 } from "@/lib/statements.functions";
+import {
+  deleteDocumentAndData,
+  previewReprocessAll,
+  reprocessAllDocuments,
+} from "@/lib/maintenance.functions";
 
 import { useAuth } from "./useAuth";
 
