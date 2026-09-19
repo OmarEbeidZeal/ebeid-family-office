@@ -108,11 +108,29 @@ export async function resolveProposal(
     if (!input.accountId) throw new Error("Choose the account this statement belongs to.");
     const { data: account } = await supabase
       .from("accounts")
-      .select("id, institution, institution_domain, identifier_mask, statement_holder")
+      .select(
+        "id, nickname, institution, institution_domain, identifier_mask, statement_holder, currency, account_type",
+      )
       .eq("id", input.accountId)
       .eq("household_id", input.householdId)
       .maybeSingle();
     if (!account) throw new Error("That account is not part of this household.");
+
+    // A link is a claim that these statements belong to that account. It is
+    // checked, because the wrong link is silent: it put Monzo Flex repayments
+    // and Trading 212 ISA trades into one account, where the repayments read as
+    // spending and the trades corrupted the cost basis.
+    const refusal = linkRefusal(
+      {
+        institution: proposal.institution,
+        currency: proposal.currency,
+        account_type: proposal.account_type,
+        nickname: proposal.suggested_nickname,
+      },
+      account,
+    );
+    if (refusal) throw new Error(refusal);
+
     accountId = account.id;
 
     // Fill in what the account was missing, without overwriting what the
