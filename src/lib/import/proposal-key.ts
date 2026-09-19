@@ -53,24 +53,24 @@ export function chooseProposal(input: {
   continuity?: boolean;
 }): ProposalChoice {
   const currency = (input.currency ?? "").toUpperCase();
-  const exact = input.existing.find((row) => row.fingerprint === input.fingerprint);
-  if (exact && (!identityPart(input.fingerprint).startsWith("noid") || input.continuity !== false)) {
-    return { match: exact, fingerprint: input.fingerprint };
-  }
-
   const prefix = fingerprintPrefix(input.fingerprint);
   const identity = identityPart(input.fingerprint);
+  const exact = input.existing.find((row) => row.fingerprint === input.fingerprint);
+
   // A bank and account number nobody could read is not an identity to group on:
-  // every anonymous file would land on the same proposal.
+  // every anonymous file would otherwise land on the same proposal. Two nameless
+  // files join only where they share a sub-ledger key and name the same holder,
+  // or where the caller proved continuity from the rows themselves.
   if (identity.startsWith("noid")) {
     const ledgerAndHolder = /^noid\+[a-z0-9]+\+who:/.test(identity);
     if (prefix.startsWith("unknown|")) return { match: null, fingerprint: input.fingerprint };
-    // Grouping is allowed only where the files share a sub-ledger key AND name
-    // the same holder, or where the caller proved continuity from the rows.
     if (!ledgerAndHolder && !input.continuity) {
-      return { match: exact ?? null, fingerprint: input.fingerprint };
+      return { match: null, fingerprint: input.fingerprint };
     }
   }
+
+  if (exact) return { match: exact, fingerprint: input.fingerprint };
+
 
   const siblings = input.existing.filter((row) => fingerprintPrefix(row.fingerprint) === prefix);
   if (siblings.length !== 1) return { match: null, fingerprint: input.fingerprint };
