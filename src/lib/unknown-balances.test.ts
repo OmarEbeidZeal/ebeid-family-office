@@ -27,7 +27,7 @@ const toBase = (value: number) => value;
 describe("a balance nobody has stated", () => {
   it("is not treated as a figure", () => {
     expect(balanceKnown({ current_balance: null })).toBe(false);
-    expect(balanceKnown({ current_balance: undefined })).toBe(false);
+    expect(balanceKnown({})).toBe(false);
     expect(balanceKnown({ current_balance: 0 })).toBe(true);
   });
 
