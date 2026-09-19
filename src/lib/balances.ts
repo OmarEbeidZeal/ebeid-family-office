@@ -12,7 +12,7 @@
 
 export type BalanceCarrier = {
   /** NULL where nobody has ever stated one. Not zero — zero is a real figure. */
-  current_balance: number | null;
+  current_balance?: number | null;
   /** "manual" | "statement" | "unknown"; absent on older callers, read as known. */
   balance_source?: string | null;
 };
