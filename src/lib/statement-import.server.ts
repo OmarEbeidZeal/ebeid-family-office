@@ -246,7 +246,12 @@ export async function downloadStatementFile(
       "This file does not read as a statement in any format the reader knows. Export CAMT.053, MT940, CSV, Excel, QIF or PDF from your bank — CAMT.053 first if it is offered.",
     );
   }
-  return { format: sniffed.format, bytes, text: sniffed.text };
+  return {
+    format: sniffed.format,
+    bytes,
+    text: sniffed.text,
+    name: statement.file_name ?? statement.file_path,
+  };
 }
 
 /**

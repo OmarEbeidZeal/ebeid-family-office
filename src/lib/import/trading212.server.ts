@@ -245,7 +245,25 @@ function headerRowIndex(rows: string[][]): number {
   return -1;
 }
 
-export function parseTrading212(rows: string[][]): ExtractionResult {
+/**
+ * Which Trading 212 wrapper this export came from.
+ *
+ * The wrapper matters more than any other field on the file: an ISA's gains are
+ * outside capital gains tax and its contributions count against the £20,000
+ * allowance, while an Invest account's do neither. Trading 212's export does not
+ * print it in the rows, so the file's own name is read — and when the name says
+ * nothing, the account type is left for the household to state rather than
+ * guessed at, because guessing "general investment account" at an ISA would put
+ * every disposal into a CGT calculation it does not belong in.
+ */
+export function trading212Wrapper(fileName: string | null | undefined): "isa" | "gia" | null {
+  const name = (fileName ?? "").toLowerCase();
+  if (/\bisa\b/.test(name) || name.includes("stocksandshares")) return "isa";
+  if (/\binvest\b/.test(name)) return "gia";
+  return null;
+}
+
+export function parseTrading212(rows: string[][], fileName: string | null = null): ExtractionResult {
   const headerIndex = headerRowIndex(rows);
   if (headerIndex < 0) {
     throw new StatementFailure(
@@ -480,7 +498,8 @@ export function parseTrading212(rows: string[][]): ExtractionResult {
       identity: {
         ...EMPTY_IDENTITY,
         institution: "Trading 212",
-        account_type: "investment",
+        // Named by the file where the file names it, and otherwise left unsaid.
+        account_type: trading212Wrapper(fileName),
         country: "GB",
       },
     },
