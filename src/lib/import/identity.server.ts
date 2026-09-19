@@ -325,13 +325,24 @@ export type AccountCandidate = {
 };
 
 export type MatchOutcome = {
+  /**
+   * The account this statement belongs to, filled in only where the file proves
+   * it. Anything short of proof leaves this null and travels as a suggestion.
+   */
   account_id: string | null;
-  /** 0–1. Only an identifier hash earns full confidence. */
+  /**
+   * The account the file resembles. It is shown beside the confirmation and is
+   * never pre-selected, never written, and never used to attach transactions.
+   */
+  suggested_account_id?: string | null;
+  /** 0–1. Only a positive identifier hash earns full confidence. */
   confidence: number;
   reason: string;
 };
 
-function sameInstitution(a: string | null, b: string | null): boolean {
+export function sameInstitution(a: string | null, b: string | null): boolean {
+  a = meaningfulInstitution(a);
+  b = meaningfulInstitution(b);
   if (!a || !b) return false;
   const domainA = bankDomain(a);
   const domainB = bankDomain(b);
