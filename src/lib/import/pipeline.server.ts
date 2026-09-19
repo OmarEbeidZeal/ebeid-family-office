@@ -680,10 +680,43 @@ export async function processStatement(
   }
 }
 
+/** One candidate figure: a parsed statement that printed a closing balance. */
+export type StatementBalanceRow = {
+  id: string;
+  period_end: string | null;
+  closing_balance: number | null;
+  currency: string | null;
+};
+
+/**
+ * The account's balance is the closing figure of the statement with the latest
+ * period end — whichever order the files happened to be imported in. A file
+ * added later that covers an earlier period must not overwrite a newer figure,
+ * and re-reading the newest file must correct the figure it set before.
+ *
+ * A statement that printed no closing balance is not a candidate: an unknown is
+ * never resolved to zero.
+ */
+export function latestStatementBalance(
+  rows: StatementBalanceRow[],
+  currency: string | null,
+): { id: string; periodEnd: string; closing: number } | null {
+  let best: { id: string; periodEnd: string; closing: number } | null = null;
+  for (const row of rows) {
+    if (row.closing_balance === null || row.closing_balance === undefined) continue;
+    if (!row.period_end) continue;
+    if (currency && row.currency && row.currency !== currency) continue;
+    if (best && row.period_end <= best.periodEnd) continue;
+    best = { id: row.id, periodEnd: row.period_end, closing: Number(row.closing_balance) };
+  }
+  return best;
+}
+
 /**
  * A statement's closing balance is a better figure than a balance last typed in
- * months ago — but only when this statement is the most recent thing we have
- * seen for the account. The account records that the figure came from a
+ * months ago. Recomputed from every parsed statement the account holds after
+ * each import, so the figure always belongs to the latest period rather than to
+ * the last file uploaded. The account records that the figure came from a
  * statement, so the page can say so rather than implying someone typed it.
  */
 async function touchAccountFromStatement(
@@ -693,28 +726,39 @@ async function touchAccountFromStatement(
   extraction: ExtractionResult,
   currency: string | null,
 ): Promise<void> {
-  const closing = extraction.meta.closing_balance;
-  const periodEnd = extraction.meta.period_end;
-  if (closing === null || !periodEnd) return;
-
   const { data: account } = await supabase
     .from("accounts")
-    .select("currency, account_type, last_balance_update, current_balance, balance_source, balance_statement_id")
+    .select("currency, account_type, balance_source, balance_statement_id")
     .eq("id", accountId)
     .maybeSingle();
   if (!account) return;
   if (currency && account.currency !== currency) return;
 
-  const statementTime = new Date(`${periodEnd}T23:59:59Z`).getTime();
-  const lastUpdate = account.last_balance_update
-    ? new Date(account.last_balance_update).getTime()
-    : 0;
-  // Reading this same file again may produce a figure the first pass could not
-  // find, and an account with no balance at all takes any figure over none.
-  const correctingOwnFigure = account.balance_statement_id === statementId;
-  const hasNoBalance = account.balance_source === "unknown";
-  if (statementTime <= lastUpdate && !correctingOwnFigure && !hasNoBalance) return;
+  const { data: rows } = await supabase
+    .from("statements")
+    .select("id, period_end, closing_balance, currency")
+    .eq("account_id", accountId)
+    .eq("status", "parsed");
 
+  const candidates: StatementBalanceRow[] = [...((rows as StatementBalanceRow[] | null) ?? [])];
+  // The row for this statement may not be visible yet within the same
+  // transaction, so the figure just read is offered alongside the stored ones.
+  if (extraction.meta.closing_balance !== null && extraction.meta.period_end) {
+    candidates.push({
+      id: statementId,
+      period_end: extraction.meta.period_end,
+      closing_balance: extraction.meta.closing_balance,
+      currency: currency ?? account.currency,
+    });
+  }
+
+  const best = latestStatementBalance(candidates, account.currency);
+  // Nothing on file prints a balance. A figure the household typed in stands;
+  // an unknown stays unknown rather than being resolved to zero.
+  if (!best) return;
+  // A figure the household typed in is theirs to keep unless a statement is the
+  // source of the current figure or there is no figure at all.
+  if (account.balance_source === "manual") return;
 
   // Debt is held as the amount owed, positive, everywhere in the app: a card
   // statement closing at -1,240.18 is 1,240.18 owed, not a negative asset.
@@ -723,10 +767,10 @@ async function touchAccountFromStatement(
   await supabase
     .from("accounts")
     .update({
-      current_balance: owed ? Math.abs(closing) : closing,
+      current_balance: owed ? Math.abs(best.closing) : best.closing,
       balance_source: "statement",
-      balance_statement_id: statementId,
-      last_balance_update: new Date(`${periodEnd}T23:59:59Z`).toISOString(),
+      balance_statement_id: best.id,
+      last_balance_update: new Date(`${best.periodEnd}T23:59:59Z`).toISOString(),
     })
     .eq("id", accountId);
 }
