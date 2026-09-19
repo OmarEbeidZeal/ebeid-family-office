@@ -36,7 +36,7 @@ export function KnownGapsCard() {
         .update({ known_gaps: gaps })
         .eq("id", household.id);
       if (error) throw error;
-      await queryClient.invalidateQueries({ queryKey: ["profile"] });
+      await queryClient.invalidateQueries({ queryKey: ["session-context"] });
       toast.success(
         gaps.length
           ? "The advisor will say these figures are incomplete"
