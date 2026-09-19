@@ -2195,7 +2195,9 @@ export type Database = {
           invited_at: string | null
           invited_by: string | null
           role: string
+          sign_palette: string
           status: string
+          theme_name: string
           updated_at: string
           user_id: string | null
           weekly_briefing_enabled: boolean
@@ -2213,7 +2215,9 @@ export type Database = {
           invited_at?: string | null
           invited_by?: string | null
           role?: string
+          sign_palette?: string
           status?: string
+          theme_name?: string
           updated_at?: string
           user_id?: string | null
           weekly_briefing_enabled?: boolean
@@ -2231,7 +2235,9 @@ export type Database = {
           invited_at?: string | null
           invited_by?: string | null
           role?: string
+          sign_palette?: string
           status?: string
+          theme_name?: string
           updated_at?: string
           user_id?: string | null
           weekly_briefing_enabled?: boolean
