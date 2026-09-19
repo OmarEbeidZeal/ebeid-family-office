@@ -2,11 +2,11 @@
 
 ## Now — data-layer repair, part 1
 
-- [ ] 1. NatWest PDFs read by the deterministic reader on the live path, with the statement period deciding each row's year and out-of-period rows skipped rather than imported
-- [ ] 2. Matching on positive identifiers only: weak rungs suggest but never link, holder in the proposal fingerprint, one file per Monzo ledger, and manual linking refused across institution, currency or account family
-- [ ] 3. Balances from the latest statement's closing figure; unknown stays unknown rather than becoming zero, and no snapshot is written when nothing is known
-- [ ] 4. Trading 212 CSV read as cash legs plus trades, with deposits and dividends as credits and quantities exactly as printed
-- [ ] 5. An unreadable Trading 212 activity statement says plainly that the CSV exports already carry the same orders
+- [x] 1. NatWest PDFs read by the deterministic reader on the live path, with the statement period deciding each row's year and out-of-period rows skipped rather than imported
+- [x] 2. Matching on positive identifiers only: weak rungs suggest but never link, holder in the proposal fingerprint, one file per Monzo ledger, and manual linking refused across institution, currency or account family
+- [x] 3. Balances from the latest statement's closing figure; unknown stays unknown rather than becoming zero, and no snapshot is written when nothing is known
+- [x] 4. Trading 212 CSV read as cash legs plus trades, with deposits and dividends as credits and quantities exactly as printed
+- [x] 5. An unreadable Trading 212 activity statement says plainly that the CSV exports already carry the same orders
 
 ## Parked — queued before the data was correct
 
