@@ -17,6 +17,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { CurrencyProvider } from "@/hooks/useCurrency";
 import { ScopeProvider } from "@/hooks/useScope";
 import { ThemeProvider } from "@/hooks/useTheme";
+import { DEFAULT_THEME, THEME_BOOT_SCRIPT } from "@/lib/themes";
 
 function NotFoundComponent() {
   return (
@@ -120,8 +121,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html
+      lang="en"
+      className="dark"
+      data-theme={DEFAULT_THEME}
+      data-mode="dark"
+      data-signs="green-red"
+    >
       <head>
+        {/* Applies the chosen theme before first paint, so nobody who picked a
+            light theme sees a black flash on the way in. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <HeadContent />
       </head>
       <body>
@@ -137,8 +147,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
+      {/* Appearance is recorded on the profile, so the theme provider sits
+          inside the one that knows who is signed in. */}
+      <AuthProvider>
+        <ThemeProvider>
           <CurrencyProvider>
             <ScopeProvider>
               <TooltipProvider delayDuration={120}>
@@ -148,8 +160,8 @@ function RootComponent() {
               </TooltipProvider>
             </ScopeProvider>
           </CurrencyProvider>
-        </AuthProvider>
-      </ThemeProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
