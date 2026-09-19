@@ -24,7 +24,8 @@ export type ToBase = (amount: number, currency: string) => number;
 export type NwAccount = {
   account_type: string;
   currency: string;
-  current_balance: number;
+  /** NULL, or "unknown" as the source, means no balance has been stated. */
+  current_balance: number | null;
   /** "unknown" means no balance has been stated; the row stays out of the maths. */
   balance_source?: string | null;
   is_active: boolean;
@@ -215,7 +216,11 @@ export function computeNetWorth(input: NetWorthInput) {
       .sort((a, b) => b.value - a.value);
 
   return {
-    hasData: activeAccounts.length + assets.length + liabilities.length > 0,
+    // Something has to have a figure. An account discovered from a statement
+    // that printed no balance is not data: a household holding only those has
+    // an unknown net worth, and recording it as £0 would write a straight line
+    // through the trend chart that never happened.
+    hasData: accounts.length + assets.length + liabilities.length > 0,
     base,
     counts: {
       accounts: activeAccounts.length,
