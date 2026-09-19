@@ -697,7 +697,9 @@ export async function importExtracted(
         ...original,
         import_fingerprint: row.fingerprint,
         notes: row.notes ?? null,
-        category_id: assignment?.category_id ?? null,
+        // A credit that is the household's own money moving cannot be Salary,
+        // however the narrative reads.
+        category_id: allowedIncomeCategoryId(row.internal === true, assignment?.category_id ?? null),
         ai_confidence: assignment?.ai_confidence ?? null,
 
         // Internal movement is settled the moment it is read: it is a transfer,
