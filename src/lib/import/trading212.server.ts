@@ -471,6 +471,12 @@ export function parseTrading212(rows: string[][], fileName: string | null = null
     );
   }
 
+  if (!trading212Wrapper(fileName)) {
+    notes.push(
+      "This export does not say whether it came from the Stocks and Shares ISA or the Invest account. Set the account type when you confirm it — an ISA's gains are outside capital gains tax and an Invest account's are not.",
+    );
+  }
+
   const ledger: BrokerLedger = {
     broker: "trading212",
     accountCurrency,
@@ -498,8 +504,11 @@ export function parseTrading212(rows: string[][], fileName: string | null = null
       identity: {
         ...EMPTY_IDENTITY,
         institution: "Trading 212",
-        // Named by the file where the file names it, and otherwise left unsaid.
-        account_type: trading212Wrapper(fileName),
+        // Named by the file where the file names it. Where it does not, the
+        // general investment account is offered and the note below asks for the
+        // wrapper, because an ISA filed as a GIA would put every disposal into a
+        // capital gains calculation it does not belong in.
+        account_type: trading212Wrapper(fileName) ?? "investment",
         country: "GB",
       },
     },
