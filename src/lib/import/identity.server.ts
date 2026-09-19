@@ -354,39 +354,64 @@ export function sameInstitution(a: string | null, b: string | null): boolean {
 }
 
 /**
- * The matching ladder, strongest rung first. Anything below an identifier hash
- * is a suggestion the household confirms, never an automatic link — filing a
- * statement into the wrong account silently corrupts both.
+ * The matching ladder, strongest rung first.
+ *
+ * Exactly one rung links a file to an account without being asked: an exact
+ * hash of an identifier the bank actually printed — a full account number, an
+ * IBAN, a sort code with a masked tail. Everything else, including a composite
+ * key the app assembled itself and anything resting on four digits or on "it is
+ * the only account you hold here", travels as a suggestion the household
+ * confirms. Filing a statement into the wrong account silently corrupts both,
+ * and the corruption is invisible until someone reconciles by hand.
  */
 export function matchAccount(
   identity: {
     institution: string | null;
     identifierHash: string | null;
     identifierKind?: IdentifierKind | null;
+    /**
+     * Whether the identifier came off the page. A hash of something the app
+     * composed — a servicer name plus a currency — is not an account number and
+     * may not link on its own.
+     */
+    identifierPositive?: boolean;
     lastFourHashes: string[];
     lastFour: string | null;
     currency: string | null;
     country: string | null;
+    /** The kind of account the statement says it is, where the file says. */
+    accountType?: string | null;
   },
   accounts: AccountCandidate[],
 ): MatchOutcome {
-  const active = accounts.filter((account) => account.is_active);
+  const active = accounts
+    .filter((account) => account.is_active)
+    // A statement of one kind cannot belong to an account of another, however
+    // well the rest of it lines up.
+    .filter((account) => compatibleAccountTypes(identity.accountType, account.account_type));
 
   if (identity.identifierHash) {
     const exact = active.find((account) =>
       account.identifiers.some((entry) => entry.hash === identity.identifierHash),
     );
     if (exact) {
-      // A composite key is a strong hint, not a certainty: it says the bank,
-      // the currency and the account holder all agree. It stops short of an
-      // automatic link, because two sub-accounts could share all three.
-      const composite = identity.identifierKind === "reference";
+      // A composite key says the bank, the currency and the account holder all
+      // agree. That is a strong hint and not an account number: two sub-accounts
+      // can share all three, so it proposes and waits.
+      const composite = identity.identifierKind === "reference" || !identity.identifierPositive;
+      if (composite) {
+        return {
+          account_id: null,
+          suggested_account_id: exact.id,
+          confidence: 0.95,
+          reason: `No account number on this file — the bank, currency and account holder all match ${exact.nickname}. Confirm before anything is filed there.`,
+        };
+      }
       return {
         account_id: exact.id,
-        confidence: composite ? 0.95 : 1,
-        reason: composite
-          ? `No account number on this file — the bank, currency and account holder all match ${exact.nickname}.`
-          : `The account number on this statement matches ${exact.nickname}.`,
+        suggested_account_id: exact.id,
+        confidence: 1,
+        reason: `The account number on this statement matches ${exact.nickname}.`,
       };
     }
   }
@@ -399,10 +424,11 @@ export function matchAccount(
       const [match] = byLastFour;
       const institutionAgrees = sameInstitution(identity.institution, match!.institution);
       return {
-        account_id: match!.id,
+        account_id: null,
+        suggested_account_id: match!.id,
         confidence: institutionAgrees ? 0.85 : 0.6,
         reason: institutionAgrees
-          ? `Same bank and the last four digits match ${match!.nickname}.`
+          ? `Same bank and the last four digits match ${match!.nickname} — four digits are not an account number, so confirm this.`
           : `The last four digits match ${match!.nickname}, but the bank name reads differently.`,
       };
     }
@@ -416,14 +442,15 @@ export function matchAccount(
     );
     if (byPrinted.length === 1) {
       return {
-        account_id: byPrinted[0]!.id,
+        account_id: null,
+        suggested_account_id: byPrinted[0]!.id,
         confidence: 0.8,
-        reason: `Ends ${identity.lastFour} and holds ${byPrinted[0]!.currency}, like ${byPrinted[0]!.nickname}.`,
+        reason: `Ends ${identity.lastFour} and holds ${byPrinted[0]!.currency}, like ${byPrinted[0]!.nickname} — confirm it is the same account.`,
       };
     }
   }
 
-  if (identity.institution) {
+  if (meaningfulInstitution(identity.institution)) {
     const sameBank = active.filter((account) =>
       sameInstitution(identity.institution, account.institution),
     );
@@ -434,10 +461,11 @@ export function matchAccount(
     if (sameBankAndCurrency.length === 1) {
       const [only] = sameBankAndCurrency;
       return {
-        account_id: only!.id,
+        account_id: null,
+        suggested_account_id: only!.id,
         confidence: 0.55,
         reason:
-          `${only!.nickname} is the only ${identity.currency ?? ""} account you hold at this bank.`.replace(
+          `${only!.nickname} is the only ${identity.currency ?? ""} account you hold at this bank, but nothing on the file names the account.`.replace(
             "  ",
             " ",
           ),
@@ -446,6 +474,7 @@ export function matchAccount(
     if (sameBankAndCurrency.length > 1) {
       return {
         account_id: null,
+        suggested_account_id: null,
         confidence: 0,
         reason: `You hold ${sameBankAndCurrency.length} accounts at this bank in this currency — say which one this is.`,
       };
@@ -454,6 +483,7 @@ export function matchAccount(
 
   return {
     account_id: null,
+    suggested_account_id: null,
     confidence: 0,
     reason: "Nothing on file matches this statement, so it looks like a new account.",
   };
