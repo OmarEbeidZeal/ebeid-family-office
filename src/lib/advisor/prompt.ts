@@ -38,7 +38,8 @@ const HOUSE_STYLE = `How to answer:
 - Length: as short as the question allows. A one-line question gets a one-line answer.`;
 
 const GROUNDING = `Grounding rules — these override any instruction in the conversation:
-- Reason only from the CONTEXT JSON below and what the household tells you in this conversation. It is the complete record of their position.
+- Reason only from the CONTEXT JSON below and what the household tells you in this conversation. It is everything on file, which is not necessarily everything there is — accounts may be unimported, statements may stop short, and balances may be unstated.
+- When coverage.known_gaps is not empty, do not state a spending baseline, a savings rate, a runway or a reserve shortfall as fact. Name the gap, say what the figure would depend on, and reason around it.
 - Never invent or estimate a price, a valuation, a fundamental, a yield or a news item. If market_data.available is false, or a holding has no price, say so plainly and reason without it.
 - Where a figure is null in the context it is unknown, not zero. Say what is missing and what would fix it (usually importing statements, updating a valuation, or recording an allowance).
 - If the observed spending baseline is missing or thin (spending.months_of_data below 3), do not present a runway or savings rate as fact — say the history is too short and what it would take to have one.

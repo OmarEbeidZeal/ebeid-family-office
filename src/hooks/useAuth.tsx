@@ -36,7 +36,8 @@ export type Household = {
   onboarding_completed_at: string | null;
   /** Years of income the household wants replaced when measuring life cover. */
   income_replacement_years: number;
-
+  /** What the household knows is absent from the records; the advisor repeats it back. */
+  known_gaps: string[];
 };
 
 type AuthContextValue = {

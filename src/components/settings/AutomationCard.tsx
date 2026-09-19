@@ -2,15 +2,19 @@ import { CheckCircle2, CircleDashed, AlertTriangle, XCircle } from "lucide-react
 import { SettingsCard } from "./SettingsCard";
 import { SCHEDULED_JOBS, useLatestRuns, type AutomationRun } from "@/hooks/useAutomation";
 import { relativeTime } from "@/lib/format";
+import { jobHealth, type JobHealth } from "@/lib/automation-status";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-const STATUS = {
-  ok: { icon: CheckCircle2, tone: "text-gain", label: "Ran" },
-  partial: { icon: AlertTriangle, tone: "text-warn", label: "Ran with problems" },
-  skipped: { icon: CircleDashed, tone: "text-muted-foreground", label: "Nothing to do" },
-  failed: { icon: XCircle, tone: "text-loss", label: "Failed" },
-} as const;
+/** Presentation for each state the shared health rule can return. */
+const LOOK: Record<JobHealth["state"], { icon: typeof CheckCircle2; tone: string }> = {
+  failing: { icon: XCircle, tone: "text-loss" },
+  problem: { icon: AlertTriangle, tone: "text-warn" },
+  overdue: { icon: AlertTriangle, tone: "text-warn" },
+  ok: { icon: CheckCircle2, tone: "text-gain" },
+  quiet: { icon: CircleDashed, tone: "text-muted-foreground" },
+  never: { icon: CircleDashed, tone: "text-muted-foreground" },
+};
 
 /**
  * Proof that the system works whether or not anyone is watching. Each job
@@ -57,38 +61,31 @@ function RunLine({
   run: AutomationRun | undefined;
   overdueAfterHours: number;
 }) {
-  if (!run) {
-    return (
-      <p className="mt-1 max-w-[16rem] text-xs leading-relaxed text-muted-foreground">
-        Not run yet. Publish the app once and the schedule starts calling it.
-      </p>
-    );
-  }
-
-  const status = STATUS[run.status as keyof typeof STATUS] ?? STATUS.skipped;
-  const Icon = status.icon;
-  // A schedule that has quietly stopped should be visible here, not weeks later
-  // as a gap in the trend chart.
-  const overdue = Date.now() - new Date(run.ran_at).getTime() > overdueAfterHours * 3_600_000;
-
-  const needsExplaining = run.status === "failed" || run.status === "partial";
+  // The job's own last recorded run decides, never the scheduler's opinion of
+  // the HTTP call: a route that answered 404 for a fortnight was reported as
+  // succeeding throughout.
+  const health = jobHealth(run, overdueAfterHours);
+  const look = LOOK[health.state];
+  const Icon = look.icon;
 
   return (
     <>
-      <p className={cn("mt-1 flex items-center justify-end gap-1.5 text-xs", status.tone)}>
+      <p className={cn("mt-1 flex items-center justify-end gap-1.5 text-xs", look.tone)}>
         <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
         <span>
-          {status.label} {relativeTime(run.ran_at)}
+          {health.label}
+          {run ? ` ${relativeTime(run.ran_at)}` : ""}
         </span>
       </p>
-      {/* A failure is only useful if it says what went wrong and what to do. */}
-      {needsExplaining && run.message && (
-        <p className="ml-auto mt-1 max-w-[18rem] text-xs leading-relaxed text-muted-foreground">
-          {run.message}
+      {health.message && (
+        <p
+          className={cn(
+            "ml-auto mt-1 max-w-[18rem] text-xs leading-relaxed",
+            health.state === "failing" ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          {health.message}
         </p>
-      )}
-      {overdue && !needsExplaining && (
-        <p className="mt-0.5 text-xs text-warn">Overdue — it has missed at least one turn.</p>
       )}
     </>
   );

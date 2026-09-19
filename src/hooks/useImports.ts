@@ -19,6 +19,11 @@ import {
   resolveAccountProposal,
   retryStatement,
 } from "@/lib/statements.functions";
+import {
+  deleteDocumentAndData,
+  previewReprocessAll,
+  reprocessAllDocuments,
+} from "@/lib/maintenance.functions";
 
 import { useAuth } from "./useAuth";
 
@@ -364,6 +369,49 @@ export function useResolveProposal() {
  * pump the server whenever work is waiting. The five-minute scheduled run does
  * the same job unattended, so closing the tab only slows things down.
  */
+/* ------------------------------------------------------------ maintenance */
+
+/**
+ * Removing one document and everything it wrote. Done on the server, because a
+ * delete from the browser left the orders, the cached reading and the account's
+ * stated balance behind — the file disappeared and its wrong figures did not.
+ */
+export function useDeleteDocument() {
+  const invalidate = useInvalidateImports();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (statementId: string) =>
+      deleteDocumentAndData({ data: { statementId } }),
+    onSuccess: async () => {
+      await invalidate();
+      await queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+}
+
+/** The live counts the confirmation dialog states before anything is deleted. */
+export function useReprocessPreview(enabled: boolean) {
+  return useQuery({
+    queryKey: ["reprocess-preview"],
+    queryFn: async () => previewReprocessAll(),
+    enabled,
+    staleTime: 0,
+  });
+}
+
+export function useReprocessAll() {
+  const invalidate = useInvalidateImports();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => reprocessAllDocuments(),
+    onSuccess: async () => {
+      await invalidate();
+      await queryClient.invalidateQueries();
+    },
+  });
+}
+
 export function useQueueDriver(statements: ImportStatementRow[] | undefined) {
   const queryClient = useQueryClient();
   const pumping = useRef(false);
