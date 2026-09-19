@@ -40,6 +40,7 @@ import {
   shiftMonth,
   type ToBase,
 } from "@/lib/spending";
+import { buildCoverage, type Coverage, type CoverageAccountInput } from "./coverage";
 import { loadQuotes } from "@/lib/market/service.server";
 import type { QuoteResult } from "@/lib/market/shared";
 import type { SecurityProfileRow } from "@/lib/market/service.server";
@@ -65,6 +66,8 @@ export type AdvisorContextResult = {
   isa: ReturnType<typeof buildHouseholdContext>["isa"];
   positions: Position[];
   marketAvailable: boolean;
+  /** Where the record ends — stated in the context, not left for the reader. */
+  coverage: Coverage;
 };
 
 export class NoHouseholdError extends Error {}
@@ -253,6 +256,13 @@ export async function loadAdvisorContextForHousehold(
 
   const positions = buildPositions({ holdings, quotes, profiles, toBase });
 
+  const coverage = buildCoverage({
+    accounts: accountCoverage(accounts, transactions),
+    declaredGaps: (household?.known_gaps as string[] | null) ?? [],
+    salaryCredits: countSalaryCredits(transactions, categories),
+    housingPayments: countHousingPayments(transactions, categories),
+  });
+
   const built = buildHouseholdContext({
     base,
     householdName: household?.name ?? null,
@@ -310,5 +320,67 @@ export async function loadAdvisorContextForHousehold(
     isa: built.isa,
     positions,
     marketAvailable,
+    coverage,
   };
+}
+
+/* ------------------------------------------------------------- coverage */
+
+/** First and last transaction per account, and whether a balance is stated. */
+function accountCoverage(
+  accounts: AccountRow[],
+  transactions: TransactionRow[],
+): CoverageAccountInput[] {
+  const seen = new Map<string, { first: string; last: string; count: number }>();
+  for (const row of transactions) {
+    const key = row.account_id;
+    if (!key || !row.booked_date) continue;
+    const entry = seen.get(key);
+    if (!entry) {
+      seen.set(key, { first: row.booked_date, last: row.booked_date, count: 1 });
+      continue;
+    }
+    if (row.booked_date < entry.first) entry.first = row.booked_date;
+    if (row.booked_date > entry.last) entry.last = row.booked_date;
+    entry.count += 1;
+  }
+
+  return accounts.map((account) => {
+    const entry = seen.get(account.id);
+    return {
+      id: account.id,
+      label: account.nickname,
+      currency: account.currency,
+      balanceKnown: account.current_balance !== null,
+      firstTransaction: entry?.first ?? null,
+      lastTransaction: entry?.last ?? null,
+      transactionCount: entry?.count ?? 0,
+    };
+  });
+}
+
+function categoryNames(categories: CategoryRow[]): Map<string, string> {
+  return new Map(categories.map((category) => [category.id, category.name.toLowerCase()]));
+}
+
+/** Pay landing anywhere. A transfer between their own accounts is not pay. */
+function countSalaryCredits(transactions: TransactionRow[], categories: CategoryRow[]): number {
+  const names = categoryNames(categories);
+  return transactions.filter((row) => {
+    if (row.direction !== "credit" || row.is_transfer) return false;
+    const category = row.category_id ? (names.get(row.category_id) ?? "") : "";
+    const text = `${row.description ?? ""} ${row.merchant ?? ""}`.toLowerCase();
+    return /salary|payroll|wages/.test(category) || /\bsalary\b|\bpayroll\b|\bwages\b/.test(text);
+  }).length;
+}
+
+/** Somewhere to live costs money; if nothing shows it, the baseline is short. */
+function countHousingPayments(transactions: TransactionRow[], categories: CategoryRow[]): number {
+  const names = categoryNames(categories);
+  return transactions.filter((row) => {
+    if (row.direction !== "debit" || row.is_transfer) return false;
+    const category = row.category_id ? (names.get(row.category_id) ?? "") : "";
+    const text = `${row.description ?? ""} ${row.merchant ?? ""}`.toLowerCase();
+    return /rent|mortgage|housing/.test(category) || /\brent\b|mortgage/.test(text);
+  }).length;
 }
