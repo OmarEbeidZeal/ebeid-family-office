@@ -185,7 +185,7 @@ export type Database = {
           country: string
           created_at: string
           currency: string
-          current_balance: number
+          current_balance: number | null
           discovered_from: string
           household_id: string
           id: string
@@ -208,7 +208,7 @@ export type Database = {
           country?: string
           created_at?: string
           currency?: string
-          current_balance?: number
+          current_balance?: number | null
           discovered_from?: string
           household_id: string
           id?: string
@@ -231,7 +231,7 @@ export type Database = {
           country?: string
           created_at?: string
           currency?: string
-          current_balance?: number
+          current_balance?: number | null
           discovered_from?: string
           household_id?: string
           id?: string
