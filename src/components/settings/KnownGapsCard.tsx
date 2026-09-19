@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { SettingsCard } from "./SettingsCard";
 import { Button } from "@/components/ui/button";
@@ -16,15 +17,14 @@ import { useAuth } from "@/hooks/useAuth";
  * plainly here, the advisor stops presenting those figures as fact.
  */
 export function KnownGapsCard() {
-  const { household, profile, refresh } = useAuth();
+  const { household, isOwner } = useAuth();
+  const queryClient = useQueryClient();
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setText(((household?.known_gaps as string[] | null) ?? []).join("\n"));
+    setText((household?.known_gaps ?? []).join("\n"));
   }, [household?.known_gaps]);
-
-  const isOwner = profile?.role === "owner";
 
   const save = async () => {
     if (!household) return;
@@ -36,7 +36,7 @@ export function KnownGapsCard() {
         .update({ known_gaps: gaps })
         .eq("id", household.id);
       if (error) throw error;
-      await refresh();
+      await queryClient.invalidateQueries({ queryKey: ["profile"] });
       toast.success(
         gaps.length
           ? "The advisor will say these figures are incomplete"

@@ -37,12 +37,12 @@ function Count({ label, value }: { label: string; value: number }) {
  * first or the same wrong answers come straight back.
  */
 export function MaintenanceCard() {
-  const { profile } = useAuth();
+  const { isOwner } = useAuth();
   const [open, setOpen] = useState(false);
   const preview = useReprocessPreview(open);
   const run = useReprocessAll();
 
-  if (profile?.role !== "owner") return null;
+  if (!isOwner) return null;
 
   const counts = preview.data;
 
