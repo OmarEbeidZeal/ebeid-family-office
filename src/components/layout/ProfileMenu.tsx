@@ -14,7 +14,9 @@ import { memberName } from "@/hooks/useOwners";
 
 export function ProfileMenu() {
   const { profile, signOut } = useAuth();
-  const { theme, setTheme } = useTheme();
+  // The full set of themes lives in Settings; this is the quick flip between
+  // the dark and light defaults.
+  const { mode, setChoice } = useTheme();
   const navigate = useNavigate();
 
   const name = profile ? memberName(profile) : "Account";
@@ -45,8 +47,8 @@ export function ProfileMenu() {
         <DropdownMenuItem onSelect={() => void navigate({ to: "/settings" })}>
           <SettingsIcon className="mr-2 h-4 w-4" /> Settings
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => setTheme(theme === "dark" ? "light" : "dark")}>
-          {theme === "dark" ? (
+        <DropdownMenuItem onSelect={() => setChoice(mode === "dark" ? "parchment" : "midnight")}>
+          {mode === "dark" ? (
             <>
               <Sun className="mr-2 h-4 w-4" /> Light theme
             </>
