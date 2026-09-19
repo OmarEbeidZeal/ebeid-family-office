@@ -115,6 +115,16 @@ export function linkRefusal(
     return `These statements are from ${statementBank} and ${account.nickname} is held at ${accountBank}. Pick the right account, or add a new one.`;
   }
 
+  // A side with no bank on it proves nothing. An account the app created from a
+  // nameless file is not a home for some other nameless file, and a nameless
+  // file does not belong to a named account just because the household has one.
+  if (!statementBank || !accountBank) {
+    const named = statementBank ?? accountBank;
+    return named
+      ? `${!accountBank ? account.nickname : "These statements"} names no bank, so nothing connects it to ${named}. Add it as a new account instead.`
+      : `Neither these statements nor ${account.nickname} names a bank, so there is nothing to match on. Add it as a new account instead.`;
+  }
+
   if (proposal.currency && proposal.currency !== account.currency) {
     return `These statements are in ${proposal.currency} and ${account.nickname} holds ${account.currency}. A currency is not converted on import — add a separate ${proposal.currency} account.`;
   }
