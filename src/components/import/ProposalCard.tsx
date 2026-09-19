@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Check, ChevronDown, Link2, User, X } from "lucide-react";
 import { toast } from "sonner";
 import { BankMark } from "@/components/BankMark";
@@ -16,6 +16,7 @@ import {
   CURRENCIES,
   formatDate,
 } from "@/lib/format";
+import { linkRefusal } from "@/lib/import/link-check";
 import { cn } from "@/lib/utils";
 
 
@@ -51,7 +52,6 @@ export function ProposalCard({
   const [country, setCountry] = useState((proposal.country ?? "GB").toUpperCase());
   // The name on the statement decides this, never whoever uploaded the file.
   const [owner, setOwner] = useState("");
-  const chosen = useRef(false);
   // Nothing is pre-selected. A resemblance — same bank, same last four, the
   // only account held there — is a suggestion shown in words below, and the
   // household picks the account. A pre-filled dropdown is a decision made for
@@ -59,24 +59,41 @@ export function ProposalCard({
   const [linkTo, setLinkTo] = useState("");
   const suggested = accounts.find((account) => account.id === proposal.matched_account_id);
 
+  /**
+   * Only the accounts these statements could actually belong to. The server
+   * refuses the rest anyway; offering them invites the merge that put two
+   * people's money in one account.
+   */
+  const linkable = accounts
+    .map((account) => ({
+      account,
+      refusal: linkRefusal(
+        {
+          institution: proposal.institution,
+          currency: (proposal.currency ?? "").toUpperCase() || null,
+          account_type: proposal.account_type,
+          nickname: proposal.suggested_nickname,
+        },
+        account,
+      ),
+    }))
+    .filter((entry) => entry.refusal === null)
+    .map((entry) => entry.account);
+
   const mask = proposal.identifier_last4
     ? `${proposal.identifier_kind === "iban" ? "IBAN" : proposal.identifier_kind === "card" ? "Card" : "••••"} ${proposal.identifier_last4}`
     : null;
 
   /**
    * `Acct/Ownr/Nm` on a CAMT.053, the holder line on a PDF. It is the only
-   * evidence of whose account this is, so it is shown on its own line and
-   * used to fill the owner in — the household still confirms it.
+   * evidence of whose account this is, so it is shown beside the control — and
+   * it stays a hint. Nothing is chosen for the household, because a default
+   * owner is how one person's money ends up filed under another's name.
    */
   const likely = matchHolder(proposal.holder);
 
-  useEffect(() => {
-    if (chosen.current || !likely) return;
-    setOwner(likely.id);
-  }, [likely]);
-
   const ownerHint = likely
-    ? `Filled in from the name on the statement — ${proposal.holder}. Change it if that is not right.`
+    ? `The statement is in the name of ${proposal.holder}, which looks like ${memberName(likely)}. Confirm it yourself.`
     : proposal.holder
       ? `The statement is in the name of ${proposal.holder}, which matches nobody in the household yet. Say who it belongs to.`
       : "Uploading someone else's statement does not make it yours — say who it belongs to.";
@@ -189,7 +206,7 @@ export function ProposalCard({
         <button
           type="button"
           onClick={() => setMode("link")}
-          disabled={accounts.length === 0}
+          disabled={linkable.length === 0}
           className={cn(
             "min-h-9 rounded-md border px-3 text-xs transition-colors disabled:opacity-40",
             mode === "link"
@@ -223,13 +240,16 @@ export function ProposalCard({
             </Field>
           </div>
 
+          {proposal.holder && (
+            <p className="text-xs text-muted-foreground">
+              Name on statement:{" "}
+              <span className="font-medium text-foreground">{proposal.holder}</span>
+            </p>
+          )}
           <Field label="Whose account is this?" hint={ownerHint}>
             <SelectNative
               value={owner}
-              onChange={(value) => {
-                chosen.current = true;
-                setOwner(value);
-              }}
+              onChange={setOwner}
               options={[{ value: "", label: "Choose a person…" }, ...ownerOptions]}
             />
           </Field>
@@ -271,14 +291,20 @@ export function ProposalCard({
               onChange={setLinkTo}
               options={[
                 { value: "", label: "Choose an account…" },
-                ...accounts.map((account) => ({
+                ...linkable.map((account) => ({
                   value: account.id,
                   label: `${account.nickname}${account.institution ? ` · ${account.institution}` : ""} · ${account.currency}`,
                 })),
               ]}
             />
           </Field>
-          {suggested && (
+          {linkable.length === 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Nothing you already hold matches these statements on bank, currency and kind, so
+              they have to be added as a new account.
+            </p>
+          )}
+          {suggested && linkable.some((account) => account.id === suggested.id) && (
             <p className="mt-2 text-xs text-muted-foreground">
               This looks like {suggested.nickname}, but nothing on the file proves it.
             </p>
