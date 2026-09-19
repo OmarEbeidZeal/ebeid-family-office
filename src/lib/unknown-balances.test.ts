@@ -67,29 +67,43 @@ describe("a balance nobody has stated", () => {
 describe("the cash reserve rule", () => {
   const input = {
     base: "GBP",
-    reserveCash: 0,
-    essentialSpend: 4000,
-    reserveMonths: 6,
-    liquidCash: 0,
-    softCurrencyShare: 0,
     netWorth: 0,
-    concentration: [],
+    investableTotal: 0,
+    privateStakeValue: 0,
+    gbpCash: 0,
+    essentialMonthly: 4000,
+    essentialSource: "observed",
+    monthlySurplus: null,
+    sleeveValues: {} as never,
+    equityPoolBase: 0,
+    positions: [],
+    unpricedCount: 0,
+    softCurrencyValue: 0,
+    highRateDebts: [],
     goals: [],
+    allowances: [],
+    daysToTaxYearEnd: 90,
   } as never;
 
-  it("says the reserve is unmeasurable while a cash balance is unknown", () => {
-    const rules = evaluatePolicy({ ...(input as object), cashBalancesUnknown: 2 } as never);
-    const reserve = rules.find((rule) => /reserve/i.test(rule.title ?? rule.headline ?? ""));
+  const reserveOf = (cashBalancesUnknown: number) =>
+    evaluatePolicy({ ...(input as object), cashBalancesUnknown } as never).find(
+      (finding) => finding.id === "liquidity-reserve",
+    )!;
 
-    expect(reserve?.status).toBe("unknown");
-    expect(reserve?.headline).toContain("2");
-    expect(reserve?.headline).not.toMatch(/short by/i);
+  it("says the reserve is unmeasurable while a cash balance is unknown", () => {
+    const reserve = reserveOf(2);
+
+    expect(reserve.status).toBe("unknown");
+    expect(reserve.headline).toContain("2 account balances are unknown");
+    expect(reserve.headline).not.toMatch(/covers/);
   });
 
-  it("calls a genuine shortfall short once every balance is known", () => {
-    const rules = evaluatePolicy({ ...(input as object), cashBalancesUnknown: 0 } as never);
-    const reserve = rules.find((rule) => /reserve/i.test(rule.title ?? rule.headline ?? ""));
+  it("measures the reserve once every balance is known", () => {
+    const reserve = reserveOf(0);
 
-    expect(reserve?.status).not.toBe("unknown");
+    // Nil cash against £4,000 of essential spending is a real breach, not a gap
+    // in the data — and it only reads that way when nothing is unknown.
+    expect(reserve.status).toBe("breach");
+    expect(reserve.value).toBe(0);
   });
 });
