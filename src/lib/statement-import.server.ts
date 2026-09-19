@@ -1162,9 +1162,9 @@ export async function rescanTransfers(
 
   if (rows.length < 1) return { scanned: 0, flagged: 0 };
 
-  const transferIds = detectTransfers(rows, people);
+  const transferIds = detectTransfers(rows, people, accounts);
   const toFlag = rows.filter((row) => transferIds.has(row.id) && !row.is_transfer).map((r) => r.id);
-  await updateIn(supabase, toFlag, { is_transfer: true });
+  await updateIn(supabase, toFlag, { is_transfer: true, category_id: null, is_reviewed: true });
 
   return { scanned: rows.length, flagged: toFlag.length };
 }
