@@ -167,6 +167,36 @@ export function monthlyTotals(
   });
 }
 
+/**
+ * The two figures, kept apart on purpose.
+ *
+ * `gross` is what the statements add up to: every credit, every debit, including
+ * the money that only passed through Wise and the Flex repayments that are the
+ * same purchase a second time. `true` is what actually entered and left the
+ * household. Reporting one as the other is how a household that moves £90k
+ * between its own accounts appears to earn it.
+ */
+export type FlowSummary = {
+  gross_in: number;
+  gross_out: number;
+  true_income: number;
+  true_spending: number;
+  months: number;
+};
+
+export function flowSummary(months: MonthTotals[]): FlowSummary {
+  const sum = (pick: (month: MonthTotals) => number) =>
+    months.reduce((total, month) => total + pick(month), 0);
+  return {
+    gross_in: sum((month) => month.grossIn),
+    gross_out: sum((month) => month.grossOut),
+    true_income: sum((month) => month.income),
+    true_spending: sum((month) => month.expenses),
+    months: months.length,
+  };
+}
+
+
 /** Median of the last complete months, so one unusual month can't skew planning. */
 export function baselineFrom(
   months: MonthTotals[],
