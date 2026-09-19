@@ -222,6 +222,12 @@ export type PolicyInput = {
   privateStakeValue: number;
   /** GBP cash only: the reserve pool rule 4 measures. */
   gbpCash: number;
+  /**
+   * Active cash accounts with no stated balance. While any of them is unknown,
+   * the cash pool is a floor rather than a figure, so the reserve is reported as
+   * unmeasurable instead of breached.
+   */
+  cashBalancesUnknown?: number;
   essentialMonthly: number | null;
   essentialSource: "observed" | "planned" | "none";
   /** Monthly surplus available to rebuild a loss, used by the rule 8 arithmetic. */
@@ -443,8 +449,12 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
   // Rule 4 — the reserve.
   const reserveMonths =
     essentialMonthly && essentialMonthly > 0 ? gbpCash / essentialMonthly : null;
+  // A reserve cannot be called short out of cash that has simply not been read
+  // yet. One unknown current account can hold the whole reserve, so an unknown
+  // balance suspends the verdict rather than counting as nil.
+  const unknownCash = input.cashBalancesUnknown ?? 0;
   const reserveStatus: PolicyStatus =
-    reserveMonths === null
+    reserveMonths === null || unknownCash > 0
       ? "unknown"
       : reserveMonths >= POLICY_LIMITS.reserveMonths
         ? "ok"
@@ -457,7 +467,9 @@ export function evaluatePolicy(input: PolicyInput): PolicyFinding[] {
     label: "Liquidity reserve",
     status: reserveStatus,
     headline:
-      reserveMonths === null
+      unknownCash > 0
+        ? `${unknownCash} account ${unknownCash === 1 ? "balance is" : "balances are"} unknown, so the cash reserve cannot be measured and is not being called short. Import a statement that prints a closing balance, or set the figure by hand.`
+        : reserveMonths === null
         ? "Essential monthly spending is not known yet, so the twelve-month reserve cannot be measured. Import statements or record committed expenses."
         : `${money(gbpCash, input.base)} of GBP cash covers ${reserveMonths.toFixed(1)} months of ${money(essentialMonthly ?? 0, input.base)} essential spending (${input.essentialSource === "observed" ? "observed from statements" : "from recorded commitments"}), against a ${POLICY_LIMITS.reserveMonths}-month target.`,
     value: reserveMonths,

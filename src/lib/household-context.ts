@@ -572,6 +572,9 @@ export function buildHouseholdContext(input: ContextInput) {
     investableTotal,
     privateStakeValue: netWorth.privateStakeValue,
     gbpCash,
+    cashBalancesUnknown: accountsAwaitingBalance.filter((account) =>
+      CASH_ACCOUNT_TYPES.includes(account.account_type),
+    ).length,
     essentialMonthly,
     essentialSource,
     monthlySurplus,
