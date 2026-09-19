@@ -52,7 +52,12 @@ export function ProposalCard({
   // The name on the statement decides this, never whoever uploaded the file.
   const [owner, setOwner] = useState("");
   const chosen = useRef(false);
-  const [linkTo, setLinkTo] = useState(proposal.matched_account_id ?? accounts[0]?.id ?? "");
+  // Nothing is pre-selected. A resemblance — same bank, same last four, the
+  // only account held there — is a suggestion shown in words below, and the
+  // household picks the account. A pre-filled dropdown is a decision made for
+  // them, and the wrong one merges two people's money.
+  const [linkTo, setLinkTo] = useState("");
+  const suggested = accounts.find((account) => account.id === proposal.matched_account_id);
 
   const mask = proposal.identifier_last4
     ? `${proposal.identifier_kind === "iban" ? "IBAN" : proposal.identifier_kind === "card" ? "Card" : "••••"} ${proposal.identifier_last4}`
@@ -264,12 +269,20 @@ export function ProposalCard({
             <SelectNative
               value={linkTo}
               onChange={setLinkTo}
-              options={accounts.map((account) => ({
-                value: account.id,
-                label: `${account.nickname}${account.institution ? ` · ${account.institution}` : ""} · ${account.currency}`,
-              }))}
+              options={[
+                { value: "", label: "Choose an account…" },
+                ...accounts.map((account) => ({
+                  value: account.id,
+                  label: `${account.nickname}${account.institution ? ` · ${account.institution}` : ""} · ${account.currency}`,
+                })),
+              ]}
             />
           </Field>
+          {suggested && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              This looks like {suggested.nickname}, but nothing on the file proves it.
+            </p>
+          )}
         </div>
       )}
 
