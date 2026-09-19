@@ -169,7 +169,7 @@ export async function recomputeAccountBalance(
     await supabase
       .from("accounts")
       .update({
-        current_balance: 0,
+        current_balance: null,
         balance_source: "unknown",
         balance_statement_id: null,
         last_balance_update: null,
