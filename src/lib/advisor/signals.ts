@@ -358,7 +358,23 @@ function fromRealised(context: HouseholdContext, base: string): Signal[] {
 
 function fromLiquidity(context: HouseholdContext, base: string): Signal[] {
   const { gbp_cash, essential_monthly, months_covered, target_months } = context.liquidity;
+  const unknown = context.liquidity.cash_balances_unknown ?? 0;
+  // A reserve cannot be called short — or called excessive — out of cash that
+  // has simply not been read yet. One unread current account can hold the whole
+  // reserve, so the honest signal is that the figure is unmeasurable.
+  if (unknown > 0) {
+    return [
+      {
+        id: "cash-balances-unknown",
+        kind: "alert",
+        severity: "action",
+        summary: `${unknown} account ${unknown === 1 ? "balance is" : "balances are"} unknown, so the cash reserve cannot be measured and is not being called short. Import a statement that prints a closing balance, or set the figure by hand.`,
+        fingerprint: `cash:unknown:${unknown}`,
+      },
+    ];
+  }
   if (!essential_monthly || !months_covered || !gbp_cash) return [];
+
 
   // Rule 4 already covers a short reserve. This is the opposite problem.
   if (months_covered > target_months * 1.5 && gbp_cash > 0) {
@@ -785,6 +801,9 @@ export function detectSignals(input: {
     ...fromStaleRecords(context),
   ];
 }
+
+/** Exposed for unit tests only. */
+export const SIGNAL_INTERNALS = { fromLiquidity };
 
 const SEVERITY_ORDER: Record<Signal["severity"], number> = { urgent: 0, action: 1, info: 2 };
 

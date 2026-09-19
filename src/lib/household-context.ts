@@ -790,6 +790,12 @@ export function buildHouseholdContext(input: ContextInput) {
         essentialMonthly && essentialMonthly > 0
           ? round(Math.max(POLICY_LIMITS.reserveMonths * essentialMonthly - gbpCash, 0))
           : null,
+      // The cash pool is a floor, not a figure, while any current or savings
+      // account has no stated balance. Consumers must say so rather than
+      // reading the total as the whole of the household's cash.
+      cash_balances_unknown: accountsAwaitingBalance.filter((account) =>
+        CASH_ACCOUNT_TYPES.includes(account.account_type),
+      ).length,
     },
     cashflow: {
       monthly_income: round(
