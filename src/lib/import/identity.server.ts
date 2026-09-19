@@ -198,6 +198,43 @@ export function lastFourHash(lastFour: string, kind: IdentifierKind): string {
 /* ------------------------------------------------------------- fingerprint */
 
 /**
+ * Labels the app makes up when a file names no bank. They read as a name and
+ * are not one, so they must never act as an institution, a match key or part of
+ * an account's identity — two files both called "Imported account" have nothing
+ * in common but the app's own vocabulary.
+ */
+const GENERIC_LABELS = new Set([
+  "importedaccount",
+  "unknown",
+  "unknownaccount",
+  "unknownbank",
+  "account",
+  "statement",
+  "bank",
+  "n/a",
+  "na",
+  "none",
+]);
+
+/**
+ * The institution, as something to match on — or null when what is there is a
+ * placeholder rather than a bank.
+ */
+export function meaningfulInstitution(value: string | null | undefined): string | null {
+  const key = (value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!key || key.length < 2 || GENERIC_LABELS.has(key)) return null;
+  return value!.trim();
+}
+
+/** Who the statement was printed for, reduced to something stable to key on. */
+function holderKey(holder: string | null | undefined): string {
+  return (holder ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .slice(0, 24);
+}
+
+/**
  * A stable key for "this account, at this bank, in this currency". Two files
  * from the same account in the same batch must land on one proposal, not two.
  */
@@ -213,12 +250,63 @@ export function proposalFingerprint(input: {
    * reads as spending.
    */
   ledger?: string | null;
+  /**
+   * The name the statement was printed for. It joins the key only where there
+   * is no account number to key on: two nameless Trading 212 exports, one
+   * Haya's and one Omar's, are otherwise indistinguishable and would be
+   * proposed as a single account holding both people's trades.
+   */
+  holder?: string | null;
 }): string {
-  const institution = (input.institution ?? "unknown").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const institution = (meaningfulInstitution(input.institution) ?? "unknown")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
   const base = input.identifierHash ?? (input.lastFour ? `l4:${input.lastFour}` : "noid");
   const ledger = (input.ledger ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const identity = ledger ? `${base}+${ledger}` : base;
+  const holder = input.identifierHash ? "" : holderKey(input.holder);
+  const identity = [base, ledger, holder ? `who:${holder}` : ""].filter(Boolean).join("+");
   return `${institution}|${identity}|${(input.currency ?? "").toUpperCase()}`;
+}
+
+/* -------------------------------------------------------- account families */
+
+export type AccountFamily = "investment" | "cash" | "debt" | "other";
+
+const FAMILIES: Record<string, AccountFamily> = {
+  isa: "investment",
+  gia: "investment",
+  sipp: "investment",
+  investment: "investment",
+  brokerage: "investment",
+  current: "cash",
+  savings: "cash",
+  cash: "cash",
+  credit_card: "debt",
+  card: "debt",
+  loan: "debt",
+  mortgage: "debt",
+};
+
+export function accountFamily(type: string | null | undefined): AccountFamily {
+  return FAMILIES[(type ?? "").toLowerCase()] ?? "other";
+}
+
+/**
+ * Whether a statement of one kind can belong to an account of another.
+ *
+ * A brokerage ledger and a credit line are not the same account under any
+ * circumstance, and linking them puts share purchases in the spending totals
+ * and card repayments in the cost basis. An unrecognised type is not refused —
+ * it is simply not evidence either way.
+ */
+export function compatibleAccountTypes(
+  statementType: string | null | undefined,
+  accountType: string | null | undefined,
+): boolean {
+  const left = accountFamily(statementType);
+  const right = accountFamily(accountType);
+  if (left === "other" || right === "other") return true;
+  return left === right;
 }
 
 
