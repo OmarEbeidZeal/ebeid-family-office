@@ -245,7 +245,27 @@ function headerRowIndex(rows: string[][]): number {
   return -1;
 }
 
-export function parseTrading212(rows: string[][]): ExtractionResult {
+/**
+ * Which Trading 212 wrapper this export came from.
+ *
+ * The wrapper matters more than any other field on the file: an ISA's gains are
+ * outside capital gains tax and its contributions count against the £20,000
+ * allowance, while an Invest account's do neither. Trading 212's export does not
+ * print it in the rows, so the file's own name is read — and when the name says
+ * nothing, the account type is left for the household to state rather than
+ * guessed at, because guessing "general investment account" at an ISA would put
+ * every disposal into a CGT calculation it does not belong in.
+ */
+export function trading212Wrapper(fileName: string | null | undefined): "isa" | "gia" | null {
+  const name = (fileName ?? "").toLowerCase();
+  const squashed = name.replace(/[^a-z0-9]+/g, " ");
+  if (/(^| )isa( |$)/.test(squashed) || squashed.replace(/ /g, "").includes("stocksandshares"))
+    return "isa";
+  if (/(^| )invest( |$)/.test(squashed)) return "gia";
+  return null;
+}
+
+export function parseTrading212(rows: string[][], fileName: string | null = null): ExtractionResult {
   const headerIndex = headerRowIndex(rows);
   if (headerIndex < 0) {
     throw new StatementFailure(
@@ -453,6 +473,12 @@ export function parseTrading212(rows: string[][]): ExtractionResult {
     );
   }
 
+  if (!trading212Wrapper(fileName)) {
+    notes.push(
+      "This export does not say whether it came from the Stocks and Shares ISA or the Invest account. Set the account type when you confirm it — an ISA's gains are outside capital gains tax and an Invest account's are not.",
+    );
+  }
+
   const ledger: BrokerLedger = {
     broker: "trading212",
     accountCurrency,
@@ -480,7 +506,11 @@ export function parseTrading212(rows: string[][]): ExtractionResult {
       identity: {
         ...EMPTY_IDENTITY,
         institution: "Trading 212",
-        account_type: "investment",
+        // Named by the file where the file names it. Where it does not, the
+        // general investment account is offered and the note below asks for the
+        // wrapper, because an ISA filed as a GIA would put every disposal into a
+        // capital gains calculation it does not belong in.
+        account_type: trading212Wrapper(fileName) ?? "investment",
         country: "GB",
       },
     },

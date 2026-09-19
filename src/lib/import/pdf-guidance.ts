@@ -121,6 +121,22 @@ export function unreadablePdfMessage(text: string, kind: PdfKind = "statement"):
 }
 
 /**
+ * A summary document rather than a transaction export.
+ *
+ * Trading 212's "Activity Statement" and "Annual Statement" are year-end
+ * summaries: they restate the same orders and cash the CSV export already
+ * carries, in a PDF whose font maps no digits. Telling the household to
+ * download a better copy of it would send them after a file that adds nothing
+ * — so the failure says what the document is, and that nothing is missing.
+ */
+function summaryStatementLabel(text: string): "activity" | "annual" | null {
+  const letters = compact(text);
+  if (letters.includes("activitystatement")) return "activity";
+  if (letters.includes("annualstatement")) return "annual";
+  return null;
+}
+
+/**
  * A file whose words came through and whose figures did not. The opening
  * sentence is fixed; the exporter's own export route is added when the
  * surviving words name it.
@@ -128,6 +144,19 @@ export function unreadablePdfMessage(text: string, kind: PdfKind = "statement"):
 export function digitsLostPdfMessage(text: string, kind: PdfKind = "statement"): string {
   if (kind === "document") {
     return `${DIGITS_LOST_MESSAGE} If it is not a bank document, ask whoever issued it for a copy you can select the figures in, or add the details by hand.`;
+  }
+
+  const summary = summaryStatementLabel(text);
+  if (summary) {
+    const exporter = detectPdfExporter(text);
+    const whose = exporter ? `${exporter.name}'s ` : "";
+    const route = exporter ? `${exporter.name}'s CSV exports` : "the CSV exports";
+    return [
+      `This is ${whose}${summary === "activity" ? "activity statement" : "annual statement"}, not a transaction export.`,
+      "Its figures cannot be read because the PDF's font maps no digits at all, so importing it would mean inventing the numbers.",
+      `${route} carry the same orders and the same cash movements.`,
+      "If those CSVs are already imported, nothing is missing and there is nothing to upload again.",
+    ].join(" ");
   }
 
   const route = exporterRoute(text);

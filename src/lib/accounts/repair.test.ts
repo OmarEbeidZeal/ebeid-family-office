@@ -145,7 +145,8 @@ describe("starting a file over", () => {
     const account = db.tables["accounts"]!.find((row) => row["id"] === "pooled")!;
     expect(account["balance_source"]).toBe("unknown");
     expect(account["balance_statement_id"]).toBeNull();
-    expect(account["current_balance"]).toBe(0);
+    // Unknown is null, never zero — a zero would read as an empty account.
+    expect(account["current_balance"]).toBeNull();
   });
 
   it("takes back the orders the file wrote, and the positions only it knew about", async () => {

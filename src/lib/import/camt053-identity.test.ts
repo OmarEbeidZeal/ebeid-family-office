@@ -174,7 +174,7 @@ describe("matching on a composite key", () => {
     expect(identifier.hash).toHaveLength(64);
   });
 
-  it("recognises the account but stops short of an automatic link", () => {
+  it("recognises the account but leaves it a suggestion only", () => {
     const outcome = matchAccount(
       {
         institution: "Wise Payments Limited",
@@ -188,8 +188,10 @@ describe("matching on a composite key", () => {
       [account],
     );
 
-    expect(outcome.account_id).toBe("acc-1");
-    // Below 1: the pipeline only links a statement on its own at full certainty.
+    // A key the app assembled itself is not proof of the account, so it names
+    // the account it believes in and files nothing without confirmation.
+    expect(outcome.account_id).toBeNull();
+    expect(outcome.suggested_account_id).toBe("acc-1");
     expect(outcome.confidence).toBeLessThan(1);
     expect(outcome.confidence).toBeGreaterThan(0.9);
     expect(outcome.reason).toContain("No account number");
@@ -203,6 +205,7 @@ describe("matching on a composite key", () => {
         institution: "NatWest",
         identifierHash: printed.hash,
         identifierKind: "iban",
+        identifierPositive: printed.positive,
         lastFourHashes: [],
         lastFour: printed.lastFour,
         currency: "GBP",

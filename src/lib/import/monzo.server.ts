@@ -332,6 +332,12 @@ export function parseMonzo(rows: string[][]): ExtractionResult {
     );
   }
 
+  if (closing === null) {
+    notes.push(
+      "A Monzo current account export carries no balance column, so this file leaves the balance unknown rather than estimating one. The balance comes from a statement that prints it, or from you.",
+    );
+  }
+
   const identity: StatementIdentity = {
     institution: "Monzo",
     statement_holder: null,

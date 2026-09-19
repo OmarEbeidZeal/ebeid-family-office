@@ -40,9 +40,20 @@ const MASKED_TAIL = /(?:[*x×•·#]\s*){3,}(\d{2,6})\b/i;
 
 const SORT_CODE = /\b(\d{2})[-\s]?(\d{2})[-\s]?(\d{2})\b/;
 
-/** `26 Aug HAYA ABDIN Automated Credit £500.00` — one row, one line. */
-const ROW =
-  /^(\d{1,2}\s+[A-Za-z]{3,9})\s+(.+?)\s+(-|\+)?\s*([£$€])\s*([\d,]+(?:\.\d{1,2})?)\s*$/;
+/** `-£140.74`, `£500.00` — one printed figure, with the sign the bank gave it. */
+const MONEY = String.raw`(-|\+)?\s*[£$€]\s*([\d,]+(?:\.\d{1,2})?)`;
+
+/**
+ * One row, one line: a day and month, the description with NatWest's own
+ * transaction type run onto it, the amount, and — where the export includes the
+ * Balance column — the running balance after the entry.
+ *
+ * Both figures are anchored to the end of the line, so a description that
+ * happens to mention a price cannot be mistaken for the amount.
+ */
+const ROW = new RegExp(
+  `^(\\d{1,2}\\s+[A-Za-z]{3,9})\\s+(.+?)\\s+${MONEY}(?:\\s+${MONEY})?\\s*$`,
+);
 
 const SYMBOL_CURRENCY: Record<string, string> = { "£": "GBP", $: "USD", "€": "EUR" };
 
@@ -188,7 +199,14 @@ export function parseNatWest(text: string): ExtractionResult {
   const { identifier, tail } = readIdentifier(header);
   const currency = readCurrency(text);
 
-  type Pending = { printed: string; description: string; amount: number; credit: boolean };
+  type Pending = {
+    printed: string;
+    description: string;
+    amount: number;
+    credit: boolean;
+    /** The running balance the bank printed after this entry, where it prints one. */
+    balance: number | null;
+  };
   const pending: Pending[] = [];
   let unreadable = 0;
 
@@ -202,15 +220,24 @@ export function parseNatWest(text: string): ExtractionResult {
       continue;
     }
 
-    const [, printed, body, sign, , figure] = match;
+    const [, printed, body, sign, figure, balanceSign, balanceFigure] = match;
     const amount = Number(figure!.replace(/,/g, ""));
     if (!Number.isFinite(amount) || amount === 0) continue;
+
+    const printedBalance = balanceFigure ? Number(balanceFigure.replace(/,/g, "")) : null;
+    const balance =
+      printedBalance !== null && Number.isFinite(printedBalance)
+        ? balanceSign === "-"
+          ? -printedBalance
+          : printedBalance
+        : null;
 
     pending.push({
       printed: printed!,
       description: (body ?? "").trim(),
       amount: Math.abs(amount),
       credit: sign !== "-",
+      balance,
     });
   }
 
@@ -218,6 +245,8 @@ export function parseNatWest(text: string): ExtractionResult {
   let inferredYears = 0;
   let outsidePeriod = 0;
   let undatable = 0;
+  /** The rows that made it through, in the order the page printed them. */
+  const kept: Pending[] = [];
 
   for (const row of pending) {
     const resolved = resolveStatementDate(row.printed, period);
@@ -232,6 +261,7 @@ export function parseNatWest(text: string): ExtractionResult {
     // Tesco visit files under one payee.
     const split = splitDescriptionAndType(row.description);
     const description = split.description || "Unlabelled transaction";
+    kept.push(row);
     transactions.push({
       booked_date: resolved.date,
       description,
@@ -239,13 +269,14 @@ export function parseNatWest(text: string): ExtractionResult {
       merchant: guessMerchant(description),
       amount: row.amount,
       direction: row.credit ? "credit" : "debit",
-      balance_after: null,
+      balance_after: row.balance,
       currency: null,
       bank_tx_code: split.type,
     });
   }
 
   const sorted = [...transactions].sort((a, b) => a.booked_date.localeCompare(b.booked_date));
+  const balances = deriveStatementBalances(kept, transactions);
 
   const notes: string[] = [
     "Read as a NatWest transactions export — every printed row taken exactly as it appears, with no model reading the page.",
@@ -266,9 +297,19 @@ export function parseNatWest(text: string): ExtractionResult {
       `${lost} ${lost === 1 ? "line looked like a transaction" : "lines looked like transactions"} but could not be read, and ${lost === 1 ? "was" : "were"} left out.`,
     );
   }
-  notes.push(
-    "This export prints no running balance, so the account's balance is not set from it.",
-  );
+  if (balances.exact) {
+    notes.push(
+      `Every row prints its running balance, so this file reconciles to the penny: ${balances.opening!.toFixed(2)} in, ${balances.closing!.toFixed(2)} out.`,
+    );
+  } else if (balances.closing !== null) {
+    notes.push(
+      "Some rows print no running balance, so the closing figure is taken from the last row that does and the file is not reconciled line by line.",
+    );
+  } else {
+    notes.push(
+      "This export prints no running balance, so the account's balance is not set from it.",
+    );
+  }
 
   const identity: StatementIdentity = {
     institution: "NatWest",
@@ -285,23 +326,70 @@ export function parseNatWest(text: string): ExtractionResult {
     skippedRows: outsidePeriod + undatable + unreadable,
     notes,
     format: "pdf",
-    // Nothing on the page states an opening or closing figure, so there is
-    // nothing to reconcile against and nothing to claim.
-    exactBalances: false,
+    // Where the page prints a running balance on every row, the file states its
+    // own arithmetic and must add up to the penny. Where it prints none, there
+    // is nothing to reconcile against and nothing is claimed.
+    exactBalances: balances.exact,
     accountDetectable: Boolean(identifier),
     meta: {
       period_start: period.start ?? sorted[0]?.booked_date ?? null,
       period_end: period.end ?? sorted[sorted.length - 1]?.booked_date ?? null,
-      opening_balance: null,
-      closing_balance: null,
+      opening_balance: balances.opening,
+      closing_balance: balances.closing,
       currency,
       identity,
     },
   };
 }
 
+/**
+ * The statement's opening and closing figures, from the running balance the
+ * page prints.
+ *
+ * The closing figure is the balance after the last entry of the period, and the
+ * opening figure is the balance before the first — which is the first printed
+ * balance with that first entry taken back off it. Nothing is derived unless
+ * the page printed the balance it is derived from.
+ *
+ * NatWest prints newest-first in some downloads and oldest-first in others, so
+ * the order is taken from the dates rather than assumed.
+ */
+function deriveStatementBalances(
+  rows: Array<{ amount: number; credit: boolean; balance: number | null }>,
+  dated: Array<{ booked_date: string }>,
+): { opening: number | null; closing: number | null; exact: boolean } {
+  if (!rows.length) return { opening: null, closing: null, exact: false };
+
+  const newestFirst =
+    dated.length > 1 && dated[0]!.booked_date > dated[dated.length - 1]!.booked_date;
+  const ordered = newestFirst ? [...rows].reverse() : rows;
+
+  const first = ordered[0]!;
+  const last = ordered[ordered.length - 1]!;
+  const signed = (row: { amount: number; credit: boolean }) =>
+    row.credit ? row.amount : -row.amount;
+
+  const closing = last.balance;
+  const opening =
+    first.balance === null ? null : Number((first.balance - signed(first)).toFixed(2));
+
+  return {
+    opening,
+    closing,
+    // Only a file that priced every line can be reconciled line by line.
+    exact: ordered.every((row) => row.balance !== null) && opening !== null && closing !== null,
+  };
+}
+
 /** Exposed for the identity ladder's tests. */
-export const NATWEST_INTERNALS = { readIdentifier, readHolder, readPeriod, MASKED_TAIL, ROW };
+export const NATWEST_INTERNALS = {
+  readIdentifier,
+  readHolder,
+  readPeriod,
+  deriveStatementBalances,
+  MASKED_TAIL,
+  ROW,
+};
 
 /** The last four (or three) digits the bank printed, for display. */
 export function natwestTail(text: string): string | null {

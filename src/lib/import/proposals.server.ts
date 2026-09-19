@@ -8,7 +8,14 @@
  */
 import { bankDomain } from "../ai/banks";
 import { DEBT_ACCOUNT_TYPES } from "../format";
-import { lastFourHash, maskIdentifier, type IdentifierKind } from "./identity.server";
+import {
+  compatibleAccountTypes,
+  lastFourHash,
+  maskIdentifier,
+  meaningfulInstitution,
+  sameInstitution,
+  type IdentifierKind,
+} from "./identity.server";
 import { refreshBatch } from "./queue.server";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -28,6 +35,41 @@ const ACCOUNT_TYPES = [
 ] as const;
 
 type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+/**
+ * Why these statements cannot be merged into that account — or null when they
+ * can.
+ *
+ * Three things must agree before a link is allowed: the bank, the currency, and
+ * the kind of account. A nickname the app invented when the file named no bank
+ * ("Imported account") is not a bank name and is not allowed to stand in for
+ * one.
+ */
+export function linkRefusal(
+  proposal: {
+    institution: string | null;
+    currency: string | null;
+    account_type: string | null;
+    nickname: string | null;
+  },
+  account: { nickname: string; institution: string | null; currency: string; account_type: string },
+): string | null {
+  const statementBank = meaningfulInstitution(proposal.institution);
+  const accountBank = meaningfulInstitution(account.institution);
+  if (statementBank && accountBank && !sameInstitution(statementBank, accountBank)) {
+    return `These statements are from ${statementBank} and ${account.nickname} is held at ${accountBank}. Pick the right account, or add a new one.`;
+  }
+
+  if (proposal.currency && proposal.currency !== account.currency) {
+    return `These statements are in ${proposal.currency} and ${account.nickname} holds ${account.currency}. A currency is not converted on import — add a separate ${proposal.currency} account.`;
+  }
+
+  if (proposal.account_type && !compatibleAccountTypes(proposal.account_type, account.account_type)) {
+    return `These statements are a ${proposal.account_type.replace(/_/g, " ")} statement and ${account.nickname} is a ${account.account_type.replace(/_/g, " ")} account. Merging them would file investments as spending. Add a new account instead.`;
+  }
+
+  return null;
+}
 
 /** What a statement calls itself, mapped to the types accounts actually hold. */
 function accountType(detected: string | null | undefined): AccountType {
@@ -108,11 +150,29 @@ export async function resolveProposal(
     if (!input.accountId) throw new Error("Choose the account this statement belongs to.");
     const { data: account } = await supabase
       .from("accounts")
-      .select("id, institution, institution_domain, identifier_mask, statement_holder")
+      .select(
+        "id, nickname, institution, institution_domain, identifier_mask, statement_holder, currency, account_type",
+      )
       .eq("id", input.accountId)
       .eq("household_id", input.householdId)
       .maybeSingle();
     if (!account) throw new Error("That account is not part of this household.");
+
+    // A link is a claim that these statements belong to that account. It is
+    // checked, because the wrong link is silent: it put Monzo Flex repayments
+    // and Trading 212 ISA trades into one account, where the repayments read as
+    // spending and the trades corrupted the cost basis.
+    const refusal = linkRefusal(
+      {
+        institution: proposal.institution,
+        currency: proposal.currency,
+        account_type: proposal.account_type,
+        nickname: proposal.suggested_nickname,
+      },
+      account,
+    );
+    if (refusal) throw new Error(refusal);
+
     accountId = account.id;
 
     // Fill in what the account was missing, without overwriting what the
@@ -164,8 +224,11 @@ export async function resolveProposal(
     // Debt is held as the amount owed, positive: a card closing at -1,240.18
     // is 1,240.18 owed.
     const closing = proposal.closing_balance ?? null;
+    // No closing figure on the file means no balance — not a balance of zero.
+    // The column is left empty and the account says so on its own row until a
+    // statement states it or someone types it in.
     const balance =
-      closing === null ? 0 : DEBT_ACCOUNT_TYPES.includes(type) ? Math.abs(closing) : closing;
+      closing === null ? null : DEBT_ACCOUNT_TYPES.includes(type) ? Math.abs(closing) : closing;
 
     const { data: created, error } = await supabase
       .from("accounts")
@@ -189,8 +252,9 @@ export async function resolveProposal(
           .toUpperCase()
           .slice(0, 3),
         current_balance: balance,
-        // The figure came off a statement, not out of anyone's head.
-        balance_source: closing === null ? "manual" : "statement",
+        // The figure came off a statement, not out of anyone's head — and where
+        // the file stated none, the account admits it rather than reading £0.
+        balance_source: closing === null ? "unknown" : "statement",
         last_balance_update: closingDate
           ? new Date(`${closingDate}T23:59:59Z`).toISOString()
           : new Date().toISOString(),

@@ -33,6 +33,7 @@ import { detectProvider, type DetectedProvider } from "./import/providers";
 import { sniffFormat } from "./import/sniff.server";
 import { looksLikeTrading212, parseTrading212 } from "./import/trading212.server";
 import { looksLikeMonzo, parseMonzo } from "./import/monzo.server";
+import { looksLikeNatWest, parseNatWest } from "./import/natwest.server";
 
 import {
   applyMapping,
@@ -212,6 +213,8 @@ export { StatementFailure };
 export type LoadedStatementFile = {
   format: SourceFormat;
   bytes: Uint8Array;
+  /** What the household called it. A broker names the wrapper here and nowhere else. */
+  name?: string | null;
   /** Already decoded, for the text formats. */
   text: string | null;
 };
@@ -243,7 +246,12 @@ export async function downloadStatementFile(
       "This file does not read as a statement in any format the reader knows. Export CAMT.053, MT940, CSV, Excel, QIF or PDF from your bank — CAMT.053 first if it is offered.",
     );
   }
-  return { format: sniffed.format, bytes, text: sniffed.text };
+  return {
+    format: sniffed.format,
+    bytes,
+    text: sniffed.text,
+    name: statement.file_name ?? statement.file_path,
+  };
 }
 
 /**
@@ -282,6 +290,14 @@ async function readStatementContent(file: LoadedStatementFile): Promise<Extracti
       // and lost its numbers reads as a clean import and holds no money.
       if (digitsLost(pdf)) throw new StatementFailure(digitsLostPdfMessage(pdf.text));
       if (looksUnmapped(pdf)) throw new StatementFailure(unreadablePdfMessage(pdf.text));
+
+      // NatWest's own layout is fixed and machine-printed, so it is read
+      // exactly rather than interpreted: the row count out is the row count on
+      // the page, the sort code and masked tail identify the account, and the
+      // running balance makes the file reconcile. A model reading the same
+      // pages drops rows and says nothing about it.
+      if (looksLikeNatWest(pdf.text)) return [parseNatWest(pdf.text)];
+
       return [tag(await extractFromPdfText(pdf.text), "pdf")];
     }
 
@@ -304,7 +320,7 @@ async function readStatementContent(file: LoadedStatementFile): Promise<Extracti
       // expense.
       const provider = detectProvider(rows);
       if (looksLikeTrading212(rows)) {
-        return [withProvider(parseTrading212(rows), provider)];
+        return [withProvider(parseTrading212(rows, file.name ?? null), provider)];
       }
 
       // Monzo prints its current account and its Flex credit line in the same

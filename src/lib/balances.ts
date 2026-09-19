@@ -11,13 +11,15 @@
  */
 
 export type BalanceCarrier = {
-  current_balance: number;
+  /** NULL where nobody has ever stated one. Not zero — zero is a real figure. */
+  current_balance?: number | null;
   /** "manual" | "statement" | "unknown"; absent on older callers, read as known. */
   balance_source?: string | null;
 };
 
 /** True when a figure has actually been stated — typed by hand or read off a statement. */
 export function balanceKnown(account: BalanceCarrier): boolean {
+  if (account.current_balance === null || account.current_balance === undefined) return false;
   return (account.balance_source ?? "manual") !== "unknown";
 }
 
