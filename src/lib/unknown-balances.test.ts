@@ -10,7 +10,7 @@ import { balanceKnown } from "./balances";
 import { computeNetWorth } from "./networth";
 import { evaluatePolicy } from "./policy";
 
-const account = (over: Record<string, unknown> = {}) => ({
+const account = (over: Partial<{ id: string; current_balance: number | null }> = {}) => ({
   id: "acc-1",
   household_id: "h",
   nickname: "Monzo Current",
