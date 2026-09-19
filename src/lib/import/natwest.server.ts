@@ -297,9 +297,19 @@ export function parseNatWest(text: string): ExtractionResult {
       `${lost} ${lost === 1 ? "line looked like a transaction" : "lines looked like transactions"} but could not be read, and ${lost === 1 ? "was" : "were"} left out.`,
     );
   }
-  notes.push(
-    "This export prints no running balance, so the account's balance is not set from it.",
-  );
+  if (balances.exact) {
+    notes.push(
+      `Every row prints its running balance, so this file reconciles to the penny: ${balances.opening!.toFixed(2)} in, ${balances.closing!.toFixed(2)} out.`,
+    );
+  } else if (balances.closing !== null) {
+    notes.push(
+      "Some rows print no running balance, so the closing figure is taken from the last row that does and the file is not reconciled line by line.",
+    );
+  } else {
+    notes.push(
+      "This export prints no running balance, so the account's balance is not set from it.",
+    );
+  }
 
   const identity: StatementIdentity = {
     institution: "NatWest",
@@ -316,23 +326,70 @@ export function parseNatWest(text: string): ExtractionResult {
     skippedRows: outsidePeriod + undatable + unreadable,
     notes,
     format: "pdf",
-    // Nothing on the page states an opening or closing figure, so there is
-    // nothing to reconcile against and nothing to claim.
-    exactBalances: false,
+    // Where the page prints a running balance on every row, the file states its
+    // own arithmetic and must add up to the penny. Where it prints none, there
+    // is nothing to reconcile against and nothing is claimed.
+    exactBalances: balances.exact,
     accountDetectable: Boolean(identifier),
     meta: {
       period_start: period.start ?? sorted[0]?.booked_date ?? null,
       period_end: period.end ?? sorted[sorted.length - 1]?.booked_date ?? null,
-      opening_balance: null,
-      closing_balance: null,
+      opening_balance: balances.opening,
+      closing_balance: balances.closing,
       currency,
       identity,
     },
   };
 }
 
+/**
+ * The statement's opening and closing figures, from the running balance the
+ * page prints.
+ *
+ * The closing figure is the balance after the last entry of the period, and the
+ * opening figure is the balance before the first — which is the first printed
+ * balance with that first entry taken back off it. Nothing is derived unless
+ * the page printed the balance it is derived from.
+ *
+ * NatWest prints newest-first in some downloads and oldest-first in others, so
+ * the order is taken from the dates rather than assumed.
+ */
+function deriveStatementBalances(
+  rows: Array<{ amount: number; credit: boolean; balance: number | null }>,
+  dated: Array<{ booked_date: string }>,
+): { opening: number | null; closing: number | null; exact: boolean } {
+  if (!rows.length) return { opening: null, closing: null, exact: false };
+
+  const newestFirst =
+    dated.length > 1 && dated[0]!.booked_date > dated[dated.length - 1]!.booked_date;
+  const ordered = newestFirst ? [...rows].reverse() : rows;
+
+  const first = ordered[0]!;
+  const last = ordered[ordered.length - 1]!;
+  const signed = (row: { amount: number; credit: boolean }) =>
+    row.credit ? row.amount : -row.amount;
+
+  const closing = last.balance;
+  const opening =
+    first.balance === null ? null : Number((first.balance - signed(first)).toFixed(2));
+
+  return {
+    opening,
+    closing,
+    // Only a file that priced every line can be reconciled line by line.
+    exact: ordered.every((row) => row.balance !== null) && opening !== null && closing !== null,
+  };
+}
+
 /** Exposed for the identity ladder's tests. */
-export const NATWEST_INTERNALS = { readIdentifier, readHolder, readPeriod, MASKED_TAIL, ROW };
+export const NATWEST_INTERNALS = {
+  readIdentifier,
+  readHolder,
+  readPeriod,
+  deriveStatementBalances,
+  MASKED_TAIL,
+  ROW,
+};
 
 /** The last four (or three) digits the bank printed, for display. */
 export function natwestTail(text: string): string | null {
