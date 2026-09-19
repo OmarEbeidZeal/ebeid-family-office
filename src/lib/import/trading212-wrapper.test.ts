@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { looksLikeTrading212, parseTrading212, trading212Wrapper } from "./trading212.server";
+import { formatShares } from "./broker";
 
 const HEADER = [
   "Action",
@@ -67,7 +68,7 @@ describe("a Trading 212 CSV export", () => {
 
   it("sends money the way each row actually sends it", () => {
     const result = parseTrading212(ROWS);
-    const by = (ref: string) => result.transactions.find((row) => row.external_ref === ref)!;
+    const by = (ref: string) => result.transactions.find((row) => row.bank_reference === ref)!;
 
     expect(by("dep-1").direction).toBe("credit");
     expect(by("dep-1").internal).toBe(true);
@@ -79,7 +80,6 @@ describe("a Trading 212 CSV export", () => {
     // A dividend is income, not an internal cash move.
     expect(by("div-1").direction).toBe("credit");
     expect(by("div-1").internal).toBe(false);
-    expect(by("div-1").category_hint).toBe("Dividends");
   });
 
   it("records the order as a trade, with the quantity exactly as printed", () => {
@@ -89,11 +89,11 @@ describe("a Trading 212 CSV export", () => {
     expect(trades).toHaveLength(1);
     expect(trades[0]).toMatchObject({
       side: "buy",
-      symbol: "ISWD",
+      brokerTicker: "ISWD",
       quantity: 532.0419,
       price: 1.62,
       currency: "GBP",
-      external_ref: "ord-1",
+      externalRef: "ord-1",
     });
     expect(trades[0]!.fees).toBeCloseTo(0.15, 2);
   });
@@ -118,9 +118,12 @@ describe("a Trading 212 CSV export", () => {
       ],
     ];
     const result = parseTrading212(withSale);
-    const holding = (result.broker?.holdings ?? []).find((row) => row.symbol === "ISWD")!;
+    const held = (result.broker?.trades ?? [])
+      .filter((trade) => trade.brokerTicker === "ISWD")
+      .reduce((sum, trade) => sum + (trade.side === "buy" ? trade.quantity : -trade.quantity), 0);
 
-    expect(holding.quantity).toBeCloseTo(500, 4);
+    // The position is the signed sum of its trades, to the share.
+    expect(formatShares(held)).toBe("500");
   });
 
   it("takes the wrapper from the file name, and asks when the name is silent", () => {

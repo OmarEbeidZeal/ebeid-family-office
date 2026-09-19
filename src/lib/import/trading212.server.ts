@@ -258,8 +258,10 @@ function headerRowIndex(rows: string[][]): number {
  */
 export function trading212Wrapper(fileName: string | null | undefined): "isa" | "gia" | null {
   const name = (fileName ?? "").toLowerCase();
-  if (/\bisa\b/.test(name) || name.includes("stocksandshares")) return "isa";
-  if (/\binvest\b/.test(name)) return "gia";
+  const squashed = name.replace(/[^a-z0-9]+/g, " ");
+  if (/(^| )isa( |$)/.test(squashed) || squashed.replace(/ /g, "").includes("stocksandshares"))
+    return "isa";
+  if (/(^| )invest( |$)/.test(squashed)) return "gia";
   return null;
 }
 
