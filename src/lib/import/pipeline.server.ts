@@ -281,7 +281,10 @@ async function upsertProposal(
     period_end: endsLater
       ? (input.periodEnd ?? existing?.["period_end"] ?? null)
       : (existing?.["period_end"] ?? null),
-    matched_account_id: input.match.account_id,
+    // The suggestion, not a decision: the confirmation screen shows it and the
+    // household says yes. Only an exact hash of a printed identifier reaches
+    // `account_id` and files the statement without being asked.
+    matched_account_id: input.match.suggested_account_id ?? input.match.account_id,
     match_confidence: input.match.confidence,
     match_reason: input.match.reason,
   };
