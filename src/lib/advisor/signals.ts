@@ -802,6 +802,9 @@ export function detectSignals(input: {
   ];
 }
 
+/** Exposed for unit tests only. */
+export const SIGNAL_INTERNALS = { fromLiquidity };
+
 const SEVERITY_ORDER: Record<Signal["severity"], number> = { urgent: 0, action: 1, info: 2 };
 
 export function rankSignals(signals: Signal[]) {
