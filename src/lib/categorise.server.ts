@@ -7,6 +7,7 @@
  * queue.
  */
 import { completeJson } from "./ai/gateway.server";
+import { conduitIds, type ConduitAccount } from "./import/conduits";
 import { ownNameHit, type PersonNameIndex } from "./people";
 import { normaliseDescription, similarity } from "./text";
 
