@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Money } from "@/components/Money";
 import { supabase } from "@/integrations/supabase/client";
 import { db } from "@/lib/db";
-import { usePumpQueue, useRetryStatement } from "@/hooks/useImports";
+import { useDeleteDocument, usePumpQueue, useRetryStatement } from "@/hooks/useImports";
 import { useStatements, type StatementRow } from "@/hooks/useTransactions";
 import type { AccountRow } from "@/hooks/useFinancials";
 import { formatDate } from "@/lib/format";
@@ -72,26 +72,26 @@ export function StatementsPanel({
     }
   };
 
+  const deleteDocument = useDeleteDocument();
+
+  /**
+   * Removing an import means removing everything it wrote. Done on the server:
+   * the browser deleted the transactions and the file and left the orders, the
+   * cached reading and the account's stated balance in place.
+   */
   const remove = async (statement: StatementRow) => {
     const confirmed = window.confirm(
-      `Remove "${statement.file_name ?? "this statement"}" and the ${statement.transaction_count ?? 0} transactions it imported?`,
+      `Remove "${statement.file_name ?? "this statement"}", the ${statement.transaction_count ?? 0} transactions it imported, and any orders it recorded? The account's balance is restated from the statements that remain.`,
     );
     if (!confirmed) return;
     setBusy(statement.id);
     try {
-      const { error: txError } = await db
-        .from("transactions")
-        .delete()
-        .eq("statement_id", statement.id);
-      if (txError) throw txError;
-      // The cached extraction lives beside the file so a re-read costs nothing;
-      // deleting the import should take it too.
-      await supabase.storage
-        .from("statements")
-        .remove([statement.file_path, `${statement.file_path}.extract.json`]);
-      const { error } = await db.from("statements").delete().eq("id", statement.id);
-      if (error) throw error;
-      toast.success("Import removed");
+      const result = await deleteDocument.mutateAsync(statement.id);
+      toast.success(`${result.fileName ?? "That document"} and its data are gone`, {
+        description: result.accountRemoved
+          ? "The account it created went with it, since no other statement mentions it."
+          : undefined,
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not remove that import.");
     } finally {

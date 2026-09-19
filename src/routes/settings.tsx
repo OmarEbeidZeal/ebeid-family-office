@@ -12,6 +12,8 @@ import { AccessCard } from "@/components/settings/AccessCard";
 import { OwnershipCard } from "@/components/settings/OwnershipCard";
 import { NotificationsCard } from "@/components/settings/NotificationsCard";
 import { AutomationCard } from "@/components/settings/AutomationCard";
+import { MaintenanceCard } from "@/components/settings/MaintenanceCard";
+import { KnownGapsCard } from "@/components/settings/KnownGapsCard";
 import { AppearanceCard } from "@/components/settings/AppearanceCard";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -51,6 +53,8 @@ function SettingsPage() {
         <OwnershipCard />
         <NotificationsCard />
         <AutomationCard />
+        <KnownGapsCard />
+        <MaintenanceCard />
         <AllowanceCard />
         <FxCard />
         <MarketDataCard />
