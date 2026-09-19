@@ -1127,6 +1127,9 @@ export async function rescanTransfers(
   householdId: string,
 ): Promise<{ scanned: number; flagged: number }> {
   const people = await loadPeopleIndex(supabase, householdId).catch(() => []);
+  const accounts = await loadConduitAccounts(supabase, householdId).catch(
+    () => [] as ConduitAccount[],
+  );
 
   const rows: Array<{
     id: string;
