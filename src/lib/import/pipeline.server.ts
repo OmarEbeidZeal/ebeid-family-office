@@ -195,7 +195,12 @@ async function upsertProposal(
     periodEnd: string | null;
     openingBalance: number | null;
     closingBalance: number | null;
-    match: { account_id: string | null; confidence: number; reason: string };
+    match: {
+      account_id: string | null;
+      suggested_account_id?: string | null;
+      confidence: number;
+      reason: string;
+    };
   },
 ): Promise<ProposalRow> {
   const fingerprint = proposalFingerprint({
@@ -204,6 +209,7 @@ async function upsertProposal(
     lastFour: input.identifier?.lastFour ?? null,
     currency: input.currency,
     ledger: input.identity.ledger ?? null,
+    holder: input.identity.statement_holder ?? null,
   });
 
 
@@ -510,7 +516,11 @@ export async function processStatement(
     /* -------------------------------------------------------- identity */
     let identifier: NormalisedIdentifier | null = null;
     try {
-      identifier = normaliseIdentifier(identity.account_identifier, identity.identifier_kind);
+      identifier = normaliseIdentifier(identity.account_identifier, identity.identifier_kind, {
+        // The bank pins a masked tail down: `*****234` at NatWest is not
+        // `*****234` at Monzo, and without the bank the two hash alike.
+        institution: identity.institution,
+      });
     } catch {
       // No salt configured: matching degrades to picking the account by hand,
       // which is exactly what the awaiting-account state is for.
@@ -521,6 +531,7 @@ export async function processStatement(
     const match = statement.account_id
       ? {
           account_id: statement.account_id as string,
+          suggested_account_id: statement.account_id as string,
           confidence: 1,
           reason: "You chose this account for the file.",
         }
@@ -530,9 +541,11 @@ export async function processStatement(
             identifierHash: identifier?.hash ?? null,
             identifierKind: identifier?.kind ?? null,
             lastFourHashes: candidateLastFourHashes(identifier?.lastFour ?? null),
+            identifierPositive: identifier?.positive ?? false,
             lastFour: identifier?.lastFour ?? null,
             currency,
             country: identityCountry(identity, currency),
+            accountType: identity.account_type ?? null,
           },
           accounts,
         );
