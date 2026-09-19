@@ -1,0 +1,2 @@
+ALTER TABLE public.automation_runs DROP CONSTRAINT automation_runs_status_check;
+ALTER TABLE public.automation_runs ADD CONSTRAINT automation_runs_status_check CHECK (status = ANY (ARRAY['ok'::text, 'partial'::text, 'skipped'::text, 'failed'::text, 'running'::text]));
