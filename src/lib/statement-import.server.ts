@@ -33,6 +33,7 @@ import { detectProvider, type DetectedProvider } from "./import/providers";
 import { sniffFormat } from "./import/sniff.server";
 import { looksLikeTrading212, parseTrading212 } from "./import/trading212.server";
 import { looksLikeMonzo, parseMonzo } from "./import/monzo.server";
+import { looksLikeNatWest, parseNatWest } from "./import/natwest.server";
 
 import {
   applyMapping,
@@ -282,6 +283,14 @@ async function readStatementContent(file: LoadedStatementFile): Promise<Extracti
       // and lost its numbers reads as a clean import and holds no money.
       if (digitsLost(pdf)) throw new StatementFailure(digitsLostPdfMessage(pdf.text));
       if (looksUnmapped(pdf)) throw new StatementFailure(unreadablePdfMessage(pdf.text));
+
+      // NatWest's own layout is fixed and machine-printed, so it is read
+      // exactly rather than interpreted: the row count out is the row count on
+      // the page, the sort code and masked tail identify the account, and the
+      // running balance makes the file reconcile. A model reading the same
+      // pages drops rows and says nothing about it.
+      if (looksLikeNatWest(pdf.text)) return [parseNatWest(pdf.text)];
+
       return [tag(await extractFromPdfText(pdf.text), "pdf")];
     }
 
