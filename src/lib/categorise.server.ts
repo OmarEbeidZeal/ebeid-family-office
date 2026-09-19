@@ -7,6 +7,7 @@
  * queue.
  */
 import { completeJson } from "./ai/gateway.server";
+import { conduitIds, type ConduitAccount } from "./import/conduits";
 import { ownNameHit, type PersonNameIndex } from "./people";
 import { normaliseDescription, similarity } from "./text";
 
@@ -198,6 +199,7 @@ const dayKey = (date: string) => Math.floor(new Date(date).getTime() / DAY);
 export function detectTransfers(
   candidates: TransferCandidate[],
   people: PersonNameIndex[] = [],
+  accounts: ConduitAccount[] = [],
 ): Set<string> {
   const matched = new Set<string>();
   const debits = candidates.filter((row) => row.direction === "debit");
@@ -241,6 +243,12 @@ export function detectTransfers(
     }
   }
 
+  // Third: the accounts money only passes through. A Flex repayment and a Wise
+  // balance that empties again are the household's own money, whether or not
+  // the far side of the move was ever uploaded.
+  if (accounts.length) {
+    for (const id of conduitIds(candidates, accounts)) matched.add(id);
+  }
 
   if (people.length) {
     for (const row of candidates) {
@@ -253,6 +261,7 @@ export function detectTransfers(
 
   return matched;
 }
+
 
 
 /* ------------------------------------------------------------- recurring */

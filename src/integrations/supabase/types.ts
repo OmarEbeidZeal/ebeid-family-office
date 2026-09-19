@@ -1277,6 +1277,7 @@ export type Database = {
           created_at: string
           id: string
           income_replacement_years: number
+          known_gaps: string[]
           name: string
           onboarding_completed_at: string | null
           onboarding_step: number
@@ -1288,6 +1289,7 @@ export type Database = {
           created_at?: string
           id?: string
           income_replacement_years?: number
+          known_gaps?: string[]
           name?: string
           onboarding_completed_at?: string | null
           onboarding_step?: number
@@ -1299,6 +1301,7 @@ export type Database = {
           created_at?: string
           id?: string
           income_replacement_years?: number
+          known_gaps?: string[]
           name?: string
           onboarding_completed_at?: string | null
           onboarding_step?: number

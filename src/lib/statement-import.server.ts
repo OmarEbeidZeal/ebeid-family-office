@@ -20,6 +20,7 @@ import {
 import { CATEGORISATION_MODEL } from "./ai/models";
 import { importBrokerLedger } from "./import/broker-import.server";
 import { detectBalanceConflicts, type Conflict } from "./import/conflicts";
+import { allowedIncomeCategoryId, type ConduitAccount } from "./import/conduits";
 
 import { parseCamt053 } from "./import/camt053.server";
 import { loadPeopleIndex } from "./people.server";
@@ -697,7 +698,9 @@ export async function importExtracted(
         ...original,
         import_fingerprint: row.fingerprint,
         notes: row.notes ?? null,
-        category_id: assignment?.category_id ?? null,
+        // A credit that is the household's own money moving cannot be Salary,
+        // however the narrative reads.
+        category_id: allowedIncomeCategoryId(row.internal === true, assignment?.category_id ?? null),
         ai_confidence: assignment?.ai_confidence ?? null,
 
         // Internal movement is settled the moment it is read: it is a transfer,
@@ -997,6 +1000,21 @@ function buildMessage(input: {
 
 /* ------------------------------------------------- post-import enrichment */
 
+/**
+ * The household's accounts, as far as conduit detection needs them: enough to
+ * recognise a Flex credit line and a Wise balance.
+ */
+async function loadConduitAccounts(
+  supabase: Client,
+  householdId: string,
+): Promise<ConduitAccount[]> {
+  const { data } = await supabase
+    .from("accounts")
+    .select("id, institution, nickname, account_type")
+    .eq("household_id", householdId);
+  return (data ?? []) as ConduitAccount[];
+}
+
 async function flagTransfers(
   supabase: Client,
   householdId: string,
@@ -1004,9 +1022,11 @@ async function flagTransfers(
   lastDate: string,
 ) {
   const from = new Date(new Date(firstDate).getTime() - 4 * 86_400_000).toISOString().slice(0, 10);
-  const to = new Date(new Date(lastDate).getTime() + 4 * 86_400_000).toISOString().slice(0, 10);
+  // Wise holds money for longer than a pairing window, so the conduit rung
+  // needs a fortnight either side rather than four days.
+  const to = new Date(new Date(lastDate).getTime() + 14 * 86_400_000).toISOString().slice(0, 10);
 
-  const [{ data }, people] = await Promise.all([
+  const [{ data }, people, accounts] = await Promise.all([
     supabase
       .from("transactions")
       .select(
@@ -1017,6 +1037,7 @@ async function flagTransfers(
       .lte("booked_date", to)
       .limit(8000),
     loadPeopleIndex(supabase, householdId).catch(() => []),
+    loadConduitAccounts(supabase, householdId).catch(() => [] as ConduitAccount[]),
   ]);
 
   const rows = (data ?? []) as Array<{
@@ -1032,10 +1053,13 @@ async function flagTransfers(
   }>;
   if (rows.length < 2) return;
 
-  const transferIds = detectTransfers(rows, people);
+  const transferIds = detectTransfers(rows, people, accounts);
   const toFlag = rows.filter((row) => transferIds.has(row.id) && !row.is_transfer).map((r) => r.id);
-  await updateIn(supabase, toFlag, { is_transfer: true });
+  // A credit that turns out to be the household's own money loses any income
+  // category it was given on the way in.
+  await updateIn(supabase, toFlag, { is_transfer: true, category_id: null, is_reviewed: true });
 }
+
 
 
 async function flagRecurring(supabase: Client, householdId: string, lastDate: string) {
@@ -1103,6 +1127,9 @@ export async function rescanTransfers(
   householdId: string,
 ): Promise<{ scanned: number; flagged: number }> {
   const people = await loadPeopleIndex(supabase, householdId).catch(() => []);
+  const accounts = await loadConduitAccounts(supabase, householdId).catch(
+    () => [] as ConduitAccount[],
+  );
 
   const rows: Array<{
     id: string;
@@ -1135,9 +1162,9 @@ export async function rescanTransfers(
 
   if (rows.length < 1) return { scanned: 0, flagged: 0 };
 
-  const transferIds = detectTransfers(rows, people);
+  const transferIds = detectTransfers(rows, people, accounts);
   const toFlag = rows.filter((row) => transferIds.has(row.id) && !row.is_transfer).map((r) => r.id);
-  await updateIn(supabase, toFlag, { is_transfer: true });
+  await updateIn(supabase, toFlag, { is_transfer: true, category_id: null, is_reviewed: true });
 
   return { scanned: rows.length, flagged: toFlag.length };
 }

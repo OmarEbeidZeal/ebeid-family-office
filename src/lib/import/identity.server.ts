@@ -12,6 +12,21 @@
 import { createHmac } from "node:crypto";
 import type { StatementIdentity } from "../statement-extract.server";
 import { bankDomain } from "../ai/banks";
+import {
+  accountFamily,
+  compatibleAccountTypes,
+  meaningfulInstitution,
+  sameInstitution,
+  type AccountFamily,
+} from "./link-check";
+
+export {
+  accountFamily,
+  compatibleAccountTypes,
+  meaningfulInstitution,
+  sameInstitution,
+  type AccountFamily,
+};
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Client = any;
@@ -197,35 +212,6 @@ export function lastFourHash(lastFour: string, kind: IdentifierKind): string {
 
 /* ------------------------------------------------------------- fingerprint */
 
-/**
- * Labels the app makes up when a file names no bank. They read as a name and
- * are not one, so they must never act as an institution, a match key or part of
- * an account's identity — two files both called "Imported account" have nothing
- * in common but the app's own vocabulary.
- */
-const GENERIC_LABELS = new Set([
-  "importedaccount",
-  "unknown",
-  "unknownaccount",
-  "unknownbank",
-  "account",
-  "statement",
-  "bank",
-  "n/a",
-  "na",
-  "none",
-]);
-
-/**
- * The institution, as something to match on — or null when what is there is a
- * placeholder rather than a bank.
- */
-export function meaningfulInstitution(value: string | null | undefined): string | null {
-  const key = (value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (!key || key.length < 2 || GENERIC_LABELS.has(key)) return null;
-  return value!.trim();
-}
-
 /** Who the statement was printed for, reduced to something stable to key on. */
 function holderKey(holder: string | null | undefined): string {
   return (holder ?? "")
@@ -268,48 +254,6 @@ export function proposalFingerprint(input: {
   return `${institution}|${identity}|${(input.currency ?? "").toUpperCase()}`;
 }
 
-/* -------------------------------------------------------- account families */
-
-export type AccountFamily = "investment" | "cash" | "debt" | "other";
-
-const FAMILIES: Record<string, AccountFamily> = {
-  isa: "investment",
-  gia: "investment",
-  sipp: "investment",
-  investment: "investment",
-  brokerage: "investment",
-  current: "cash",
-  savings: "cash",
-  cash: "cash",
-  credit_card: "debt",
-  card: "debt",
-  loan: "debt",
-  mortgage: "debt",
-};
-
-export function accountFamily(type: string | null | undefined): AccountFamily {
-  return FAMILIES[(type ?? "").toLowerCase()] ?? "other";
-}
-
-/**
- * Whether a statement of one kind can belong to an account of another.
- *
- * A brokerage ledger and a credit line are not the same account under any
- * circumstance, and linking them puts share purchases in the spending totals
- * and card repayments in the cost basis. An unrecognised type is not refused —
- * it is simply not evidence either way.
- */
-export function compatibleAccountTypes(
-  statementType: string | null | undefined,
-  accountType: string | null | undefined,
-): boolean {
-  const left = accountFamily(statementType);
-  const right = accountFamily(accountType);
-  if (left === "other" || right === "other") return true;
-  return left === right;
-}
-
-
 /* ---------------------------------------------------------------- matching */
 
 export type AccountCandidate = {
@@ -340,18 +284,6 @@ export type MatchOutcome = {
   reason: string;
 };
 
-export function sameInstitution(a: string | null, b: string | null): boolean {
-  a = meaningfulInstitution(a);
-  b = meaningfulInstitution(b);
-  if (!a || !b) return false;
-  const domainA = bankDomain(a);
-  const domainB = bankDomain(b);
-  if (domainA && domainB) return domainA === domainB;
-  const norm = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const left = norm(a);
-  const right = norm(b);
-  return left.length > 2 && right.length > 2 && (left.includes(right) || right.includes(left));
-}
 
 /**
  * The matching ladder, strongest rung first.

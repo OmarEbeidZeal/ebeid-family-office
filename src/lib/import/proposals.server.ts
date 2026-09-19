@@ -17,6 +17,9 @@ import {
   type IdentifierKind,
 } from "./identity.server";
 import { refreshBatch } from "./queue.server";
+import { linkRefusal } from "./link-check";
+
+export { linkRefusal };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Client = any;
@@ -35,41 +38,6 @@ const ACCOUNT_TYPES = [
 ] as const;
 
 type AccountType = (typeof ACCOUNT_TYPES)[number];
-
-/**
- * Why these statements cannot be merged into that account — or null when they
- * can.
- *
- * Three things must agree before a link is allowed: the bank, the currency, and
- * the kind of account. A nickname the app invented when the file named no bank
- * ("Imported account") is not a bank name and is not allowed to stand in for
- * one.
- */
-export function linkRefusal(
-  proposal: {
-    institution: string | null;
-    currency: string | null;
-    account_type: string | null;
-    nickname: string | null;
-  },
-  account: { nickname: string; institution: string | null; currency: string; account_type: string },
-): string | null {
-  const statementBank = meaningfulInstitution(proposal.institution);
-  const accountBank = meaningfulInstitution(account.institution);
-  if (statementBank && accountBank && !sameInstitution(statementBank, accountBank)) {
-    return `These statements are from ${statementBank} and ${account.nickname} is held at ${accountBank}. Pick the right account, or add a new one.`;
-  }
-
-  if (proposal.currency && proposal.currency !== account.currency) {
-    return `These statements are in ${proposal.currency} and ${account.nickname} holds ${account.currency}. A currency is not converted on import — add a separate ${proposal.currency} account.`;
-  }
-
-  if (proposal.account_type && !compatibleAccountTypes(proposal.account_type, account.account_type)) {
-    return `These statements are a ${proposal.account_type.replace(/_/g, " ")} statement and ${account.nickname} is a ${account.account_type.replace(/_/g, " ")} account. Merging them would file investments as spending. Add a new account instead.`;
-  }
-
-  return null;
-}
 
 /** What a statement calls itself, mapped to the types accounts actually hold. */
 function accountType(detected: string | null | undefined): AccountType {
