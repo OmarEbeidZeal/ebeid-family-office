@@ -260,10 +260,37 @@ export type ReprocessResult = ReprocessCounts & { message: string };
 export async function reprocessAllDocuments(
   supabase: Client,
   householdId: string,
+  /**
+   * The record of the run is written with the service role: `automation_runs`
+   * is readable by the household and written only by the system, so the
+   * caller's own client cannot insert into it. The owner check has already
+   * passed by the time this is used.
+   */
+  admin?: Client,
 ): Promise<ReprocessResult> {
   const counts = emptyCounts();
 
   /* --- a. nothing may be pulled out from under a reader still working --- */
+  //
+  // Unless a previous attempt of this same job left it that way. A step that
+  // failed halfway leaves statements queued, locked or mid-read, and refusing
+  // on that would make the button unusable exactly when it is needed. So a
+  // second press releases its own leftovers and carries on: every step below
+  // works from a fresh query, so running twice ends where running once would.
+  const resuming = await unfinishedRun(admin ?? supabase, householdId);
+  if (resuming) {
+    await supabase
+      .from("statements")
+      .update({ locked_at: null, locked_by: null, status: "queued" })
+      .eq("household_id", householdId)
+      .in("status", BUSY_STATUSES as unknown as string[]);
+    await supabase
+      .from("statements")
+      .update({ locked_at: null, locked_by: null })
+      .eq("household_id", householdId)
+      .not("locked_at", "is", null);
+  }
+
   const busy = await countOf(supabase, "statements", (q) =>
     q.eq("household_id", householdId).in("status", BUSY_STATUSES as unknown as string[]),
   );
@@ -272,6 +299,14 @@ export async function reprocessAllDocuments(
   );
   const refusal = busyRefusal(busy, locked);
   if (refusal) throw new Error(refusal);
+
+  // Claimed before the first delete, so a failure anywhere below is visible to
+  // the next attempt rather than being mistaken for a clean database.
+  const runRecord = await recordRun(admin, householdId, {
+    status: "running",
+    message: "Reading every document again.",
+    detail: counts,
+  });
 
   /* --- b. everything the importer produced --- */
   const removedTransactions = await deleteTransactionsWithStatements(supabase, householdId);
@@ -441,17 +476,83 @@ export async function reprocessAllDocuments(
 
   /* --- g. one line in the record of what the system did --- */
   const message = reprocessSummary(counts);
-  await supabase.from("automation_runs").insert({
-    job: "reprocess",
+  await recordRun(admin, householdId, {
     status: "ok",
     message,
-    detail: counts as unknown as Record<string, number>,
-    households: 1,
-    duration_ms: 0,
-    ran_at: new Date().toISOString(),
+    detail: counts,
+    replaces: runRecord,
   });
 
   return { ...counts, message };
+}
+
+/* ------------------------------------------------------- the run record */
+
+type RunDetail = ReprocessCounts;
+
+/**
+ * Whether a previous press of the button never reported finishing. Read through
+ * the service role, the same client that writes it.
+ */
+async function unfinishedRun(client: Client, householdId: string): Promise<boolean> {
+  const { data } = await client
+    .from("automation_runs")
+    .select("id, status, detail")
+    .eq("job", "reprocess")
+    .order("ran_at", { ascending: false })
+    .limit(10);
+
+  return (data ?? []).some(
+    (row: { status: string; detail: { household_id?: string } | null }) =>
+      row.status === "running" && (row.detail?.household_id ?? householdId) === householdId,
+  );
+}
+
+/**
+ * One row in `automation_runs`, written with the service role. A failure here is
+ * reported rather than swallowed: without the record the next attempt cannot
+ * tell a half-finished run from a clean one.
+ */
+async function recordRun(
+  admin: Client | undefined,
+  householdId: string,
+  input: {
+    status: "running" | "ok";
+    message: string;
+    detail: RunDetail;
+    /** The claim row this result replaces, so one run leaves one line. */
+    replaces?: string | null;
+  },
+): Promise<string | null> {
+  const client: Client =
+    admin ?? (await import("@/integrations/supabase/client.server")).supabaseAdmin;
+
+  const payload = {
+    job: "reprocess",
+    status: input.status,
+    message: input.message,
+    detail: { ...input.detail, household_id: householdId } as unknown as Record<string, unknown>,
+    households: 1,
+    duration_ms: 0,
+    ran_at: new Date().toISOString(),
+  };
+
+  if (input.replaces) {
+    const { error } = await client
+      .from("automation_runs")
+      .update(payload)
+      .eq("id", input.replaces);
+    if (error) throw new Error(`The run could not be recorded: ${error.message}`);
+    return input.replaces;
+  }
+
+  const { data, error } = await client
+    .from("automation_runs")
+    .insert(payload)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(`The run could not be recorded: ${error.message}`);
+  return (data as { id?: string } | null)?.id ?? null;
 }
 
 /* --------------------------------------------------- one document, removed */
