@@ -2,16 +2,38 @@
 @source "../src";
 @import "tw-animate-css";
 
-@custom-variant light (&:is(.light *));
+/*
+ * Mode is an attribute, not a class, so a named theme carries its own mode:
+ * `data-mode` is what `dark:` and `light:` key off, never the operating system.
+ */
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+@custom-variant light (&:where([data-mode="light"], [data-mode="light"] *));
 /* Touch devices get larger hit areas without changing the pointer layout. */
 @custom-variant coarse (@media (pointer: coarse));
 
 /*
  * Ebeid Family Office design system.
  *
- * Dark is the default; `.light` on <html> is the override. Every colour,
- * radius and typographic decision lives here — components never hardcode a
- * colour. Figures use lining tabular numerals so columns align to the digit.
+ * ── Themes ────────────────────────────────────────────────────────────────
+ * Five named themes, selected with `data-theme` on <html>. A theme sets
+ * surfaces, text, borders and exactly one accent. Each one defines the
+ * complete token set, so no component ever falls back to another theme's
+ * value and none of them names a raw colour.
+ *
+ *   midnight   dark    the default: near-black ground, antique gold
+ *   parchment  light   warm paper, aged bronze
+ *   slate      dark    cool graphite, steel blue
+ *   linen      light   cool paper, deep teal
+ *   contrast   dark    the accessibility theme: pure black, amber, 7:1 body
+ *
+ * ── Data colour is not brand colour ───────────────────────────────────────
+ * The eight-hue chart palette is keyed off `data-mode` only, never off the
+ * theme: a validated categorical palette stops being validated the moment it
+ * is repainted per theme. Gain and loss are keyed off `data-signs`, chosen
+ * independently, because red/green is the common colour-vision deficiency and
+ * in this app that pair carries the most important signal in the system.
+ *
+ * Figures use lining tabular numerals so columns align to the digit.
  */
 
 @theme inline {
@@ -46,11 +68,12 @@
   --text-4xl: 2.75rem;
   --text-4xl--line-height: 1.08;
 
-
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
+  /* Legacy alias: `bg-surface-2` means one step above a card. */
+  --color-surface-2: var(--surface-raised);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -63,6 +86,8 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  /* The theme's single accent. Named `gold` from the founding theme; every
+     theme supplies its own value, and no component names a colour. */
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
   --color-gold-line: var(--gold-line);
@@ -78,12 +103,16 @@
   --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  /* Eight categorical slots, assigned in fixed order and never cycled. */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
   --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-other: var(--chart-other);
   --color-sidebar: var(--surface);
   --color-sidebar-foreground: var(--foreground);
   --color-sidebar-primary: var(--gold);
@@ -94,101 +123,269 @@
   --color-sidebar-ring: var(--ring);
 }
 
+/* ─────────────────────────────────────────────── Midnight (dark, default) */
 :root,
-.dark {
+[data-theme="midnight"] {
   --radius: 0.5rem;
+  --focus-width: 2px;
 
-  /* #0A0B0D ground, #121417 raised card, #1A1D21 hairline */
-  --background: oklch(0.1493 0.0046 264.5);
-  --foreground: oklch(0.9251 0.0071 88.6);
-  --surface: oklch(0.1904 0.0069 258.4);
-  --surface-raised: oklch(0.212 0.0092 255.6);
-  --card: oklch(0.1904 0.0069 258.4);
-  --card-foreground: oklch(0.9251 0.0071 88.6);
-  --popover: oklch(0.212 0.0092 255.6);
-  --popover-foreground: oklch(0.9251 0.0071 88.6);
+  --background: #0a0b0d;
+  --foreground: #e8e6e1;
+  --surface: #121417;
+  --surface-raised: #171a1f;
+  --card: #121417;
+  --card-foreground: #e8e6e1;
+  --popover: #171a1f;
+  --popover-foreground: #e8e6e1;
 
-  --primary: oklch(0.7479 0.0986 86.1);
-  --primary-foreground: oklch(0.1493 0.0046 264.5);
-  --secondary: oklch(0.2455 0.0086 258);
-  --secondary-foreground: oklch(0.9251 0.0071 88.6);
-  --muted: oklch(0.2293 0.009 255.6);
-  --muted-foreground: oklch(0.6488 0.0146 262.4);
-  --accent: oklch(0.2455 0.0086 258);
-  --accent-foreground: oklch(0.9251 0.0071 88.6);
+  --primary: #c9a961;
+  --primary-foreground: #0a0b0d;
+  --secondary: #1d2126;
+  --secondary-foreground: #e8e6e1;
+  --muted: #1a1d21;
+  --muted-foreground: #8f959e;
+  --accent: #1d2126;
+  --accent-foreground: #e8e6e1;
 
-  /* #C9A961 antique gold — the only accent */
-  --gold: oklch(0.7479 0.0986 86.1);
-  --gold-soft: oklch(0.7479 0.0986 86.1 / 12%);
-  --gold-line: oklch(0.7479 0.0986 86.1 / 34%);
+  --gold: #c9a961;
+  --gold-soft: color-mix(in oklab, var(--gold) 12%, transparent);
+  --gold-line: color-mix(in oklab, var(--gold) 34%, transparent);
 
-  --gain: oklch(0.8003 0.1821 151.7);
-  --gain-soft: oklch(0.8003 0.1821 151.7 / 13%);
-  --loss: oklch(0.7106 0.1661 22.2);
-  --loss-soft: oklch(0.7106 0.1661 22.2 / 13%);
-  --warn: oklch(0.7874 0.1376 86.7);
-  --warn-soft: oklch(0.7874 0.1376 86.7 / 13%);
+  --warn: #e0b64c;
+  --destructive: #e5484d;
+  --destructive-foreground: #0a0b0d;
 
-  --destructive: oklch(0.7106 0.1661 22.2);
-  --destructive-foreground: oklch(0.1493 0.0046 264.5);
-
-  --border: oklch(0.2293 0.009 255.6);
-  --border-strong: oklch(0.2926 0.0102 256);
-  --input: oklch(0.2637 0.0096 256);
-  --ring: oklch(0.7479 0.0986 86.1 / 55%);
-
-  --chart-1: oklch(0.7479 0.0986 86.1);
-  --chart-2: oklch(0.6875 0.091 249.8);
-  --chart-3: oklch(0.7101 0.0846 182.6);
-  --chart-4: oklch(0.6739 0.083 296.4);
-  --chart-5: oklch(0.7874 0.1376 86.7);
-  --chart-6: oklch(0.5539 0.0138 262);
+  --border: #1a1d21;
+  --border-strong: #262a30;
+  --input: #1f2328;
+  --ring: color-mix(in oklab, var(--gold) 60%, transparent);
 }
 
-.light {
-  --background: oklch(0.9764 0.0035 91);
-  --foreground: oklch(0.2261 0.0091 258);
-  --surface: oklch(1 0 0);
-  --surface-raised: oklch(0.9861 0.0025 91);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2261 0.0091 258);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2261 0.0091 258);
+/* ────────────────────────────────────────────────────── Parchment (light) */
+[data-theme="parchment"] {
+  --radius: 0.5rem;
+  --focus-width: 2px;
 
-  --primary: oklch(0.5407 0.0784 82);
-  --primary-foreground: oklch(0.9891 0.002 91);
-  --secondary: oklch(0.9533 0.0038 91);
-  --secondary-foreground: oklch(0.2661 0.0091 258);
-  --muted: oklch(0.9533 0.0038 91);
-  --muted-foreground: oklch(0.5089 0.0116 262);
-  --accent: oklch(0.9411 0.0045 91);
-  --accent-foreground: oklch(0.2661 0.0091 258);
+  --background: #faf9f7;
+  --foreground: #1e1c18;
+  --surface: #ffffff;
+  --surface-raised: #f4f2ed;
+  --card: #ffffff;
+  --card-foreground: #1e1c18;
+  --popover: #ffffff;
+  --popover-foreground: #1e1c18;
 
-  --gold: oklch(0.5407 0.0784 82);
-  --gold-soft: oklch(0.5407 0.0784 82 / 10%);
-  --gold-line: oklch(0.5407 0.0784 82 / 30%);
+  --primary: #8c6a2b;
+  --primary-foreground: #ffffff;
+  --secondary: #f1eee7;
+  --secondary-foreground: #1e1c18;
+  --muted: #f1eee7;
+  --muted-foreground: #6b6659;
+  --accent: #efebe3;
+  --accent-foreground: #1e1c18;
 
-  --gain: oklch(0.5388 0.1418 152);
-  --gain-soft: oklch(0.5388 0.1418 152 / 12%);
-  --loss: oklch(0.5303 0.1798 25.4);
-  --loss-soft: oklch(0.5303 0.1798 25.4 / 12%);
-  --warn: oklch(0.6132 0.1265 74);
-  --warn-soft: oklch(0.6132 0.1265 74 / 14%);
+  --gold: #8c6a2b;
+  --gold-soft: color-mix(in oklab, var(--gold) 10%, transparent);
+  --gold-line: color-mix(in oklab, var(--gold) 32%, transparent);
 
-  --destructive: oklch(0.5303 0.1798 25.4);
-  --destructive-foreground: oklch(0.9891 0.002 91);
+  --warn: #92610a;
+  --destructive: #b3261e;
+  --destructive-foreground: #ffffff;
 
-  --border: oklch(0.9053 0.0043 91);
-  --border-strong: oklch(0.8506 0.0053 91);
-  --input: oklch(0.8906 0.0043 91);
-  --ring: oklch(0.5407 0.0784 82 / 45%);
+  --border: #e3dfd8;
+  --border-strong: #cfc9be;
+  --input: #dcd7cd;
+  --ring: color-mix(in oklab, var(--gold) 55%, transparent);
+}
 
-  --chart-1: oklch(0.5407 0.0784 82);
-  --chart-2: oklch(0.5188 0.1035 250);
-  --chart-3: oklch(0.5501 0.0866 183);
-  --chart-4: oklch(0.5239 0.0983 296);
-  --chart-5: oklch(0.6132 0.1265 74);
-  --chart-6: oklch(0.6789 0.0102 262);
+/* ───────────────────────────────────────────────────────── Slate (dark) */
+[data-theme="slate"] {
+  --radius: 0.5rem;
+  --focus-width: 2px;
+
+  --background: #0e1116;
+  --foreground: #e3e8ef;
+  --surface: #161b22;
+  --surface-raised: #1c232c;
+  --card: #161b22;
+  --card-foreground: #e3e8ef;
+  --popover: #1c232c;
+  --popover-foreground: #e3e8ef;
+
+  --primary: #7fa8d9;
+  --primary-foreground: #0e1116;
+  --secondary: #202833;
+  --secondary-foreground: #e3e8ef;
+  --muted: #1e252f;
+  --muted-foreground: #8b96a5;
+  --accent: #202833;
+  --accent-foreground: #e3e8ef;
+
+  --gold: #7fa8d9;
+  --gold-soft: color-mix(in oklab, var(--gold) 13%, transparent);
+  --gold-line: color-mix(in oklab, var(--gold) 36%, transparent);
+
+  --warn: #d9a441;
+  --destructive: #e5484d;
+  --destructive-foreground: #0e1116;
+
+  --border: #232a34;
+  --border-strong: #2f3845;
+  --input: #252e3a;
+  --ring: color-mix(in oklab, var(--gold) 62%, transparent);
+}
+
+/* ────────────────────────────────────────────────────────── Linen (light) */
+[data-theme="linen"] {
+  --radius: 0.5rem;
+  --focus-width: 2px;
+
+  --background: #f7f6f3;
+  --foreground: #1b1e1d;
+  --surface: #ffffff;
+  --surface-raised: #f1f0eb;
+  --card: #ffffff;
+  --card-foreground: #1b1e1d;
+  --popover: #ffffff;
+  --popover-foreground: #1b1e1d;
+
+  --primary: #146b5e;
+  --primary-foreground: #ffffff;
+  --secondary: #eeede8;
+  --secondary-foreground: #1b1e1d;
+  --muted: #eeede8;
+  --muted-foreground: #646a67;
+  --accent: #eaeae4;
+  --accent-foreground: #1b1e1d;
+
+  --gold: #146b5e;
+  --gold-soft: color-mix(in oklab, var(--gold) 10%, transparent);
+  --gold-line: color-mix(in oklab, var(--gold) 30%, transparent);
+
+  --warn: #8a5a05;
+  --destructive: #b3261e;
+  --destructive-foreground: #ffffff;
+
+  --border: #e2e0da;
+  --border-strong: #cdcac2;
+  --input: #dad8d1;
+  --ring: color-mix(in oklab, var(--gold) 55%, transparent);
+}
+
+/* ───────────────────────────────── Contrast (dark, the accessible theme) */
+[data-theme="contrast"] {
+  --radius: 0.5rem;
+  /* Thicker focus rings: this theme exists to be seen. */
+  --focus-width: 3px;
+
+  --background: #000000;
+  --foreground: #ffffff;
+  --surface: #0d0d0d;
+  --surface-raised: #171717;
+  --card: #0d0d0d;
+  --card-foreground: #ffffff;
+  --popover: #171717;
+  --popover-foreground: #ffffff;
+
+  --primary: #ffc857;
+  --primary-foreground: #000000;
+  --secondary: #1f1f1f;
+  --secondary-foreground: #ffffff;
+  --muted: #1a1a1a;
+  /* 15:1 on the ground — every scrap of body text clears 7:1. */
+  --muted-foreground: #dadada;
+  --accent: #1f1f1f;
+  --accent-foreground: #ffffff;
+
+  --gold: #ffc857;
+  --gold-soft: color-mix(in oklab, var(--gold) 18%, transparent);
+  --gold-line: color-mix(in oklab, var(--gold) 55%, transparent);
+
+  --warn: #ffd166;
+  --destructive: #ff8b8b;
+  --destructive-foreground: #000000;
+
+  --border: #3a3a3a;
+  --border-strong: #5a5a5a;
+  --input: #1f1f1f;
+  --ring: color-mix(in oklab, var(--gold) 85%, transparent);
+}
+
+/*
+ * ── The categorical chart palette ────────────────────────────────────────
+ * Eight hues, validated for colour-vision separation, chroma, lightness band
+ * and contrast in both modes. These values are fixed. Slots are assigned in
+ * order and never cycled; a ninth series folds into "Other", which is the one
+ * neutral in the set.
+ *
+ * Keyed off the mode only, so switching theme never repaints a series.
+ */
+[data-mode="light"] {
+  --chart-1: #2a78d6; /* blue    */
+  --chart-2: #eb6834; /* orange  */
+  --chart-3: #1baf7a; /* aqua    */
+  --chart-4: #eda100; /* yellow  */
+  --chart-5: #e87ba4; /* magenta */
+  --chart-6: #008300; /* green   */
+  --chart-7: #4a3aa7; /* violet  */
+  --chart-8: #e34948; /* red     */
+  --chart-other: #8d8d8d;
+}
+
+[data-mode="dark"] {
+  --chart-1: #3987e5; /* blue    */
+  --chart-2: #d95926; /* orange  */
+  --chart-3: #199e70; /* aqua    */
+  --chart-4: #c98500; /* yellow  */
+  --chart-5: #d55181; /* magenta */
+  --chart-6: #008300; /* green   */
+  --chart-7: #9085e9; /* violet  */
+  --chart-8: #e66767; /* red     */
+  --chart-other: #7c7c7c;
+}
+
+/*
+ * ── Gain and loss ────────────────────────────────────────────────────────
+ * An independent choice, because this is the one pair of colours in the app
+ * that carries meaning on its own. It never carries it alone: every figure
+ * also shows a sign or a directional arrow.
+ */
+[data-mode="dark"][data-signs="green-red"] {
+  --gain: #4ade80;
+  --loss: #f87171;
+}
+
+[data-mode="light"][data-signs="green-red"] {
+  --gain: #2e6a4c;
+  --loss: #98372f;
+}
+
+[data-mode="dark"][data-signs="blue-orange"] {
+  --gain: #3987e5;
+  --loss: #d95926;
+}
+
+[data-mode="light"][data-signs="blue-orange"] {
+  --gain: #2a78d6;
+  --loss: #eb6834;
+}
+
+/* Contrast lifts both hues clear of pure black rather than inheriting the
+   ordinary dark pair, which lands near the 4.5:1 floor on this ground. */
+[data-theme="contrast"][data-signs="blue-orange"] {
+  --gain: #7cc0ff;
+  --loss: #ffa06b;
+}
+
+/*
+ * Derived tints resolve at use, so they follow whichever pair is chosen
+ * without every theme having to restate them.
+ */
+:root {
+  --gain-soft: color-mix(in oklab, var(--gain) 14%, transparent);
+  --loss-soft: color-mix(in oklab, var(--loss) 14%, transparent);
+  --warn-soft: color-mix(in oklab, var(--warn) 14%, transparent);
+  --surface-2: var(--surface-raised);
 }
 
 @layer base {
@@ -199,6 +396,12 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background-color: var(--color-background);
+    color-scheme: dark;
+  }
+
+  html[data-mode="light"] {
+    color-scheme: light;
   }
 
   body {
@@ -214,7 +417,7 @@
 
   /* Every interactive element shows where the keyboard is, without exception. */
   :focus-visible {
-    outline: 2px solid var(--color-ring);
+    outline: var(--focus-width, 2px) solid var(--color-ring);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
   }
@@ -240,7 +443,6 @@
     }
   }
 }
-
 
 /* Every monetary or quantitative figure in the app uses this. */
 @utility num {
@@ -326,6 +528,27 @@
   min-width: 2.75rem;
 }
 
+/*
+ * Row actions stay out of the way until wanted — but only where there is a
+ * pointer to hover with. On touch they are always there, because a hover-only
+ * action is an action a phone cannot reach.
+ */
+@utility revealable {
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+
+  @media (pointer: coarse) {
+    opacity: 1;
+  }
+}
+
+@utility reveals {
+  &:hover .revealable,
+  &:focus-within .revealable {
+    opacity: 1;
+  }
+}
+
 /* Legible text over a photograph, in either theme. */
 @utility photo-scrim {
   background-image: linear-gradient(
@@ -336,3 +559,24 @@
   );
 }
 
+/* The keyboard's way past the navigation, visible only once focused. */
+@utility skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: -3rem;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  height: 2.25rem;
+  padding-inline: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-gold-line);
+  background-color: var(--color-surface);
+  color: var(--color-gold);
+  font-size: 0.8125rem;
+  transition: top 0.15s ease-out;
+
+  &:focus-visible {
+    top: 0.75rem;
+  }
+}

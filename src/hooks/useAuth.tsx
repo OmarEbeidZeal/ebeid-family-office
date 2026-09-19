@@ -21,6 +21,10 @@ export type Profile = {
   /** 0 = Sunday. */
   briefing_day: number;
   briefing_email_enabled: boolean;
+  /** Appearance, per person: a named theme or `system`. */
+  theme_name: string;
+  /** Which pair of colours marks gain and loss. Independent of the theme. */
+  sign_palette: string;
 };
 
 export type Household = {
