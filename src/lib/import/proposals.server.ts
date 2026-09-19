@@ -45,7 +45,7 @@ type AccountType = (typeof ACCOUNT_TYPES)[number];
  * ("Imported account") is not a bank name and is not allowed to stand in for
  * one.
  */
-function linkRefusal(
+export function linkRefusal(
   proposal: {
     institution: string | null;
     currency: string | null;
