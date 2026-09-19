@@ -213,6 +213,8 @@ export { StatementFailure };
 export type LoadedStatementFile = {
   format: SourceFormat;
   bytes: Uint8Array;
+  /** What the household called it. A broker names the wrapper here and nowhere else. */
+  name?: string | null;
   /** Already decoded, for the text formats. */
   text: string | null;
 };
@@ -313,7 +315,7 @@ async function readStatementContent(file: LoadedStatementFile): Promise<Extracti
       // expense.
       const provider = detectProvider(rows);
       if (looksLikeTrading212(rows)) {
-        return [withProvider(parseTrading212(rows), provider)];
+        return [withProvider(parseTrading212(rows, file.name ?? null), provider)];
       }
 
       // Monzo prints its current account and its Flex credit line in the same
