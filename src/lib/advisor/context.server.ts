@@ -150,7 +150,7 @@ export async function loadAdvisorContextForHousehold(
 ): Promise<AdvisorContextResult> {
   const { data: household } = await client
     .from("households")
-    .select("id, name, base_currency, income_replacement_years")
+    .select("id, name, base_currency, income_replacement_years, known_gaps")
     .eq("id", householdId)
     .maybeSingle();
   const base = household?.base_currency ?? "GBP";
