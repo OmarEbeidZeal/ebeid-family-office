@@ -1,6 +1,18 @@
 # Roadmap
 
-## Now
+## Now — data-layer repair, part 1
+
+- [ ] 1. NatWest PDFs read by the deterministic reader on the live path, with the statement period deciding each row's year and out-of-period rows skipped rather than imported
+- [ ] 2. Matching on positive identifiers only: weak rungs suggest but never link, holder in the proposal fingerprint, one file per Monzo ledger, and manual linking refused across institution, currency or account family
+- [ ] 3. Balances from the latest statement's closing figure; unknown stays unknown rather than becoming zero, and no snapshot is written when nothing is known
+- [ ] 4. Trading 212 CSV read as cash legs plus trades, with deposits and dividends as credits and quantities exactly as printed
+- [ ] 5. An unreadable Trading 212 activity statement says plainly that the CSV exports already carry the same orders
+
+## Parked — queued before the data was correct
+
+- [ ] Five named themes, gain/loss colour choice, bank marks and the validated chart palette (tokens and theme catalogue written; picker and chart work not started)
+
+## Earlier
 
 - [x] Record a person's mandate at the moment they are invited, so a Shariah mandate is set with the invitation rather than after the first sign-in
 - [x] Haya added as a member on a Shariah mandate; Settings flags any allowlisted address that still has no member record behind it
