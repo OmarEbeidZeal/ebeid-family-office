@@ -199,7 +199,14 @@ export function parseNatWest(text: string): ExtractionResult {
   const { identifier, tail } = readIdentifier(header);
   const currency = readCurrency(text);
 
-  type Pending = { printed: string; description: string; amount: number; credit: boolean };
+  type Pending = {
+    printed: string;
+    description: string;
+    amount: number;
+    credit: boolean;
+    /** The running balance the bank printed after this entry, where it prints one. */
+    balance: number | null;
+  };
   const pending: Pending[] = [];
   let unreadable = 0;
 
@@ -213,15 +220,24 @@ export function parseNatWest(text: string): ExtractionResult {
       continue;
     }
 
-    const [, printed, body, sign, , figure] = match;
+    const [, printed, body, sign, figure, balanceSign, balanceFigure] = match;
     const amount = Number(figure!.replace(/,/g, ""));
     if (!Number.isFinite(amount) || amount === 0) continue;
+
+    const printedBalance = balanceFigure ? Number(balanceFigure.replace(/,/g, "")) : null;
+    const balance =
+      printedBalance !== null && Number.isFinite(printedBalance)
+        ? balanceSign === "-"
+          ? -printedBalance
+          : printedBalance
+        : null;
 
     pending.push({
       printed: printed!,
       description: (body ?? "").trim(),
       amount: Math.abs(amount),
       credit: sign !== "-",
+      balance,
     });
   }
 
@@ -229,6 +245,8 @@ export function parseNatWest(text: string): ExtractionResult {
   let inferredYears = 0;
   let outsidePeriod = 0;
   let undatable = 0;
+  /** The rows that made it through, in the order the page printed them. */
+  const kept: Pending[] = [];
 
   for (const row of pending) {
     const resolved = resolveStatementDate(row.printed, period);
@@ -243,6 +261,7 @@ export function parseNatWest(text: string): ExtractionResult {
     // Tesco visit files under one payee.
     const split = splitDescriptionAndType(row.description);
     const description = split.description || "Unlabelled transaction";
+    kept.push(row);
     transactions.push({
       booked_date: resolved.date,
       description,
@@ -250,13 +269,14 @@ export function parseNatWest(text: string): ExtractionResult {
       merchant: guessMerchant(description),
       amount: row.amount,
       direction: row.credit ? "credit" : "debit",
-      balance_after: null,
+      balance_after: row.balance,
       currency: null,
       bank_tx_code: split.type,
     });
   }
 
   const sorted = [...transactions].sort((a, b) => a.booked_date.localeCompare(b.booked_date));
+  const balances = deriveStatementBalances(kept, transactions);
 
   const notes: string[] = [
     "Read as a NatWest transactions export — every printed row taken exactly as it appears, with no model reading the page.",
