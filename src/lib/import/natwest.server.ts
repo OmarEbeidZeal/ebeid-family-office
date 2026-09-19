@@ -40,9 +40,20 @@ const MASKED_TAIL = /(?:[*x×•·#]\s*){3,}(\d{2,6})\b/i;
 
 const SORT_CODE = /\b(\d{2})[-\s]?(\d{2})[-\s]?(\d{2})\b/;
 
-/** `26 Aug HAYA ABDIN Automated Credit £500.00` — one row, one line. */
-const ROW =
-  /^(\d{1,2}\s+[A-Za-z]{3,9})\s+(.+?)\s+(-|\+)?\s*([£$€])\s*([\d,]+(?:\.\d{1,2})?)\s*$/;
+/** `-£140.74`, `£500.00` — one printed figure, with the sign the bank gave it. */
+const MONEY = String.raw`(-|\+)?\s*[£$€]\s*([\d,]+(?:\.\d{1,2})?)`;
+
+/**
+ * One row, one line: a day and month, the description with NatWest's own
+ * transaction type run onto it, the amount, and — where the export includes the
+ * Balance column — the running balance after the entry.
+ *
+ * Both figures are anchored to the end of the line, so a description that
+ * happens to mention a price cannot be mistaken for the amount.
+ */
+const ROW = new RegExp(
+  `^(\\d{1,2}\\s+[A-Za-z]{3,9})\\s+(.+?)\\s+${MONEY}(?:\\s+${MONEY})?\\s*$`,
+);
 
 const SYMBOL_CURRENCY: Record<string, string> = { "£": "GBP", $: "USD", "€": "EUR" };
 
