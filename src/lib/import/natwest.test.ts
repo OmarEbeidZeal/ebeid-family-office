@@ -15,6 +15,7 @@ const STATEMENT = [
   "Transactions-01",
   "ABDIN HN",
   "Student/graduate",
+  "NatWest",
   "Account details",
   "*****234 · 54-21-47",
   "From  31/08/2024  To  31/08/2025",
@@ -65,6 +66,7 @@ describe("a NatWest transactions PDF", () => {
     const noBalances = [
       "Transactions-01",
       "ABDIN HN",
+      "NatWest",
       "Account details",
       "*****234 · 54-21-47",
       "From  31/08/2024  To  31/08/2025",
