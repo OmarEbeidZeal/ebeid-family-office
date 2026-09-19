@@ -1,0 +1,1 @@
+ALTER TABLE public.households ADD COLUMN IF NOT EXISTS known_gaps text[] NOT NULL DEFAULT '{}'::text[];
