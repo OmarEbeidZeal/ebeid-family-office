@@ -10,7 +10,6 @@ type Row = Partial<TransactionRow> & { id: string };
 
 function row(partial: Row): TransactionRow {
   return {
-    id: partial.id,
     account_id: "wise",
     booked_date: "2026-03-04",
     amount: 100,
