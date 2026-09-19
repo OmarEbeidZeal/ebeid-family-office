@@ -36,20 +36,40 @@ export type ProposalChoice = {
   fingerprint: string;
 };
 
+/** The middle field of the key: the identity the files were grouped on. */
+function identityPart(fingerprint: string): string {
+  return fingerprint.split("|")[1] ?? "";
+}
+
 export function chooseProposal(input: {
   fingerprint: string;
   currency: string | null;
   existing: ExistingProposal[];
+  /**
+   * Two files with no account number on either prove they are the same account
+   * only from the ledger itself — overlapping transaction identifiers in a Monzo
+   * export. Without that proof a nameless file starts its own proposal.
+   */
+  continuity?: boolean;
 }): ProposalChoice {
   const currency = (input.currency ?? "").toUpperCase();
   const exact = input.existing.find((row) => row.fingerprint === input.fingerprint);
-  if (exact) return { match: exact, fingerprint: input.fingerprint };
+  if (exact && (!identityPart(input.fingerprint).startsWith("noid") || input.continuity !== false)) {
+    return { match: exact, fingerprint: input.fingerprint };
+  }
 
   const prefix = fingerprintPrefix(input.fingerprint);
+  const identity = identityPart(input.fingerprint);
   // A bank and account number nobody could read is not an identity to group on:
   // every anonymous file would land on the same proposal.
-  if (prefix.endsWith("|noid") && prefix.startsWith("unknown|")) {
-    return { match: null, fingerprint: input.fingerprint };
+  if (identity.startsWith("noid")) {
+    const ledgerAndHolder = /^noid\+[a-z0-9]+\+who:/.test(identity);
+    if (prefix.startsWith("unknown|")) return { match: null, fingerprint: input.fingerprint };
+    // Grouping is allowed only where the files share a sub-ledger key AND name
+    // the same holder, or where the caller proved continuity from the rows.
+    if (!ledgerAndHolder && !input.continuity) {
+      return { match: exact ?? null, fingerprint: input.fingerprint };
+    }
   }
 
   const siblings = input.existing.filter((row) => fingerprintPrefix(row.fingerprint) === prefix);
